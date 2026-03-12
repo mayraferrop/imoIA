@@ -1,0 +1,43 @@
+# Environment and secrets
+.env
+auth/
+
+# Database
+data/*.db
+
+# Logs
+logs/*.log
+logs/*.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+
+# Baileys bridge (local fallback, has node_modules)
+whatsapp-bridge/node_modules/
+whatsapp-bridge/messages.json
+whatsapp-bridge/messages_backup.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# pytest
+.pytest_cache/
+
+# User preferences
+data/preferences.json

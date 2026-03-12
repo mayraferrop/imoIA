@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "imoscout"
+version = "0.1.0"
+description = "Detector automático de oportunidades imobiliárias via WhatsApp Business"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.40.0",
+    "httpx>=0.27.0",
+    "sqlalchemy>=2.0.0",
+    "streamlit>=1.40.0",
+    "plotly>=5.24.0",
+    "loguru>=0.7.0",
+    "python-dotenv>=1.0.0",
+    "tenacity>=9.0.0",
+    "zeep>=4.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-mock>=3.14.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
