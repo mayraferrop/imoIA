@@ -383,13 +383,69 @@ class WhatsAppClient:
             return False
 
         try:
-            self._request(
+            self._do_request(
                 "PUT",
                 f"/messages/{message_id}",
             )
             return True
         except Exception as e:
             logger.warning(f"Erro ao marcar mensagem como lida: {e}")
+            return False
+
+    def mark_messages_as_read(self, messages: List[Dict[str, Any]]) -> int:
+        """Marca uma lista de mensagens como lidas (read receipts individuais).
+
+        Usa PUT /messages/{id} para cada mensagem. Nao falha se uma
+        mensagem individual falhar — continua com as restantes.
+
+        Args:
+            messages: Lista de dicts com chave 'whatsapp_message_id'.
+
+        Returns:
+            Numero de mensagens marcadas com sucesso.
+        """
+        if self.backend == "baileys":
+            return 0
+
+        count = 0
+        for msg in messages:
+            msg_id = msg.get("whatsapp_message_id", "")
+            if not msg_id:
+                continue
+            if self.mark_as_read(msg_id):
+                count += 1
+
+        if count > 0:
+            logger.info(f"{count}/{len(messages)} mensagens marcadas como lidas (read receipts)")
+
+        return count
+
+    def ensure_chat_read(self, chat_id: str) -> bool:
+        """Garante que um chat esta marcado como lido.
+
+        Combina PATCH /chats/{id} com {"mark_unread": false} para limpar
+        o contador de nao lidas. Este metodo NUNCA falha com excecao —
+        captura todos os erros e retorna bool.
+
+        Args:
+            chat_id: ID do chat/grupo.
+
+        Returns:
+            True se marcado com sucesso.
+        """
+        if self.backend == "baileys":
+            return False
+
+        try:
+            self._do_request(
+                "PATCH",
+                f"/chats/{chat_id}",
+                json_body={"mark_unread": False},
+            )
+            logger.info(f"Chat {chat_id} marcado como lido (ensure_chat_read)")
+            return True
+        except Exception as e:
+            logger.warning(f"Erro ao marcar chat {chat_id} como lido: {e}")
             return False
 
     def mark_chat_as_read(self, chat_id: str) -> bool:

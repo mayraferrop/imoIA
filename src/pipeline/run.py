@@ -842,6 +842,9 @@ def run_pipeline() -> PipelineResult:
 
         logger.info(f"--- A processar grupo: {group_name} ({group_id}) ---")
 
+        # Guardar mensagens buscadas para marcar como lidas no finally
+        fetched_messages: List[Dict[str, Any]] = []
+
         try:
             # Etapa 1: Buscar mensagens
             with get_session() as session:
@@ -862,6 +865,7 @@ def run_pipeline() -> PipelineResult:
                 group_log["desde"] = since.isoformat()
 
             messages = wa_client.fetch_unread_messages(group_id, since)
+            fetched_messages = messages  # Guardar para o finally
             total_messages += len(messages)
             group_log["mensagens_buscadas"] = len(messages)
 
@@ -877,32 +881,19 @@ def run_pipeline() -> PipelineResult:
             if not messages:
                 logger.info(f"Grupo {group_name}: sem mensagens novas")
                 group_log["estado"] = "sem_mensagens"
-                try:
-                    archived = wa_client.archive_group(group_id)
-                    if archived:
-                        logger.info(f"Grupo {group_name} arquivado (sem mensagens)")
-                    else:
-                        logger.warning(f"Grupo {group_name}: archive retornou False")
-                except Exception as e:
-                    logger.warning(f"Nao foi possivel arquivar grupo {group_name}: {e}")
                 group_logs.append(group_log)
                 continue
 
             logger.info(f"Grupo {group_name}: {len(messages)} mensagens buscadas")
+
+            # Marcar mensagens individuais como lidas imediatamente apos busca
+            wa_client.mark_messages_as_read(messages)
 
             # Etapa 2: Filtrar ruído
             filtered = _filter_noise(messages)
             if not filtered:
                 logger.info(f"Grupo {group_name}: todas as mensagens filtradas como ruído")
                 group_log["estado"] = "so_ruido"
-                try:
-                    archived = wa_client.archive_group(group_id)
-                    if archived:
-                        logger.info(f"Grupo {group_name} arquivado (só ruído)")
-                    else:
-                        logger.warning(f"Grupo {group_name}: archive retornou False")
-                except Exception as e:
-                    logger.warning(f"Nao foi possivel arquivar grupo {group_name}: {e}")
                 group_logs.append(group_log)
                 continue
 
@@ -914,14 +905,6 @@ def run_pipeline() -> PipelineResult:
             if not filtered:
                 logger.info(f"Grupo {group_name}: todas as mensagens ja processadas noutros grupos")
                 group_log["estado"] = "duplicadas"
-                try:
-                    archived = wa_client.archive_group(group_id)
-                    if archived:
-                        logger.info(f"Grupo {group_name} arquivado (duplicadas)")
-                    else:
-                        logger.warning(f"Grupo {group_name}: archive retornou False")
-                except Exception as e:
-                    logger.warning(f"Nao foi possivel arquivar grupo {group_name}: {e}")
                 group_logs.append(group_log)
                 continue
 
@@ -961,22 +944,19 @@ def run_pipeline() -> PipelineResult:
                 f"de {len(filtered)} mensagens"
             )
 
-            # Etapa 6: Arquivar grupo no WhatsApp (marcar como lido)
-            try:
-                archived = wa_client.archive_group(group_id)
-                if archived:
-                    logger.info(f"Grupo {group_name} arquivado com sucesso")
-                else:
-                    logger.warning(f"Grupo {group_name}: archive retornou False")
-            except Exception as e:
-                logger.warning(f"Nao foi possivel arquivar grupo {group_name}: {e}")
-
         except Exception as e:
             error_msg = f"Erro ao processar grupo {group_name} ({group_id}): {e}"
             logger.error(error_msg)
             errors.append(error_msg)
             group_log["estado"] = "erro"
             group_log["erro"] = str(e)
+
+        finally:
+            # SEMPRE marcar chat como lido, mesmo que o processamento falhe.
+            # Usa dois mecanismos complementares:
+            # 1. PUT /messages/{id} — read receipts individuais (ja feito acima apos fetch)
+            # 2. PATCH /chats/{id} — limpa o contador de nao lidas do chat
+            wa_client.ensure_chat_read(group_id)
 
         group_logs.append(group_log)
 
