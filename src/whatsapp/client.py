@@ -386,7 +386,6 @@ class WhatsAppClient:
             self._request(
                 "PUT",
                 f"/messages/{message_id}",
-                json_body={"status": "read"},
             )
             return True
         except Exception as e:
@@ -396,12 +395,8 @@ class WhatsAppClient:
     def mark_chat_as_read(self, chat_id: str) -> bool:
         """Marca todas as mensagens de um chat como lidas.
 
-        Busca a ultima mensagem do chat e envia read receipt via
-        PUT /messages/{id}. Isto marca todas as mensagens ate essa
-        como lidas no WhatsApp.
-
-        Nota: PATCH /chats/{id} com {"read": true} ou {"unread": 0}
-        e aceite pela API Whapi mas NAO limpa o contador de nao-lidas.
+        Usa PATCH /chats/{id} com {"mark_unread": false} conforme
+        documentacao oficial da API Whapi.
 
         Args:
             chat_id: ID do chat/grupo.
@@ -413,30 +408,12 @@ class WhatsAppClient:
             return False
 
         try:
-            # Buscar a ultima mensagem do chat
-            data = self._do_request(
-                "GET",
-                f"/messages/list/{chat_id}",
-                params={"count": 1},
-            )
-            messages = data.get("messages", [])
-            if not messages:
-                logger.info(f"Chat {chat_id}: sem mensagens para marcar como lidas")
-                return True
-
-            last_msg_id = messages[0].get("id")
-            if not last_msg_id:
-                logger.warning(f"Chat {chat_id}: ultima mensagem sem ID")
-                return False
-
-            # Enviar read receipt para a ultima mensagem
-            # Isto marca todas as mensagens ate esta como lidas
             self._do_request(
-                "PUT",
-                f"/messages/{last_msg_id}",
-                json_body={"status": "read"},
+                "PATCH",
+                f"/chats/{chat_id}",
+                json_body={"mark_unread": False},
             )
-            logger.info(f"Chat {chat_id} marcado como lido (read receipt em {last_msg_id[:20]}...)")
+            logger.info(f"Chat {chat_id} marcado como lido (PATCH mark_unread=false)")
             return True
         except Exception as e:
             logger.warning(f"Erro ao marcar chat {chat_id} como lido: {e}")
@@ -489,7 +466,7 @@ class WhatsAppClient:
         except httpx.HTTPStatusError as e:
             # 500 pode significar que ja esta arquivado — ignorar
             if e.response.status_code == 500:
-                logger.info(f"Grupo {group_id} provavelmente ja arquivado (500)")
+                logger.warning(f"Grupo {group_id}: HTTP 500 ao arquivar — verificar se ja estava arquivado")
             else:
                 logger.warning(f"Erro ao arquivar grupo {group_id}: {e}")
                 success = False
