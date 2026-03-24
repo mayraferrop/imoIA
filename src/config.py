@@ -39,10 +39,21 @@ class Settings:
     # Casafari (API Token — obter em app.casafari.com > Settings > API)
     casafari_api_token: str = field(default_factory=lambda: os.getenv("CASAFARI_API_TOKEN", ""))
 
-    # Casafari (credenciais legacy — deprecated, usar API Token)
+    # Casafari (credenciais para JWT — POST /login)
     casafari_username: str = field(default_factory=lambda: os.getenv("CASAFARI_USERNAME", ""))
     casafari_password: str = field(default_factory=lambda: os.getenv("CASAFARI_PASSWORD", ""))
-    casafari_base_url: str = "https://api.casafari.com"
+    casafari_base_url: str = field(default_factory=lambda: os.getenv("CASAFARI_BASE_URL", "https://api.casafari.com"))
+
+    # M2 — Cache de dados de mercado (dias)
+    market_cache_days_comparables: int = field(
+        default_factory=lambda: int(os.getenv("MARKET_CACHE_DAYS_COMPARABLES", "7"))
+    )
+    market_cache_days_zone_stats: int = field(
+        default_factory=lambda: int(os.getenv("MARKET_CACHE_DAYS_ZONE_STATS", "30"))
+    )
+    market_cache_days_valuation: int = field(
+        default_factory=lambda: int(os.getenv("MARKET_CACHE_DAYS_VALUATION", "14"))
+    )
 
     # SIR / Confidencial Imobiliario
     sir_username: str = field(default_factory=lambda: os.getenv("SIR_USERNAME", ""))
@@ -56,6 +67,39 @@ class Settings:
 
     # INE
     ine_base_url: str = "https://www.ine.pt/ine/json_indicador/pindica.jsp"
+
+    # Cash Flow Pro (Supabase externo)
+    cashflow_supabase_url: str = field(
+        default_factory=lambda: os.getenv("CASHFLOW_SUPABASE_URL", "")
+    )
+    cashflow_supabase_key: str = field(
+        default_factory=lambda: os.getenv("CASHFLOW_SUPABASE_KEY", "")
+    )
+    cashflow_company_id: str = field(
+        default_factory=lambda: os.getenv("CASHFLOW_COMPANY_ID", "")
+    )
+    cashflow_user_email: str = field(
+        default_factory=lambda: os.getenv("CASHFLOW_USER_EMAIL", "")
+    )
+    cashflow_user_password: str = field(
+        default_factory=lambda: os.getenv("CASHFLOW_USER_PASSWORD", "")
+    )
+
+    # habta.eu (API REST)
+    habta_base_url: str = field(
+        default_factory=lambda: os.getenv("HABTA_BASE_URL", "https://habta.eu")
+    )
+    habta_api_key: str = field(
+        default_factory=lambda: os.getenv("HABTA_API_KEY", "")
+    )
+
+    # Trolto (criativos e vídeos premium)
+    trolto_api_key: str = field(
+        default_factory=lambda: os.getenv("TROLTO_API_KEY", "")
+    )
+    trolto_base_url: str = field(
+        default_factory=lambda: os.getenv("TROLTO_BASE_URL", "https://api.trolto.com")
+    )
 
     # Base de dados
     database_url: str = field(

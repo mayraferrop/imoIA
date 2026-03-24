@@ -1,7 +1,7 @@
-"""Dashboard Streamlit do ImoScout.
+"""Dashboard Streamlit do ImoIA.
 
-Frontend completo para o detector de oportunidades imobiliarias.
-Inclui dashboard principal, gestao de pipeline, configuracao e grupos.
+Frontend para gestao de investimento imobiliario fix and flip.
+Inclui dashboard principal, gestao de propriedades e pesquisa de mercado.
 Design system: Light Mode + Teal/Blue + Cinzel/Josefin Sans.
 """
 
@@ -23,7 +23,8 @@ from loguru import logger
 from sqlalchemy import func, select
 
 from src.database.db import get_session, init_db
-from src.database.models import Group, MarketData, Message, Opportunity
+from src.database.models import Base, Group, MarketData, Message, Opportunity  # legacy (leitura)
+from src.database.models_v2 import Property, Tenant  # novo schema
 
 # ---------------------------------------------------------------------------
 # Design System — Cores e constantes visuais
@@ -852,44 +853,15 @@ def _render_pipeline_banner() -> None:
 
 
 def _run_pipeline_now() -> Dict[str, Any]:
-    """Executa o pipeline directamente (sincrono, com feedback).
+    """Pipeline legacy descontinuado — propriedades sao geridas via API.
 
     Returns:
-        Dict com resultado ou erro.
+        Dict com mensagem informativa.
     """
-    try:
-        from src.pipeline.run import run_pipeline
-
-        # Gravar estado "a_correr"
-        status_file = Path(__file__).resolve().parent.parent.parent / "logs" / "pipeline_status.json"
-        status_file.parent.mkdir(exist_ok=True)
-        status_file.write_text(json.dumps({
-            "state": "a_correr",
-            "timestamp": datetime.now().isoformat(),
-        }))
-
-        result = run_pipeline()
-
-        # Gravar estado final
-        status_file.write_text(json.dumps({
-            "state": "concluido",
-            "timestamp": datetime.now().isoformat(),
-            "mensagens": result.messages_fetched,
-            "oportunidades": result.opportunities_found,
-            "grupos": result.groups_processed,
-            "erros": len(result.errors),
-        }))
-
-        return {
-            "success": True,
-            "messages": result.messages_fetched,
-            "opportunities": result.opportunities_found,
-            "groups": result.groups_processed,
-            "errors": result.errors,
-        }
-    except Exception as e:
-        logger.exception("Pipeline falhou")
-        return {"success": False, "error": str(e)}
+    return {
+        "success": False,
+        "error": "Pipeline legacy descontinuado. Use a API (POST /api/v1/properties/) para adicionar propriedades.",
+    }
 
 
 def _write_pipeline_status(state: str, **kwargs: Any) -> None:
@@ -1132,28 +1104,7 @@ def page_dashboard() -> None:
                     f'{_status_badge(opp["status"])} &nbsp; '
                     f'<span class="opp-meta">{opp_date} &mdash; {opp["group_name"]}</span>'
                 )
-                # Match indicator
-                try:
-                    from src.analyzer.preferences import match_opportunity
-                    match_result = match_opportunity(opp)
-                    match_pct = match_result.get("match_pct", 50)
-                    if match_result.get("total", 0) > 0:
-                        if match_pct >= 80:
-                            match_color = "#16A34A"
-                        elif match_pct >= 60:
-                            match_color = "#0369A1"
-                        elif match_pct >= 40:
-                            match_color = "#D97706"
-                        else:
-                            match_color = "#DC2626"
-                        badge_html += (
-                            f' &nbsp; <span style="background:{match_color}15; color:{match_color}; '
-                            f'border:1px solid {match_color}40; padding:2px 10px; border-radius:6px; '
-                            f'font-size:0.8rem; font-weight:600;">'
-                            f'Match {match_pct}%</span>'
-                        )
-                except Exception:
-                    pass
+                # Match indicator (futuro: scoring via M2/M3)
                 st.markdown(badge_html, unsafe_allow_html=True)
                 st.markdown("")
 
@@ -1427,23 +1378,45 @@ def page_dashboard() -> None:
 
     # Grade distribution donut chart
     with chart_c3:
+        _grade_labels = {
+            "A": "A — Excelente (80+)",
+            "B": "B — Bom (60-79)",
+            "C": "C — Razoável (40-59)",
+            "D": "D — Fraco (20-39)",
+            "F": "F — Mau (<20)",
+        }
         grade_data = [
-            {"grade": g, "count": gc.get(g, 0)}
+            {"grade": _grade_labels.get(g, g), "count": gc.get(g, 0), "grade_raw": g}
             for g in ["A", "B", "C", "D", "F"]
             if gc.get(g, 0) > 0
         ]
         if grade_data:
             fig_grades = px.pie(
                 grade_data, values="count", names="grade",
-                title="Distribuicao por Grade",
+                title="Distribuição por Grade",
                 hole=0.5,
-                color="grade",
+                color="grade_raw",
                 color_discrete_map=GRADE_COLORS,
             )
-            fig_grades.update_layout(**PLOTLY_LAYOUT)
+            fig_grades.update_traces(
+                textinfo="label+value",
+                textposition="outside",
+                textfont_size=12,
+            )
+            fig_grades.update_layout(
+                **PLOTLY_LAYOUT,
+                legend=dict(
+                    orientation="v",
+                    yanchor="middle",
+                    y=0.5,
+                    xanchor="left",
+                    x=1.02,
+                    font=dict(size=11),
+                ),
+            )
             st.plotly_chart(fig_grades, use_container_width=True)
         else:
-            st.caption("Sem dados para distribuicao por grade.")
+            st.caption("Sem dados para distribuição por grade.")
 
 
 # ---------------------------------------------------------------------------
@@ -1468,58 +1441,15 @@ def page_pipeline() -> None:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("### Executar Pipeline")
-        st.markdown("Corra o pipeline manualmente para processar novas mensagens.")
-        if st.button("Executar Pipeline Agora", use_container_width=True, type="primary"):
-            try:
-                from src.pipeline.run import run_pipeline
-
-                _write_pipeline_status("a_correr")
-                with st.spinner("A executar o pipeline..."):
-                    result = run_pipeline()
-                _write_pipeline_status(
-                    "concluido",
-                    mensagens=result.messages_fetched,
-                    oportunidades=result.opportunities_found,
-                    grupos=result.groups_processed,
-                    erros=len(result.errors),
-                )
-                st.success(
-                    f"Pipeline concluido: {result.messages_fetched} mensagens processadas, "
-                    f"{result.opportunities_found} oportunidades encontradas em "
-                    f"{result.groups_processed} grupos."
-                )
-                if result.errors:
-                    for err in result.errors:
-                        st.warning(err)
-                st.rerun()
-            except ImportError:
-                st.error("Modulo do pipeline nao disponivel. Verifique a instalacao.")
-            except Exception as exc:
-                logger.exception("Erro no pipeline")
-                _write_pipeline_status("erro", detalhe=str(exc))
-                st.error(f"Erro ao executar: {exc}")
-
-        st.markdown("")
-        st.markdown("### Re-pontuar Oportunidades")
-        st.markdown("Re-calcula o Deal Score de todas as oportunidades existentes.")
-        if st.button("Rescore All", use_container_width=True):
-            try:
-                from src.analyzer.deal_scorer import rescore_all_opportunities
-                with st.spinner("A re-pontuar oportunidades..."):
-                    results = rescore_all_opportunities()
-                rescore_gc: Dict[str, int] = {}
-                for r in results:
-                    rescore_gc[r["grade"]] = rescore_gc.get(r["grade"], 0) + 1
-                st.success(
-                    f"Rescoring concluido: {len(results)} oportunidades. "
-                    f"A:{rescore_gc.get('A', 0)} B:{rescore_gc.get('B', 0)} C:{rescore_gc.get('C', 0)} "
-                    f"D:{rescore_gc.get('D', 0)} F:{rescore_gc.get('F', 0)}"
-                )
-                st.rerun()
-            except Exception as exc:
-                logger.exception("Erro no rescoring")
-                st.error(f"Erro: {exc}")
+        st.markdown("### Gestao de Propriedades")
+        st.markdown("O pipeline de ingestao foi migrado para a API REST.")
+        st.info(
+            "Use a API para gerir propriedades:\n\n"
+            "- **POST** `/api/v1/properties/` — criar propriedade\n"
+            "- **GET** `/api/v1/properties/` — listar propriedades\n"
+            "- **PATCH** `/api/v1/properties/{id}` — actualizar\n\n"
+            "Arranque a API: `uvicorn src.main:app --reload --port 8000`"
+        )
 
     with col2:
         st.markdown("### Agendamento Automatico")
@@ -2036,7 +1966,20 @@ def page_preferencias() -> None:
     )
     st.markdown("")
 
-    from src.analyzer.preferences import load_preferences, save_preferences
+    # Preferencias locais (JSON)
+    _prefs_file = Path(__file__).resolve().parent.parent.parent / "data" / "preferences.json"
+
+    def load_preferences() -> dict:
+        if _prefs_file.exists():
+            try:
+                return json.loads(_prefs_file.read_text())
+            except (json.JSONDecodeError, ValueError):
+                return {}
+        return {}
+
+    def save_preferences(prefs: dict) -> None:
+        _prefs_file.parent.mkdir(parents=True, exist_ok=True)
+        _prefs_file.write_text(json.dumps(prefs, ensure_ascii=False, indent=2))
 
     prefs = load_preferences()
 
@@ -2234,6 +2177,500 @@ def page_preferencias() -> None:
 
 
 # ---------------------------------------------------------------------------
+# M2 — Mercado
+# ---------------------------------------------------------------------------
+
+
+def _m2_fetch_overview() -> Dict:
+    """Busca overview de mercado."""
+    try:
+        from src.modules.m2_market.service import MarketService
+        svc = MarketService()
+        return svc.get_market_overview()
+    except Exception as e:
+        logger.error(f"Erro ao buscar overview M2: {e}")
+        return {
+            "zones_monitored": 0, "alerts_active": 0,
+            "valuations_total": 0, "comparables_cached": 0,
+            "casafari_configured": False, "ine_available": True,
+        }
+
+
+def _m2_fetch_opportunities_for_enrichment(limit: int = 50) -> List[Dict]:
+    """Busca oportunidades que podem ser enriquecidas."""
+    with get_session() as session:
+        rows = session.execute(
+            select(
+                Opportunity.id,
+                Opportunity.municipality,
+                Opportunity.district,
+                Opportunity.property_type,
+                Opportunity.price_mentioned,
+                Opportunity.area_m2,
+                Opportunity.bedrooms,
+                Opportunity.confidence,
+                Opportunity.deal_score,
+                Opportunity.deal_grade,
+                Opportunity.created_at,
+                MarketData.casafari_comparables_count,
+                MarketData.casafari_median_price_m2,
+                MarketData.price_vs_market_pct,
+                MarketData.estimated_market_value,
+            )
+            .outerjoin(MarketData, MarketData.opportunity_id == Opportunity.id)
+            .where(Opportunity.is_opportunity.is_(True))
+            .where(Opportunity.municipality.isnot(None))
+            .order_by(Opportunity.id.desc())
+            .limit(limit)
+        ).all()
+
+        return [
+            {
+                "id": r[0], "municipality": r[1], "district": r[2],
+                "property_type": r[3], "price": r[4], "area_m2": r[5],
+                "bedrooms": r[6], "confidence": r[7], "deal_score": r[8],
+                "deal_grade": r[9], "created_at": r[10],
+                "casafari_comparables": r[11], "casafari_median_m2": r[12],
+                "price_vs_market": r[13], "estimated_value": r[14],
+            }
+            for r in rows
+        ]
+
+
+def _m2_fetch_comparables(deal_id: Optional[str] = None) -> List[Dict]:
+    """Busca comparaveis guardados."""
+    try:
+        from src.database.models_v2 import MarketComparable
+        with get_session() as session:
+            stmt = select(MarketComparable).order_by(MarketComparable.created_at.desc())
+            if deal_id:
+                stmt = stmt.where(MarketComparable.deal_id == deal_id)
+            stmt = stmt.limit(100)
+            comps = session.execute(stmt).scalars().all()
+            return [
+                {
+                    "source": c.source, "municipality": c.municipality,
+                    "parish": c.parish, "property_type": c.property_type,
+                    "bedrooms": c.bedrooms, "listing_price": c.listing_price,
+                    "price_per_m2": c.price_per_m2, "gross_area_m2": c.gross_area_m2,
+                    "condition": c.condition, "comparison_type": c.comparison_type,
+                    "latitude": c.latitude, "longitude": c.longitude,
+                    "source_url": c.source_url, "fetched_at": c.fetched_at,
+                }
+                for c in comps
+            ]
+    except Exception:
+        return []
+
+
+def _m2_fetch_valuations() -> List[Dict]:
+    """Busca avaliacoes recentes."""
+    try:
+        from src.database.models_v2 import PropertyValuation
+        with get_session() as session:
+            vals = session.execute(
+                select(PropertyValuation)
+                .order_by(PropertyValuation.created_at.desc())
+                .limit(20)
+            ).scalars().all()
+            return [
+                {
+                    "id": v.id, "deal_id": v.deal_id,
+                    "municipality": v.municipality, "district": v.district,
+                    "property_type": v.property_type,
+                    "estimated_value": v.estimated_value,
+                    "estimated_value_low": v.estimated_value_low,
+                    "estimated_value_high": v.estimated_value_high,
+                    "estimated_price_per_m2": v.estimated_price_per_m2,
+                    "confidence_score": v.confidence_score,
+                    "comparables_count": v.comparables_count,
+                    "source": v.source, "method": v.method,
+                    "valuated_at": v.valuated_at,
+                }
+                for v in vals
+            ]
+    except Exception:
+        return []
+
+
+def _m2_fetch_alerts() -> List[Dict]:
+    """Busca alertas de mercado."""
+    try:
+        from src.database.models_v2 import MarketAlert
+        with get_session() as session:
+            alerts = session.execute(
+                select(MarketAlert).order_by(MarketAlert.created_at.desc())
+            ).scalars().all()
+            return [
+                {
+                    "id": a.id, "alert_name": a.alert_name,
+                    "alert_type": a.alert_type,
+                    "districts": a.districts or [],
+                    "municipalities": a.municipalities or [],
+                    "property_types": a.property_types or [],
+                    "price_max": a.price_max, "is_active": a.is_active,
+                    "total_triggers": a.total_triggers,
+                    "casafari_feed_id": a.casafari_feed_id,
+                    "last_triggered_at": a.last_triggered_at,
+                }
+                for a in alerts
+            ]
+    except Exception:
+        return []
+
+
+def page_mercado() -> None:
+    """Pagina M2 — Pesquisa de Mercado."""
+    st.markdown(
+        '<p class="section-title">Mercado Imobiliario</p>',
+        unsafe_allow_html=True,
+    )
+
+    # Garantir tabelas M2
+    try:
+        import src.database.models_v2
+        from src.database.db import _get_engine
+        Base.metadata.create_all(bind=_get_engine())
+    except Exception:
+        pass
+
+    overview = _m2_fetch_overview()
+
+    # Banner CASAFARI
+    if not overview.get("casafari_configured"):
+        st.warning(
+            "CASAFARI API nao configurada. Configure CASAFARI_USERNAME e "
+            "CASAFARI_PASSWORD no .env e reinicie o Streamlit para dados "
+            "de mercado em tempo real. Dados INE (gratuitos) disponiveis."
+        )
+    else:
+        st.success("CASAFARI API activa — dados de mercado em tempo real disponiveis.")
+
+    # --- KPIs ---
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Comparaveis em cache", overview.get("comparables_cached", 0))
+    k2.metric("Avaliacoes feitas", overview.get("valuations_total", 0))
+    k3.metric("Alertas activos", overview.get("alerts_active", 0))
+    k4.metric("Zonas monitorizadas", overview.get("zones_monitored", 0))
+
+    st.markdown("---")
+
+    # --- Tabs ---
+    tab_opps, tab_comps, tab_vals, tab_alerts, tab_ine = st.tabs([
+        "Enriquecer Oportunidades",
+        "Comparaveis",
+        "Avaliacoes",
+        "Alertas",
+        "Dados INE",
+    ])
+
+    # === TAB: Enriquecer Oportunidades ===
+    with tab_opps:
+        st.markdown("##### Oportunidades disponiveis para analise de mercado")
+        st.caption("Selecciona uma oportunidade e clica 'Analisar' para buscar comparaveis CASAFARI.")
+
+        opps = _m2_fetch_opportunities_for_enrichment()
+        if not opps:
+            st.info("Nenhuma oportunidade com municipio identificado.")
+        else:
+            # Filtro
+            municipalities = sorted({o["municipality"] for o in opps if o["municipality"]})
+            sel_mun = st.selectbox("Filtrar por municipio", ["Todos"] + municipalities, key="m2_mun_filter")
+
+            filtered = opps
+            if sel_mun != "Todos":
+                filtered = [o for o in opps if o["municipality"] == sel_mun]
+
+            # Tabela
+            for opp in filtered[:30]:
+                oid = opp["id"]
+                mun = opp["municipality"] or "?"
+                ptype = opp["property_type"] or "?"
+                price = opp["price"]
+                area = opp["area_m2"]
+                grade = opp["deal_grade"] or "-"
+                casafari_n = opp["casafari_comparables"]
+                pvm = opp["price_vs_market"]
+
+                # Badge de estado de enriquecimento (texto simples — expander nao suporta HTML)
+                if casafari_n and casafari_n > 0:
+                    enriched = f"✓ {casafari_n} comp."
+                else:
+                    enriched = "⏳ Pendente"
+
+                price_str = f"{price:,.0f}EUR" if price else "?"
+                area_str = f"{area:.0f}m2" if area else "?"
+
+                with st.expander(f"#{oid} | {mun} | {ptype} | {price_str} | {area_str} | Grade {grade} | {enriched}", expanded=False):
+                    c1, c2, c3 = st.columns([2, 2, 1])
+                    c1.write(f"**Municipio:** {mun}")
+                    c1.write(f"**Tipo:** {ptype}")
+                    c1.write(f"**Preco:** {price_str}")
+                    c2.write(f"**Area:** {area_str}")
+                    c2.write(f"**Quartos:** {opp['bedrooms'] or '?'}")
+                    c2.write(f"**Confianca IA:** {opp['confidence']}")
+
+                    if pvm:
+                        if pvm < 100:
+                            c3.metric("vs Mercado", f"{pvm:.0f}%", delta=f"{pvm - 100:.0f}%")
+                        else:
+                            c3.metric("vs Mercado", f"{pvm:.0f}%", delta=f"+{pvm - 100:.0f}%", delta_color="inverse")
+
+                    if casafari_n and casafari_n > 0:
+                        median = opp["casafari_median_m2"]
+                        est_val = opp["estimated_value"]
+                        st.success(
+                            f"Ja enriquecida: {casafari_n} comparaveis, "
+                            f"mediana {median} EUR/m2"
+                            + (f", valor estimado {est_val:,.0f} EUR" if est_val else "")
+                        )
+
+                    if st.button(f"Analisar com CASAFARI", key=f"m2_enrich_{oid}"):
+                        with st.spinner(f"A buscar comparaveis para #{oid} em {mun}..."):
+                            try:
+                                from src.modules.m2_market.service import MarketService
+                                svc = MarketService()
+                                result = svc.enrich_opportunity(oid)
+
+                                n = result.get("comparables_found", 0)
+                                median = result.get("zone_median_price_m2")
+                                disc = result.get("discount_vs_market_pct")
+                                arv = result.get("arv_estimated")
+                                source = result.get("source", "?")
+
+                                st.success(f"Analise concluida via {source.upper()}!")
+
+                                r1, r2, r3, r4 = st.columns(4)
+                                r1.metric("Comparaveis", n)
+                                r2.metric("Mediana zona", f"{median:,.0f} EUR/m2" if median else "-")
+                                r3.metric("vs Mercado", f"{disc:+.1f}%" if disc is not None else "-")
+                                r4.metric("ARV estimado", f"{arv:,.0f} EUR" if arv else "-")
+
+                            except Exception as e:
+                                st.error(f"Erro: {e}")
+
+    # === TAB: Comparaveis ===
+    with tab_comps:
+        st.markdown("##### Comparaveis em cache")
+
+        comps = _m2_fetch_comparables()
+        if not comps:
+            st.info("Nenhum comparavel em cache. Enriquece uma oportunidade primeiro.")
+        else:
+            # Estatisticas
+            prices_m2 = [c["price_per_m2"] for c in comps if c.get("price_per_m2") and c["price_per_m2"] > 0]
+            if prices_m2:
+                s1, s2, s3, s4 = st.columns(4)
+                s1.metric("Total comparaveis", len(comps))
+                s2.metric("Mediana EUR/m2", f"{sorted(prices_m2)[len(prices_m2)//2]:,.0f}")
+                s3.metric("Min EUR/m2", f"{min(prices_m2):,.0f}")
+                s4.metric("Max EUR/m2", f"{max(prices_m2):,.0f}")
+
+            # Grafico distribuicao precos
+            if prices_m2:
+                fig_hist = px.histogram(
+                    x=prices_m2,
+                    nbins=25,
+                    title="Distribuicao de Precos/m2 dos Comparaveis",
+                    labels={"x": "EUR/m2", "y": "Frequencia"},
+                )
+                fig_hist.update_layout(**PLOTLY_LAYOUT)
+                fig_hist.update_traces(marker_color="#14B8A6")
+                st.plotly_chart(fig_hist, use_container_width=True)
+
+            # Tabela
+            df = pd.DataFrame(comps)
+            display_cols = [
+                c for c in ["municipality", "parish", "property_type", "bedrooms",
+                            "listing_price", "price_per_m2", "gross_area_m2",
+                            "condition", "comparison_type", "source"]
+                if c in df.columns
+            ]
+            if display_cols:
+                st.dataframe(
+                    df[display_cols].rename(columns={
+                        "municipality": "Municipio", "parish": "Freguesia",
+                        "property_type": "Tipo", "bedrooms": "Quartos",
+                        "listing_price": "Preco (EUR)", "price_per_m2": "EUR/m2",
+                        "gross_area_m2": "Area m2", "condition": "Estado",
+                        "comparison_type": "Status", "source": "Fonte",
+                    }),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+            # Mapa de comparaveis (se temos coordenadas)
+            coords = [
+                {"lat": c["latitude"], "lon": c["longitude"],
+                 "price": c.get("listing_price", 0), "pm2": c.get("price_per_m2", 0)}
+                for c in comps
+                if c.get("latitude") and c.get("longitude")
+            ]
+            if coords:
+                st.markdown("##### Mapa de comparaveis")
+                map_df = pd.DataFrame(coords)
+                st.map(map_df, latitude="lat", longitude="lon")
+
+    # === TAB: Avaliacoes ===
+    with tab_vals:
+        st.markdown("##### Avaliacoes AVM recentes")
+
+        # Avaliacao manual
+        with st.expander("Nova avaliacao manual"):
+            av_mun = st.text_input("Municipio", "Lisboa", key="m2_av_mun")
+            av_type = st.selectbox("Tipo", ["apartamento", "moradia", "terreno", "predio", "armazem"], key="m2_av_type")
+            av_area = st.number_input("Area m2", value=80.0, min_value=10.0, key="m2_av_area")
+            av_beds = st.number_input("Quartos", value=2, min_value=0, max_value=10, key="m2_av_beds")
+            av_cond = st.selectbox("Estado", ["usado", "renovado", "novo", "para_renovar"], key="m2_av_cond")
+
+            if st.button("Avaliar", key="m2_av_btn"):
+                with st.spinner("A avaliar..."):
+                    try:
+                        from src.modules.m2_market.service import MarketService
+                        svc = MarketService()
+                        result = svc.valuate_property(
+                            municipality=av_mun,
+                            property_type=av_type,
+                            gross_area_m2=av_area,
+                            bedrooms=av_beds,
+                            condition=av_cond,
+                        )
+                        val = result.get("estimated_value")
+                        low = result.get("estimated_value_low")
+                        high = result.get("estimated_value_high")
+                        conf = result.get("confidence_score")
+                        pm2 = result.get("estimated_price_per_m2")
+                        n_comp = result.get("comparables_count", 0)
+
+                        st.success("Avaliacao concluida!")
+                        v1, v2, v3 = st.columns(3)
+                        v1.metric("Valor estimado", f"{val:,.0f} EUR" if val else "-")
+                        v2.metric("EUR/m2", f"{pm2:,.0f}" if pm2 else "-")
+                        v3.metric("Confianca", f"{conf:.0f}%" if conf else "-")
+
+                        if low and high:
+                            st.info(f"Intervalo: {low:,.0f} EUR — {high:,.0f} EUR ({n_comp} comparaveis)")
+
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
+
+        # Lista de avaliacoes existentes
+        vals = _m2_fetch_valuations()
+        if vals:
+            for v in vals:
+                est = v.get("estimated_value")
+                conf = v.get("confidence_score")
+                mun = v.get("municipality") or "?"
+                src = v.get("source") or "?"
+                n_comp = v.get("comparables_count") or 0
+                pm2 = v.get("estimated_price_per_m2")
+                dt = v.get("valuated_at")
+                dt_str = dt.strftime("%d/%m %H:%M") if dt else ""
+
+                est_str = f"{est:,.0f} EUR" if est else "?"
+                conf_str = f"{conf:.0f}%" if conf else "?"
+                pm2_str = f"{pm2:,.0f} EUR/m2" if pm2 else ""
+
+                st.markdown(
+                    f"**{mun}** | {est_str} | {pm2_str} | "
+                    f"Conf: {conf_str} | {n_comp} comp. | {src} | {dt_str}"
+                )
+        else:
+            st.info("Nenhuma avaliacao feita. Usa o formulario acima ou enriquece uma oportunidade.")
+
+    # === TAB: Alertas ===
+    with tab_alerts:
+        st.markdown("##### Alertas de mercado")
+
+        # Criar alerta
+        with st.expander("Novo alerta"):
+            al_name = st.text_input("Nome do alerta", key="m2_al_name")
+            al_type = st.selectbox("Tipo", ["new_listing", "price_drop", "below_market"], key="m2_al_type")
+            al_districts = st.multiselect(
+                "Distritos", ["Lisboa", "Porto", "Setubal", "Braga", "Faro", "Aveiro", "Coimbra", "Leiria"],
+                key="m2_al_dist",
+            )
+            al_ptypes = st.multiselect(
+                "Tipos de imovel", ["apartamento", "moradia", "predio", "terreno", "armazem"],
+                key="m2_al_ptypes",
+            )
+            al_price_max = st.number_input("Preco maximo (EUR)", value=0, min_value=0, step=50000, key="m2_al_pmax")
+
+            if st.button("Criar alerta", key="m2_al_create"):
+                if not al_name:
+                    st.warning("Preenche o nome do alerta.")
+                else:
+                    try:
+                        from src.modules.m2_market.service import MarketService
+                        svc = MarketService()
+                        result = svc.create_alert({
+                            "alert_name": al_name,
+                            "alert_type": al_type,
+                            "districts": al_districts,
+                            "property_types": al_ptypes,
+                            "price_max": al_price_max if al_price_max > 0 else None,
+                        })
+                        feed_id = result.get("casafari_feed_id")
+                        st.success(
+                            f"Alerta '{al_name}' criado!"
+                            + (f" (CASAFARI feed #{feed_id})" if feed_id else "")
+                        )
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
+
+        # Lista de alertas
+        alerts = _m2_fetch_alerts()
+        if alerts:
+            for a in alerts:
+                active = "Activo" if a["is_active"] else "Inactivo"
+                feed = f" | CASAFARI #{a['casafari_feed_id']}" if a.get("casafari_feed_id") else ""
+                triggers = a.get("total_triggers", 0)
+                dists = ", ".join(a.get("districts", [])) or "Todas"
+
+                st.markdown(
+                    f"**{a['alert_name']}** ({a['alert_type']}) | "
+                    f"{active} | {dists} | "
+                    f"Disparou {triggers}x{feed}"
+                )
+        else:
+            st.info("Nenhum alerta criado. Usa o formulario acima.")
+
+        # Verificar alertas
+        if alerts:
+            if st.button("Verificar alertas agora", key="m2_check_alerts"):
+                with st.spinner("A verificar..."):
+                    try:
+                        from src.modules.m2_market.service import MarketService
+                        svc = MarketService()
+                        results = svc.check_alerts()
+                        st.success(f"{len(results)} novos resultados encontrados.")
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
+
+    # === TAB: INE ===
+    with tab_ine:
+        st.markdown("##### Precos medianos INE (gratuito)")
+        st.caption("Dados do Instituto Nacional de Estatistica — nao requer API key.")
+
+        ine_mun = st.text_input("Municipio", "Lisboa", key="m2_ine_mun")
+        if st.button("Consultar INE", key="m2_ine_btn"):
+            try:
+                from src.modules.m2_market.ine_client import INEClient
+                client = INEClient()
+                result = client.get_median_price(ine_mun)
+                if result:
+                    st.metric(
+                        f"Mediana {result.get('municipality', ine_mun)}",
+                        f"{result['price_m2']:,.0f} EUR/m2",
+                        help=f"Periodo: {result.get('quarter', '?')} | Fonte: INE",
+                    )
+                else:
+                    st.warning(f"Municipio '{ine_mun}' nao encontrado nos dados INE.")
+            except Exception as e:
+                st.error(f"Erro: {e}")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -2269,7 +2706,7 @@ def main() -> None:
 
         page = st.radio(
             "Navegacao",
-            options=["Dashboard", "Pipeline", "Preferencias", "WhatsApp", "Configuracao", "Grupos"],
+            options=["Dashboard", "Mercado", "Pipeline", "Leads CRM", "Fecho + P&L", "Preferencias", "WhatsApp", "Configuracao", "Grupos"],
             label_visibility="collapsed",
         )
 
@@ -2288,8 +2725,16 @@ def main() -> None:
     # Renderizar pagina
     if page == "Dashboard":
         page_dashboard()
+    elif page == "Mercado":
+        page_mercado()
     elif page == "Pipeline":
         page_pipeline()
+    elif page == "Leads CRM":
+        from src.dashboard.page_leads import page_leads
+        page_leads()
+    elif page == "Fecho + P&L":
+        from src.dashboard.page_closing import page_closing
+        page_closing()
     elif page == "WhatsApp":
         page_whatsapp()
     elif page == "Preferencias":

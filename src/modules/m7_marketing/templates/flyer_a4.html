@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Flyer A4 — {{ title }}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family={{ font_heading | replace(" ", "+") }}:wght@400;600;700;800&family={{ font_body | replace(" ", "+") }}:wght@400;500;600&display=swap');
+
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 210mm;
+      min-height: 297mm;
+      font-family: '{{ font_body }}', Inter, sans-serif;
+      background: #fff;
+      color: {{ color_text | default("#1a1a1a") }};
+    }
+
+    /* ==== CABECALHO ==== */
+    .page-header {
+      background: {{ color_primary }};
+      padding: 14mm 14mm 12mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-wrapper img {
+      height: 36px;
+      width: auto;
+      object-fit: contain;
+      filter: brightness(0) invert(1);
+    }
+
+    .logo-text {
+      color: #fff;
+      font-family: '{{ font_heading }}', Montserrat, sans-serif;
+      font-size: 22pt;
+      font-weight: 800;
+      letter-spacing: 2px;
+    }
+
+    .header-tagline {
+      color: rgba(255,255,255,0.75);
+      font-family: '{{ font_body }}', Inter, sans-serif;
+      font-size: 9pt;
+      font-weight: 500;
+      letter-spacing: 1px;
+      text-align: right;
+    }
+
+    /* ==== FOTO PRINCIPAL ==== */
+    .cover-photo-zone {
+      position: relative;
+      width: 100%;
+      height: 128mm;
+      overflow: hidden;
+    }
+
+    .cover-photo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+    }
+
+    /* Overlay gradiente inferior na foto */
+    .photo-gradient {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 50%;
+      background: linear-gradient(to top, rgba(0,0,0,0.65), transparent);
+    }
+
+    /* Badge sobre a foto */
+    .badge {
+      position: absolute;
+      top: 16px;
+      left: 18px;
+      background: {{ color_accent }};
+      color: #fff;
+      font-family: '{{ font_heading }}', Montserrat, sans-serif;
+      font-size: 11pt;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 6px 18px;
+      border-radius: 4px;
+    }
+
+    /* Preco sobre a foto (zona inferior) */
+    .photo-price-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 14mm 14mm 10mm;
+    }
+
+    .photo-price {
+      font-family: '{{ font_heading }}', Montserrat, sans-serif;
+      font-size: 42pt;
+      font-weight: 800;
+      color: {{ color_accent }};
+      letter-spacing: -1px;
+      line-height: 1;
+    }
+
+    /* ==== CORPO DO FLYER ==== */
+    .content-body {
+      padding: 9mm 14mm 0;
+    }
+
+    /* Titulo e preco */
+    .property-title {
+      font-family: '{{ font_heading }}', Montserrat, sans-serif;
+      font-size: 24pt;
+      font-weight: 800;
+      color: {{ color_primary }};
+      line-height: 1.15;
+      margin-bottom: 4mm;
+    }
+
+    .title-separator {
+      width: 20mm;
+      height: 3px;
+      background: {{ color_accent }};
+      border-radius: 2px;
+      margin-bottom: 6mm;
+    }
+
+    /* Localizacao */
+    .location-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #555;
+      font-family: '{{ font_body }}', Inter, sans-serif;
+      font-size: 11pt;
+      font-weight: 600;
+      margin-bottom: 6mm;
+    }
+
+    /* Highlights em grelha 2 colunas */
+    .highlights-section {
+      margin-bottom: 6mm;
+    }
+
+    .section-label {
+      font-family: '{{ font_heading }}', Montserrat, sans-serif;
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 3mm;
+    }
+
+    .highlights-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2.5mm 5mm;
+    }
+
+    .highlight-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-family: '{{ font_body }}', Inter, sans-serif;
+      font-size: 10pt;
+      font-weight: 500;
+      color: {{ color_text | default("#333") }};
+      padding: 3mm 4mm;
+      background: {{ color_primary }}06;
+      border-left: 3px solid {{ color_accent }};
+      border-radius: 0 4px 4px 0;
+    }
+
+    .highlight-dot {
+      color: {{ color_accent }};
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* ==== SEPARADOR ==== */
+    .divider {
+      border: none;
+      border-top: 1.5px solid {{ color_primary }}20;
+      margin: 5mm 0;
+    }
+
+    /* ==== RODAPE ==== */
+    .contact-footer {
+      background: {{ color_primary }};
+      padding: 7mm 14mm;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 6mm;
+    }
+
+    .contact-items {
+      display: flex;
+      gap: 20mm;
+      align-items: center;
+    }
+
+    .contact-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .contact-item-label {
+      font-family: '{{ font_body }}', Inter, sans-serif;
+      font-size: 7pt;
+      font-weight: 600;
+      color: rgba(255,255,255,0.6);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    .contact-item-value {
+      font-family: '{{ font_heading }}', Montserrat, sans-serif;
+      font-size: 11pt;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* QR code no rodape */
+    .qr-footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .qr-footer img {
+      width: 22mm;
+      height: 22mm;
+      object-fit: contain;
+      background: #fff;
+      padding: 2mm;
+      border-radius: 3px;
+    }
+
+    .qr-footer-label {
+      font-family: '{{ font_body }}', Inter, sans-serif;
+      font-size: 7pt;
+      color: rgba(255,255,255,0.7);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <!-- Cabecalho com logo -->
+  <header class="page-header">
+    <div class="logo-wrapper">
+      {% if logo_url %}
+      <img src="{{ logo_url }}" alt="Logo">
+      {% else %}
+      <span class="logo-text">{{ brand_name | default("ImoIA") }}</span>
+      {% endif %}
+    </div>
+    {% if tagline %}
+    <div class="header-tagline">{{ tagline }}</div>
+    {% endif %}
+  </header>
+
+  <!-- Foto principal (60% da altura do conteudo) -->
+  <div class="cover-photo-zone">
+    {% if cover_photo %}
+    <img class="cover-photo" src="{{ cover_photo }}" alt="{{ title }}">
+    {% else %}
+    <div class="cover-photo" style="background: linear-gradient(135deg, {{ color_primary }}, {{ color_secondary }});"></div>
+    {% endif %}
+    <div class="photo-gradient"></div>
+
+    {% if badge %}
+    <div class="badge">{{ badge }}</div>
+    {% endif %}
+
+    <div class="photo-price-overlay">
+      <div class="photo-price">{{ price }}</div>
+    </div>
+  </div>
+
+  <!-- Corpo do flyer -->
+  <div class="content-body">
+    <!-- Titulo -->
+    <div class="property-title">{{ title }}</div>
+    <div class="title-separator"></div>
+
+    <!-- Localizacao -->
+    {% if location %}
+    <div class="location-row">
+      <span>📍</span>
+      <span>{{ location }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Highlights em grelha 2 colunas (6-8 items) -->
+    {% if highlights %}
+    <div class="highlights-section">
+      <div class="section-label">Destaques</div>
+      <div class="highlights-grid">
+        {% for hl in highlights[:8] %}
+        <div class="highlight-item">
+          <span class="highlight-dot">✓</span>
+          <span>{{ hl }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <hr class="divider">
+  </div>
+
+  <!-- Rodape com contactos e QR code -->
+  <footer class="contact-footer">
+    <div class="contact-items">
+      {% if contact_phone %}
+      <div class="contact-item">
+        <span class="contact-item-label">Telefone</span>
+        <span class="contact-item-value">{{ contact_phone }}</span>
+      </div>
+      {% endif %}
+      {% if contact_email %}
+      <div class="contact-item">
+        <span class="contact-item-label">Email</span>
+        <span class="contact-item-value">{{ contact_email }}</span>
+      </div>
+      {% endif %}
+      {% if website_url %}
+      <div class="contact-item">
+        <span class="contact-item-label">Website</span>
+        <span class="contact-item-value">{{ website_url }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if qr_data_uri %}
+    <div class="qr-footer">
+      <img src="{{ qr_data_uri }}" alt="QR Code">
+      <span class="qr-footer-label">Saiba mais</span>
+    </div>
+    {% endif %}
+  </footer>
+</body>
+</html>

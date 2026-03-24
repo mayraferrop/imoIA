@@ -32,10 +32,21 @@ def _get_engine():
             db_path = db_url.replace("sqlite:///", "")
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
+        connect_args = {}
+        kwargs = {}
+        if "sqlite" in db_url:
+            connect_args["check_same_thread"] = False
+        else:
+            # PostgreSQL — pool settings para Supabase pooler
+            kwargs["pool_size"] = 5
+            kwargs["max_overflow"] = 10
+            kwargs["pool_pre_ping"] = True
+
         _engine = create_engine(
             db_url,
             echo=False,
-            connect_args={"check_same_thread": False} if "sqlite" in db_url else {},
+            connect_args=connect_args,
+            **kwargs,
         )
         logger.info(f"Engine SQLAlchemy criado: {db_url}")
     return _engine

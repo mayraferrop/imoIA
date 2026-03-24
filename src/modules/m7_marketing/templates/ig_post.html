@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    /* Fontes: Google Fonts com fallback sistema para standalone */
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 1080px;
+      height: 1080px;
+      overflow: hidden;
+      font-family: 'Inter', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-synthesis: none;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: #1a1a1a;
+    }
+
+    .canvas {
+      position: relative;
+      width: 1080px;
+      height: 1080px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* === FOTO DE FUNDO (variavel) === */
+    .cover-photo {
+      position: absolute;
+      top: 0; left: 0;
+      width: 1080px; height: 1080px;
+      object-fit: cover;
+      object-position: center;
+    }
+    .cover-photo-fallback {
+      position: absolute;
+      top: 0; left: 0;
+      width: 1080px; height: 1080px;
+      background: linear-gradient(135deg, {{ color_primary | default('#1a3e5c') }}, {{ color_secondary | default('#8f7350') }});
+    }
+
+    /* === GRADIENT OVERLAY (reforçado para contraste texto/fundo) === */
+    .gradient-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 1080px; height: 1080px;
+      background: linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.65) 35%, rgba(0,0,0,0.15) 65%, transparent 80%);
+    }
+
+    /* === LOGO (topo direito) === */
+    .logo-area {
+      position: absolute;
+      top: 40px; right: 40px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 10;
+    }
+    .logo-area img {
+      height: 56px; min-height: 56px; width: auto;
+      min-width: 120px;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6));
+    }
+    .logo-text {
+      color: #fff;
+      font-family: 'Montserrat', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.7);
+    }
+
+    /* === CONTEUDO INFERIOR === */
+    .content-zone {
+      position: absolute;
+      bottom: 0; left: 0;
+      width: 1080px;
+      padding: 0 56px 28px 56px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      z-index: 10;
+    }
+
+    /* Badge localizacao */
+    .location-badge {
+      display: inline-flex;
+      align-items: center;
+      align-self: flex-start;
+      gap: 8px;
+      background: {{ color_accent | default('#c9a872') }};
+      padding: 8px 18px;
+      border-radius: 20px;
+    }
+    .location-badge svg { width: 14px; height: 16px; flex-shrink: 0; }
+    .location-badge span {
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      color: #ffffff;
+      letter-spacing: 0.05em;
+      line-height: 18px;
+    }
+
+    /* Titulo (aumentado para maior destaque) */
+    .property-title {
+      font-family: 'Montserrat', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 34px;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 42px;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+
+    /* Preco */
+    .property-price {
+      font-family: 'Montserrat', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 48px;
+      font-weight: 900;
+      color: {{ color_accent | default('#c9a872') }};
+      line-height: 56px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+    }
+
+    /* Features row */
+    .features-row {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    .feat-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .feat-item svg {
+      width: 20px; height: 20px;
+      flex-shrink: 0;
+    }
+    .feat-item span {
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 16px;
+      color: #ffffff;
+      line-height: 20px;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    }
+
+    /* Footer bar */
+    .footer-bar {
+      position: absolute;
+      bottom: 0; left: 0;
+      width: 1080px; height: 48px;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 56px;
+      z-index: 10;
+    }
+    .footer-bar span {
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 12px;
+      color: #ffffff;
+      letter-spacing: 0.05em;
+      line-height: 16px;
+    }
+    .footer-phone {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .footer-phone svg { width: 14px; height: 14px; }
+  </style>
+</head>
+<body>
+  <div class="canvas">
+    {% if cover_photo %}
+    <img class="cover-photo" src="{{ cover_photo }}" alt="{{ title }}">
+    {% else %}
+    <div class="cover-photo-fallback"></div>
+    {% endif %}
+
+    <div class="gradient-overlay"></div>
+
+    <div class="logo-area">
+      {% if logo_url %}
+      <img src="{{ logo_url }}" alt="{{ brand_name | default('HABTA') }}">
+      {% else %}
+      <span class="logo-text">{{ brand_name | default("HABTA") }}</span>
+      {% endif %}
+    </div>
+
+    <div class="content-zone">
+      {% if location %}
+      <div class="location-badge">
+        <svg viewBox="0 0 14 16" fill="none"><path d="M7 0C3.13 0 0 3.13 0 7c0 5.25 7 9 7 9s7-3.75 7-9c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" fill="#ffffff"/></svg>
+        <span>{{ location }}</span>
+      </div>
+      {% endif %}
+
+      <div class="property-title">{{ title }}</div>
+      <div class="property-price">{{ price }}</div>
+
+      <div class="features-row">
+        {% if bedrooms_label %}
+        <div class="feat-item">
+          <svg viewBox="0 0 20 18" fill="none"><path d="M2 8V16h16V8M1 16h18M4 8V5a3 3 0 016 0v3M10 8V5a3 3 0 016 0v3" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="0" y="16" width="20" height="2" rx="1" fill="#ffffff"/></svg>
+          <span>{{ bedrooms_label }}</span>
+        </div>
+        {% endif %}
+        {% if bathrooms_label %}
+        <div class="feat-item">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M3 10h14a2 2 0 012 2v2a2 2 0 01-2 2H3v-6zM3 10V5a2 2 0 012-2h2a2 2 0 012 2v5" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 18v1M14 18v1" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span>{{ bathrooms_label }}</span>
+        </div>
+        {% endif %}
+        {% if area %}
+        <div class="feat-item">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M1 19L19 1M1 19l3-1-2-2-1 3zM19 1l-3 1 2 2 1-3z" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>{{ area }} m²</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="footer-bar">
+      <span>{{ website_url | default("habta.eu") }}</span>
+      {% if contact_phone %}
+      <div class="footer-phone">
+        <svg viewBox="0 0 14 14" fill="none"><path d="M13 10.5v1.8a1.2 1.2 0 01-1.3 1.2A11.88 11.88 0 011.5 3.3 1.2 1.2 0 012.7 2h1.8a1.2 1.2 0 011.2 1 7.7 7.7 0 00.42 1.68 1.2 1.2 0 01-.27 1.26l-.76.76a9.6 9.6 0 004.21 4.21l.76-.76a1.2 1.2 0 011.26-.27 7.7 7.7 0 001.68.42 1.2 1.2 0 011 1.2z" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>{{ contact_phone }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

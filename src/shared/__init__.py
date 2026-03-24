@@ -1,0 +1,1 @@
+"""Servicos partilhados entre modulos."""

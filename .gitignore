@@ -41,3 +41,31 @@ Thumbs.db
 
 # User preferences
 data/preferences.json
+
+# Environment & Secrets (AIOX)
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# Dependencies (AIOX)
+node_modules/
+node_modules
+
+# Build & Logs (AIOX)
+*.log
+logs/
+
+# AIOX Local (AIOX)
+.aiox-core/
+.antigravity/
+.claude/
+.codex/
+.cursor/
+.gemini/
+aios-core/
+squads/
+tmp/
+storage/
+.aiox/install-log.txt
+*.db

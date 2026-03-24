@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    /* Fontes: Google Fonts com fallback sistema para standalone */
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 1080px;
+      height: 1920px;
+      overflow: hidden;
+      font-family: 'Inter', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-synthesis: none;
+      -webkit-font-smoothing: antialiased;
+      background: #1a1a1a;
+    }
+
+    .canvas {
+      position: relative;
+      width: 1080px;
+      height: 1920px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cover-photo {
+      position: absolute;
+      top: 0; left: 0;
+      width: 1080px; height: 1920px;
+      object-fit: cover;
+      object-position: center;
+    }
+    .cover-photo-fallback {
+      position: absolute;
+      top: 0; left: 0;
+      width: 1080px; height: 1920px;
+      background: linear-gradient(160deg, {{ color_primary | default('#1a3e5c') }}, {{ color_secondary | default('#8f7350') }}, {{ color_accent | default('#c9a872') }});
+    }
+
+    /* Gradient reforçado para contraste */
+    .gradient-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 1080px; height: 1920px;
+      background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 30%, rgba(0,0,0,0.2) 55%, transparent 65%);
+    }
+
+    /* Logo topo central */
+    .logo-area {
+      position: absolute;
+      top: 60px; left: 0;
+      width: 1080px;
+      display: flex;
+      justify-content: center;
+      z-index: 10;
+    }
+    .logo-area img {
+      height: 68px; min-height: 68px; width: auto;
+      min-width: 150px;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 10px rgba(0,0,0,0.6));
+    }
+    .logo-text {
+      color: #fff;
+      font-family: 'Montserrat', -apple-system, sans-serif;
+      font-size: 36px;
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.7);
+    }
+
+    /* Conteudo inferior */
+    .content-zone {
+      position: absolute;
+      bottom: 120px; left: 0;
+      width: 1080px;
+      padding: 0 72px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      z-index: 10;
+    }
+
+    .location-badge {
+      display: inline-flex;
+      align-items: center;
+      align-self: flex-start;
+      gap: 8px;
+      background: {{ color_accent | default('#c9a872') }};
+      padding: 10px 20px;
+      border-radius: 20px;
+    }
+    .location-badge svg { width: 14px; height: 16px; }
+    .location-badge span {
+      font-weight: 700;
+      font-size: 15px;
+      color: #ffffff;
+      letter-spacing: 0.05em;
+    }
+
+    .property-title {
+      font-family: 'Montserrat', -apple-system, sans-serif;
+      font-size: 42px;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 50px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.6);
+    }
+
+    .property-price {
+      font-family: 'Montserrat', -apple-system, sans-serif;
+      font-size: 64px;
+      font-weight: 900;
+      color: {{ color_accent | default('#c9a872') }};
+      line-height: 72px;
+      text-shadow: 0 3px 12px rgba(0,0,0,0.5);
+    }
+
+    .separator {
+      width: 60px; height: 2px;
+      background: {{ color_accent | default('#c9a872') }};
+    }
+
+    .features-row {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+    .feat-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .feat-item svg { width: 22px; height: 22px; }
+    .feat-item span {
+      font-size: 18px;
+      color: #ffffff;
+    }
+
+    /* CTA */
+    .cta {
+      display: flex;
+      align-self: center;
+      margin-top: 12px;
+    }
+    .cta-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: {{ color_accent | default('#c9a872') }};
+      padding: 18px 48px;
+      border-radius: 30px;
+      box-shadow: 0 4px 20px rgba(201, 168, 114, 0.4);
+    }
+    .cta-pill span {
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      color: #ffffff;
+      letter-spacing: 0.08em;
+    }
+    .cta-pill svg { width: 16px; height: 16px; }
+  </style>
+</head>
+<body>
+  <div class="canvas">
+    {% if cover_photo %}
+    <img class="cover-photo" src="{{ cover_photo }}" alt="{{ title }}">
+    {% else %}
+    <div class="cover-photo-fallback"></div>
+    {% endif %}
+
+    <div class="gradient-overlay"></div>
+
+    <div class="logo-area">
+      {% if logo_url %}
+      <img src="{{ logo_url }}" alt="{{ brand_name | default('HABTA') }}">
+      {% else %}
+      <span class="logo-text">{{ brand_name | default("HABTA") }}</span>
+      {% endif %}
+    </div>
+
+    <div class="content-zone">
+      {% if location %}
+      <div class="location-badge">
+        <svg viewBox="0 0 14 16" fill="none"><path d="M7 0C3.13 0 0 3.13 0 7c0 5.25 7 9 7 9s7-3.75 7-9c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" fill="#ffffff"/></svg>
+        <span>{{ location }}</span>
+      </div>
+      {% endif %}
+
+      <div class="property-title">{{ title }}</div>
+      <div class="property-price">{{ price }}</div>
+      <div class="separator"></div>
+
+      <div class="features-row">
+        {% if bedrooms_label %}
+        <div class="feat-item">
+          <svg viewBox="0 0 20 18" fill="none"><path d="M2 8V16h16V8M1 16h18M4 8V5a3 3 0 016 0v3M10 8V5a3 3 0 016 0v3" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="0" y="16" width="20" height="2" rx="1" fill="#ffffff"/></svg>
+          <span>{{ bedrooms_label }}</span>
+        </div>
+        {% endif %}
+        {% if bathrooms_label %}
+        <div class="feat-item">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M3 10h14a2 2 0 012 2v2a2 2 0 01-2 2H3v-6zM3 10V5a2 2 0 012-2h2a2 2 0 012 2v5" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 18v1M14 18v1" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span>{{ bathrooms_label }}</span>
+        </div>
+        {% endif %}
+        {% if area %}
+        <div class="feat-item">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M1 19L19 1M1 19l3-1-2-2-1 3zM19 1l-3 1 2 2 1-3z" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>{{ area }} m²</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="cta">
+        <div class="cta-pill">
+          <span>SABER MAIS</span>
+          <svg viewBox="0 0 16 16" fill="none"><path d="M8 14V2M8 2l5 5M8 2L3 7" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

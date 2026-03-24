@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    /* Fontes: Google Fonts com fallback sistema para standalone */
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 1200px;
+      height: 630px;
+      overflow: hidden;
+      font-family: 'Inter', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-synthesis: none;
+      -webkit-font-smoothing: antialiased;
+      background: #ffffff;
+    }
+
+    .canvas {
+      width: 1200px;
+      height: 630px;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* === FOTO ESQUERDA (55%) === */
+    .photo-side {
+      width: 660px;
+      height: 630px;
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .cover-photo {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      object-position: center;
+    }
+    .cover-photo-fallback {
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, {{ color_primary | default('#1a3e5c') }}, {{ color_secondary | default('#8f7350') }});
+    }
+    .photo-overlay {
+      position: absolute;
+      top: 0; right: 0;
+      width: 30%; height: 100%;
+      background: linear-gradient(to left, rgba(255,255,255,0.15), transparent);
+    }
+
+    /* === CARD DIREITA (45%) === */
+    .card-side {
+      flex: 1;
+      height: 630px;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 48px;
+      gap: 18px;
+    }
+
+    .property-title {
+      font-family: 'Montserrat', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 26px;
+      font-weight: 800;
+      color: {{ color_primary | default('#1a3e5c') }};
+      line-height: 34px;
+    }
+
+    .property-price {
+      font-family: 'Montserrat', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 34px;
+      font-weight: 900;
+      color: {{ color_accent | default('#c9a872') }};
+      line-height: 42px;
+    }
+
+    /* CTA button */
+    .cta-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: {{ color_accent | default('#c9a872') }};
+      color: #ffffff;
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 10px 24px;
+      border-radius: 20px;
+      letter-spacing: 0.04em;
+    }
+
+    .accent-line {
+      width: 40px; height: 2px;
+      background: {{ color_accent | default('#c9a872') }};
+    }
+
+    /* Features grid 2x2 */
+    .features-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px 32px;
+    }
+    .feat-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 180px;
+    }
+    .feat-item svg {
+      width: 18px; height: 18px;
+      flex-shrink: 0;
+    }
+    .feat-item span {
+      font-weight: 500;
+      font-size: 14px;
+      color: #333333;
+    }
+
+    /* Descricao */
+    .description {
+      font-size: 13px;
+      color: #666666;
+      line-height: 20px;
+    }
+
+    /* Footer */
+    .card-footer {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-top: 8px;
+    }
+    .logo-footer-text {
+      font-family: 'Montserrat', -apple-system, sans-serif;
+      font-size: 18px;
+      font-weight: 900;
+      color: {{ color_primary | default('#1a3e5c') }};
+      letter-spacing: 0.1em;
+    }
+    .logo-footer img {
+      height: 36px; min-height: 36px; width: auto;
+      min-width: 100px;
+      object-fit: contain;
+    }
+    .footer-divider {
+      width: 1px; height: 16px;
+      background: #cccccc;
+    }
+    .footer-url {
+      font-size: 11px;
+      color: #999999;
+    }
+  </style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="photo-side">
+      {% if cover_photo %}
+      <img class="cover-photo" src="{{ cover_photo }}" alt="{{ title }}">
+      {% else %}
+      <div class="cover-photo-fallback"></div>
+      {% endif %}
+      <div class="photo-overlay"></div>
+    </div>
+
+    <div class="card-side">
+      <div>
+        <div class="property-title">{{ title }}</div>
+      </div>
+      <div class="property-price">{{ price }}</div>
+      <div class="accent-line"></div>
+
+      <div class="features-grid">
+        {% if bedrooms_label %}
+        <div class="feat-item">
+          <svg viewBox="0 0 20 18" fill="none"><path d="M2 8V16h16V8M1 16h18M4 8V5a3 3 0 016 0v3M10 8V5a3 3 0 016 0v3" stroke="{{ color_accent | default('#c9a872') }}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="0" y="16" width="20" height="2" rx="1" fill="{{ color_accent | default('#c9a872') }}"/></svg>
+          <span>{{ bedrooms_label }}</span>
+        </div>
+        {% endif %}
+        {% if bathrooms_label %}
+        <div class="feat-item">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M3 10h14a2 2 0 012 2v2a2 2 0 01-2 2H3v-6zM3 10V5a2 2 0 012-2h2a2 2 0 012 2v5" stroke="{{ color_accent | default('#c9a872') }}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 18v1M14 18v1" stroke="{{ color_accent | default('#c9a872') }}" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span>{{ bathrooms_label }}</span>
+        </div>
+        {% endif %}
+        {% if area %}
+        <div class="feat-item">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M1 19L19 1M1 19l3-1-2-2-1 3zM19 1l-3 1 2 2 1-3z" stroke="{{ color_accent | default('#c9a872') }}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>{{ area }} m²</span>
+        </div>
+        {% endif %}
+        {% if location %}
+        <div class="feat-item">
+          <svg viewBox="0 0 14 16" fill="none"><path d="M7 0C3.13 0 0 3.13 0 7c0 5.25 7 9 7 9s7-3.75 7-9c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" fill="{{ color_accent | default('#c9a872') }}"/></svg>
+          <span>{{ location }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if short_description %}
+      <div class="description">{{ short_description }}</div>
+      {% endif %}
+
+      <div class="cta-button">Saber mais →</div>
+
+      <div class="card-footer">
+        {% if logo_url %}
+        <div class="logo-footer"><img src="{{ logo_url }}" alt="{{ brand_name | default('HABTA') }}"></div>
+        {% else %}
+        <span class="logo-footer-text">{{ brand_name | default("HABTA") }}</span>
+        {% endif %}
+        <div class="footer-divider"></div>
+        <span class="footer-url">{{ website_url | default("habta.eu") }}</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,120 +1,181 @@
-# ImoScout — Detector de Oportunidades Imobiliárias via WhatsApp
+# ImoIA
 
-## Visão Geral
-Sistema Python que monitoriza grupos de WhatsApp Business, usa Claude Haiku para detetar
-oportunidades imobiliárias em Portugal, enriquece com dados de mercado (INE + Idealista),
-e apresenta resultados num dashboard Streamlit.
+Plataforma de gestao de investimento imobiliario fix and flip. Dados historicos do ImoScout (167 grupos WhatsApp, 119 oportunidades) foram migrados para a tabela `properties`.
+
+## Arquitectura
+
+O sistema tem 9 modulos. M1-M8 activos, M9 futuro:
+
+- **M1 — Propriedades** (ACTIVO): gestao central de propriedades via API REST
+- **M2 — Analista de mercado** (ACTIVO): CASAFARI API + INE, comparaveis, avaliacoes AVM, alertas
+- **M3 — Motor financeiro** (ACTIVO): custos aquisicao, obra, financiamento, mais-valias PT/BR, ROI, MAO, go/no-go
+- **M4 — Deal pipeline** (ACTIVO): propostas, CPCV, negociacao, maquina de estados
+- **M5 — Due diligence** (ACTIVO): checklists, documentos
+- **M6 — Gestao de obra** (ACTIVO): orcamento, cronograma, fornecedores, sync Cash Flow Pro
+- **M7 — Marketing** (ACTIVO): anuncios multi-plataforma, IA content, email, video, social
+- **M8 — CRM de leads** (ACTIVO): compradores, scoring, nurturing
+- M9 — Fecho + P&L (FUTURO): ROI real vs estimado
 
 ## Stack
-- Python 3.11+ | SQLite + SQLAlchemy 2.0 | Streamlit
-- Whapi.Cloud (WhatsApp API) | Anthropic API (Claude Haiku 4.5) | INE API | Idealista API
 
-## Comandos
-- `python -m src.pipeline.run` — corre o pipeline completo
-- `streamlit run src/dashboard/app.py` — lança o dashboard
-- `pytest tests/` — corre os testes
+- Backend: FastAPI
+- BD: SQLite (actual) → PostgreSQL/Supabase (planeado)
+- IA: Claude Haiku 4.5 via Anthropic SDK
+- Dashboard: Streamlit
+- Filas: Celery + Redis (opcional)
 
-## Convenções
-- Todo o código Python com type hints obrigatórios
-- Docstrings em português de Portugal (Google style)
-- Logging com loguru (nunca print)
-- Mensagens de UI e análise de IA em português de Portugal
-- Nomes de variáveis/funções em inglês (snake_case)
+## Como correr
+
+```bash
+# API FastAPI
+uvicorn src.main:app --reload --port 8000
+
+# Dashboard Streamlit
+streamlit run src/dashboard/app.py
+
+# Celery worker (opcional)
+celery -A src.worker worker --loglevel=info
+
+# Testes
+pytest tests/
+```
+
+## Convencoes
+
+- Logging: loguru (zero prints)
+- Documentacao e docstrings: portugues de Portugal (PT-PT)
+- Nomes de variaveis/funcoes: ingles (convencao Python)
+- Type hints: obrigatorios em funcoes publicas
+- BD actual: SQLite sincrona (src/database/db.py)
+- Modelos legacy: src/database/models.py (tabelas historicas, READ-ONLY)
+- Modelos activos: src/database/models_v2.py (tabela central: properties)
 - Nunca commitar .env, auth/ ou dados pessoais
 - SQLAlchemy 2.0 syntax (select(), Session com context manager)
 
-## Contratos Entre Módulos (CRÍTICO — todos os teammates devem respeitar)
+## Tabelas legacy (models.py — READ-ONLY)
 
-### Modelos de Dados (src/database/models.py)
-- **Message**: id, whatsapp_message_id, group_id, group_name, sender_id, sender_name, content, message_type, media_url, timestamp, processed, created_at
-- **Opportunity**: id, message_id (FK), is_opportunity, confidence, opportunity_type, property_type, location_extracted, parish, municipality, district, price_mentioned, area_m2, bedrooms, ai_reasoning, original_message, status, created_at
-- **MarketData**: id, opportunity_id (FK), ine_median_price_m2, ine_quarter, idealista_avg_price_m2, idealista_listings_count, idealista_comparable_urls, estimated_market_value, estimated_monthly_rent, gross_yield_pct, net_yield_pct, price_vs_market_pct, imt_estimate, stamp_duty_estimate, total_acquisition_cost, notes, created_at
-- **Group**: id, whatsapp_group_id, name, is_active, last_processed_at, message_count, opportunity_count, created_at
+Dados historicos do ImoScout. Nao modificar, nao adicionar colunas.
 
-### Interfaces Partilhadas
-- `WhatsAppClient.fetch_unread_messages(group_id: str, since: datetime) → list[dict]`
-- `WhatsAppClient.list_active_groups() → list[dict]`
-- `WhatsAppClient.archive_group(group_id: str) → bool`
-- `OpportunityClassifier.classify_batch(messages: list[dict]) → list[OpportunityResult]`
-- `INEClient.get_median_price(municipality: str) → dict | None`
-- `IdealistaClient.search_comparables(location: str, property_type: str, area_m2: float) → dict | None`
-- `YieldCalculator.calculate(purchase_price: float, monthly_rent: float, municipality: str) → YieldResult`
-- `run_pipeline() → PipelineResult`
+- **groups**: grupos WhatsApp monitorizados (169 registos)
+- **messages**: mensagens recebidas (2880 registos)
+- **opportunities**: oportunidades detectadas por IA (119 reais, migradas para properties)
+- **market_data**: dados de mercado associados (95 registos)
 
-### Tipos Partilhados (dataclasses)
-```python
-@dataclass
-class OpportunityResult:
-    message_index: int
-    is_opportunity: bool
-    confidence: float
-    opportunity_type: str | None
-    property_type: str | None
-    location: str | None
-    parish: str | None
-    municipality: str | None
-    district: str | None
-    price: float | None
-    area_m2: float | None
-    bedrooms: int | None
-    reasoning: str
+## Tabelas activas (models_v2.py)
 
-@dataclass
-class YieldResult:
-    gross_yield_pct: float
-    net_yield_pct: float
-    imt: float
-    stamp_duty: float
-    annual_costs: float
-    total_acquisition_cost: float
+- **tenants** — multi-tenant (prepara SaaS)
+- **users** — utilizadores com role (investor, partner, analyst, admin)
+- **properties** — TABELA CENTRAL (141 registos: 119 migradas + 22 manuais)
+- **market_comparables**, **property_valuations**, **market_zone_stats**, **market_alerts** (M2)
+- **financial_models** (M3), **deals**, **deal_state_history**, **proposals** (M4)
+- **due_diligence_items** (M5), **renovations**, **renovation_expenses** (M6)
+- **listings**, **listing_creatives**, **listing_contents** (M7)
+- **leads**, **lead_interactions** (M8)
+- **transactions**, **deal_pnl** (M9)
+- **calendar_events**, **documents**, **notifications** (transversais)
 
-@dataclass
-class PipelineResult:
-    messages_fetched: int
-    opportunities_found: int
-    groups_processed: int
-    errors: list[str]
+## Estrutura de modulos
+
+Cada modulo segue o padrao: `router.py` (endpoints) → `service.py` (logica) → `schemas.py` (validacao)
+
+```
+src/
+  api/              # Endpoints base (health, ingestor retrocompat, properties)
+  modules/
+    m2_market/      # CASAFARI + INE + alertas
+    m3_financial/   # Calculo financeiro, fiscalidade PT/BR
+    m4_deal_pipeline/  # Maquina de estados de deals
+    m5_due_diligence/  # Checklists e documentos
+    m6_renovation/     # Gestao de obra + sync externo
+    m7_marketing/      # Multi-plataforma + plugins rendering
+    m8_leads/          # CRM de compradores
+  shared/           # deps, exceptions, document storage
+  database/         # models.py (legacy RO), models_v2.py (activo), db.py
+  dashboard/        # Streamlit frontend
+  config.py         # Configuracao centralizada
+  main.py           # FastAPI app
+  worker.py         # Celery tasks
 ```
 
-## Estrutura de Ficheiros e Ownership
+## M2 — Analista de Mercado (ACTIVO)
 
-| Ficheiro | Owner |
-|---|---|
-| CLAUDE.md, pyproject.toml, .env.example, src/config.py | Team Lead |
-| src/database/models.py, src/database/db.py | Team Lead |
-| src/whatsapp/client.py | Ingestor |
-| src/pipeline/run.py | Ingestor |
-| scripts/setup_cron.sh | Ingestor |
-| tests/test_whatsapp.py, tests/test_pipeline.py | Ingestor |
-| src/analyzer/classifier.py, src/analyzer/prompts.py | Analista |
-| src/market/ine.py, src/market/idealista.py, src/market/yield_calculator.py | Analista |
-| tests/test_classifier.py, tests/test_market.py | Analista |
-| src/dashboard/app.py | Dashboard |
-| tests/test_dashboard.py | Dashboard |
+### Endpoints M2
+- POST /api/v1/market/comparables/search — pesquisar comparaveis
+- GET /api/v1/market/deals/{deal_id}/comparables — comparaveis para um deal
+- POST /api/v1/market/valuate — avaliacao AVM de imovel
+- POST /api/v1/market/deals/{deal_id}/valuate — avaliar deal
+- GET /api/v1/market/deals/{deal_id}/arv — estimar ARV (fix and flip)
+- GET /api/v1/market/zones/stats — estatisticas de zona
+- POST /api/v1/market/alerts — criar alerta de mercado
+- GET /api/v1/market/alerts — listar alertas
+- DELETE /api/v1/market/alerts/{id} — remover alerta
+- POST /api/v1/market/alerts/check — verificar alertas (manual)
+- GET /api/v1/market/ine/housing-prices — precos medianos INE (gratuito)
+- GET /api/v1/market/overview — overview para dashboard
 
-## Dados de Teste
-```json
-[
-  {"index": 0, "text": "Bom dia a todos!", "group": "Consultores Lisboa"},
-  {"index": 1, "text": "T2 em Sacavém, 85m2, remodelado, 3º andar com elevador. Preço: 195.000€. Contactar João 912345678", "group": "Partilhas AML"},
-  {"index": 2, "text": "URGENTE - Casal em processo de divórcio precisa vender T3 em Almada, Pragal. 110m2, vista rio. Querem despachar rápido. 180.000€ negociáveis. Não está nos portais.", "group": "Off Market Sul"},
-  {"index": 3, "text": "Alguém conhece bom canalizador na zona de Sintra?", "group": "Consultores Lisboa"},
-  {"index": 4, "text": "Prédio inteiro em Mouraria, Lisboa. 4 frações, 2 devolutas. Proprietário idoso quer vender tudo junto. 650.000€. Potencial de reabilitação enorme. DM para mais info.", "group": "Investidores PT"},
-  {"index": 5, "text": "Oferta de crédito habitação — taxas desde 2.1%. Simulação gratuita. Contacte-nos!", "group": "Partilhas AML"},
-  {"index": 6, "text": "Off-market: Moradia T4 em Cascais, São Domingos de Rana. 200m2 + jardim 500m2. Herança, família quer resolver rápido. 420.000€. Exclusivo, não partilhar.", "group": "Off Market Cascais"},
-  {"index": 7, "text": "Terreno rústico 5000m2 em Mafra com viabilidade para 3 moradias conforme PU. 150.000€. Alvará em fase de aprovação.", "group": "Investidores PT"}
-]
-```
+### CASAFARI API (endpoints reais)
+- POST /login — autenticacao JWT (username/password)
+- POST /api/v1/references/locations — resolver nome → location_id
+- POST /api/v1/listing-alerts/search — pesquisa ad-hoc de listagens (CORE)
+- POST /api/v1/listing-alerts/feeds — criar feeds de alertas
+- GET /api/v1/listing-alerts/feeds/{id} — obter alertas de um feed
+- GET /api/v1/properties/search/{property_id} — detalhe completo
+- Auth: Token API ou JWT Bearer
 
-### Resultados Esperados
-- Mensagens 0, 3, 5 → NÃO são oportunidades
-- Mensagens 1, 2, 4, 6, 7 → SÃO oportunidades
-- Mensagens 2 e 6 → confiança mais alta (urgentes + off-market)
-- Mensagem 4 → confiança alta (prédio inteiro, reabilitação)
+### Ficheiros M2
+- src/modules/m2_market/casafari_client.py — cliente CASAFARI API v1 (endpoints reais)
+- src/modules/m2_market/ine_client.py — cliente INE (precos medianos habitacao)
+- src/modules/m2_market/service.py — MarketService (comparaveis, AVM, alertas)
+- src/modules/m2_market/schemas.py — validacao Pydantic
+- src/modules/m2_market/router.py — endpoints FastAPI
+
+## M3 — Motor Financeiro (ACTIVO)
+
+### Endpoints M3
+- POST /api/v1/financial/ — modelo financeiro completo
+- POST /api/v1/financial/scenarios/{property_id} — 3 cenarios automaticos
+- GET /api/v1/financial/{model_id} — obter modelo
+- GET /api/v1/financial/property/{property_id} — listar modelos
+- POST /api/v1/financial/mao — regra dos 70%
+- POST /api/v1/financial/floor-price — preco minimo de venda
+- POST /api/v1/financial/quick-imt — calculo rapido de IMT/IS
+- GET /api/v1/financial/{model_id}/cash-flow — fluxo de caixa mensal
+
+### Parametros fiscais
+- Portugal: IMT OE2026 (Lei 73-A/2025), IS 0,8%, mais-valias 50% + IRS progressivo
+- Brasil: ITBI 3%, IR ganho capital 15-22,5%
+
+### Ficheiros M3
+- src/modules/m3_financial/tax_tables.py — tabelas fiscais (actualizar anualmente)
+- src/modules/m3_financial/calculator.py — motor de calculo (FinancialCalculator)
+- src/modules/m3_financial/service.py — logica de negocio (FinancialService)
+- src/modules/m3_financial/schemas.py — validacao Pydantic
+- src/modules/m3_financial/router.py — endpoints FastAPI
+
+## Contratos Entre Modulos
+
+### Interfaces M2 (Pesquisa de Mercado)
+- `MarketService.find_comparables(municipality, property_type, ...) → dict`
+- `MarketService.valuate_property(municipality, area_m2, ...) → dict`
+- `MarketService.estimate_arv(deal_id) → dict`
+- `MarketService.get_arv_for_financial_model(deal_id) → float | None`
+- `MarketService.get_comparables_for_pricing(deal_id) → dict`
+- `CasafariClient.search_listings(location_ids, types, ...) → dict`
+- `CasafariClient.resolve_location(name) → int | None`
+- `CasafariClient.get_property_detail(property_id) → dict`
+- `INEClient.get_median_price(municipality) → dict | None`
+
+### API REST
+- `GET /health` — health check
+- `GET /api/v1/ingest/opportunities` — listar propriedades (retrocompatibilidade)
+- `GET /api/v1/ingest/stats` — estatisticas
+- `GET /api/v1/properties/` — listar properties
+- `POST /api/v1/properties/` — criar property manual
+- `GET /api/v1/properties/{id}` — detalhe
+- `PATCH /api/v1/properties/{id}` — actualizar
 
 ## Setup
 1. `cp .env.example .env` e preencher com as chaves
 2. `pip install -e .`
-3. `python -m src.pipeline.run` para testar
+3. `uvicorn src.main:app --reload --port 8000` para a API
 4. `streamlit run src/dashboard/app.py` para o dashboard
-5. `bash scripts/setup_cron.sh` para agendar execução diária

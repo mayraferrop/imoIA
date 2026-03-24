@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>{{ email_subject | default("Nova Propriedade Disponível") }}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+
+  <!-- Wrapper exterior -->
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f4f4f4;">
+    <tr>
+      <td align="center" style="padding:24px 16px;">
+
+        <!-- Container principal max 600px -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+
+          <!-- ==== CABECALHO ==== -->
+          <tr>
+            <td align="center" bgcolor="{{ color_primary }}" style="background-color:{{ color_primary }};padding:28px 40px;">
+              {% if logo_url %}
+              <img src="{{ logo_url }}" alt="{{ brand_name | default('ImoIA') }}" width="140" style="max-width:140px;height:auto;display:block;margin:0 auto 10px;" border="0">
+              {% else %}
+              <p style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:26px;font-weight:700;color:#ffffff;letter-spacing:2px;">{{ brand_name | default("ImoIA") }}</p>
+              {% endif %}
+              {% if tagline %}
+              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:rgba(255,255,255,0.75);letter-spacing:1px;">{{ tagline }}</p>
+              {% endif %}
+            </td>
+          </tr>
+
+          <!-- ==== IMAGEM HERO ==== -->
+          {% if cover_photo %}
+          <tr>
+            <td style="padding:0;line-height:0;font-size:0;">
+              <img src="{{ cover_photo }}" alt="{{ title }}" width="600" style="width:100%;max-width:600px;height:auto;display:block;" border="0">
+            </td>
+          </tr>
+          {% endif %}
+
+          <!-- ==== FAIXA DE PRECO ==== -->
+          <tr>
+            <td align="center" bgcolor="{{ color_primary }}" style="background-color:{{ color_primary }};padding:16px 40px;">
+              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:34px;font-weight:700;color:{{ color_accent }};letter-spacing:-1px;">{{ price }}</p>
+            </td>
+          </tr>
+
+          <!-- ==== CONTEUDO PRINCIPAL ==== -->
+          <tr>
+            <td style="padding:36px 40px 28px;">
+
+              <!-- Titulo -->
+              <h1 style="margin:0 0 10px;font-family:Arial,Helvetica,sans-serif;font-size:24px;font-weight:700;color:{{ color_primary }};line-height:1.2;">{{ title }}</h1>
+
+              <!-- Separador -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="60" style="margin-bottom:18px;">
+                <tr>
+                  <td height="4" bgcolor="{{ color_accent }}" style="background-color:{{ color_accent }};border-radius:2px;"></td>
+                </tr>
+              </table>
+
+              <!-- Localizacao -->
+              {% if location %}
+              <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#666666;">📍 {{ location }}</p>
+              {% endif %}
+
+              <!-- Descricao curta -->
+              {% if short_description %}
+              <p style="margin:0 0 28px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#444444;">{{ short_description }}</p>
+              {% endif %}
+
+              <!-- 4 Highlights em tabela 2x2 -->
+              {% if highlights %}
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:28px;">
+                <tr>
+                  <td style="padding-bottom:8px;">
+                    <p style="margin:0 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#999999;">Destaques</p>
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                      {% for hl in highlights[:4] %}
+                      {% if loop.index is odd %}
+                      <tr>
+                      {% endif %}
+                        <td width="50%" valign="top" style="padding:6px 8px 6px 0;">
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td width="20" valign="top" style="color:{{ color_accent }};font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;line-height:1.4;">✓</td>
+                              <td style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#333333;line-height:1.4;padding-left:6px;">{{ hl }}</td>
+                            </tr>
+                          </table>
+                        </td>
+                      {% if loop.index is even or loop.last %}
+                      </tr>
+                      {% endif %}
+                      {% endfor %}
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              {% endif %}
+
+              <!-- Caracteristicas basicas (quartos, area, etc.) -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:32px;border-top:1px solid #eeeeee;padding-top:20px;">
+                <tr>
+                  {% if bedrooms %}
+                  <td align="center" width="25%" style="padding:12px 8px;">
+                    <p style="margin:0 0 4px;font-family:Arial,Helvetica,sans-serif;font-size:22px;">🛏</p>
+                    <p style="margin:0 0 2px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;color:{{ color_primary }};">{{ bedrooms }}</p>
+                    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#888888;">Quartos</p>
+                  </td>
+                  {% endif %}
+                  {% if bathrooms %}
+                  <td align="center" width="25%" style="padding:12px 8px;">
+                    <p style="margin:0 0 4px;font-family:Arial,Helvetica,sans-serif;font-size:22px;">🚿</p>
+                    <p style="margin:0 0 2px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;color:{{ color_primary }};">{{ bathrooms }}</p>
+                    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#888888;">WC</p>
+                  </td>
+                  {% endif %}
+                  {% if area %}
+                  <td align="center" width="25%" style="padding:12px 8px;">
+                    <p style="margin:0 0 4px;font-family:Arial,Helvetica,sans-serif;font-size:22px;">📐</p>
+                    <p style="margin:0 0 2px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;color:{{ color_primary }};">{{ area }} m²</p>
+                    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#888888;">Área</p>
+                  </td>
+                  {% endif %}
+                  {% if energy_cert %}
+                  <td align="center" width="25%" style="padding:12px 8px;">
+                    <p style="margin:0 0 4px;font-family:Arial,Helvetica,sans-serif;font-size:22px;">⚡</p>
+                    <p style="margin:0 0 2px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;color:{{ color_primary }};">{{ energy_cert }}</p>
+                    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#888888;">Certificado</p>
+                  </td>
+                  {% endif %}
+                </tr>
+              </table>
+
+              <!-- Botao CTA -->
+              {% if cta_url %}
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:12px;">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center" bgcolor="{{ color_accent }}" style="background-color:{{ color_accent }};border-radius:50px;">
+                          <a href="{{ cta_url }}" target="_blank" style="display:inline-block;padding:16px 44px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.5px;border-radius:50px;">{{ cta_label | default("Ver imóvel completo") }}</a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              {% endif %}
+
+            </td>
+          </tr>
+
+          <!-- ==== SEPARADOR ==== -->
+          <tr>
+            <td style="padding:0 40px;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td height="1" bgcolor="#eeeeee" style="background-color:#eeeeee;font-size:0;line-height:0;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ==== RODAPE ==== -->
+          <tr>
+            <td align="center" style="padding:28px 40px 24px;">
+
+              <!-- Marca e contactos -->
+              <p style="margin:0 0 8px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:700;color:{{ color_primary }};">{{ brand_name | default("ImoIA") }}</p>
+              {% if tagline %}
+              <p style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#888888;">{{ tagline }}</p>
+              {% endif %}
+
+              <!-- Contactos -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin:0 auto 14px;">
+                <tr>
+                  {% if contact_phone %}
+                  <td style="padding:0 10px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#555555;">📞 {{ contact_phone }}</td>
+                  {% endif %}
+                  {% if contact_email %}
+                  <td style="padding:0 10px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#555555;">✉️ {{ contact_email }}</td>
+                  {% endif %}
+                  {% if website_url %}
+                  <td style="padding:0 10px;">
+                    <a href="{{ website_url }}" target="_blank" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;color:{{ color_primary }};text-decoration:none;">🌐 {{ website_url }}</a>
+                  </td>
+                  {% endif %}
+                </tr>
+              </table>
+
+              <!-- Redes sociais -->
+              {% if social_instagram or social_facebook or social_linkedin %}
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin:0 auto 18px;">
+                <tr>
+                  {% if social_instagram %}
+                  <td style="padding:0 6px;">
+                    <a href="{{ social_instagram }}" target="_blank" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#555555;text-decoration:none;">Instagram</a>
+                  </td>
+                  {% endif %}
+                  {% if social_facebook %}
+                  <td style="padding:0 6px;border-left:1px solid #dddddd;">
+                    <a href="{{ social_facebook }}" target="_blank" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#555555;text-decoration:none;">Facebook</a>
+                  </td>
+                  {% endif %}
+                  {% if social_linkedin %}
+                  <td style="padding:0 6px;border-left:1px solid #dddddd;">
+                    <a href="{{ social_linkedin }}" target="_blank" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#555555;text-decoration:none;">LinkedIn</a>
+                  </td>
+                  {% endif %}
+                </tr>
+              </table>
+              {% endif %}
+
+              <!-- Nota legal / Unsubscribe -->
+              <p style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#aaaaaa;line-height:1.5;">Recebeu este email porque subscreve as nossas alertas de novos imóveis.</p>
+              {% if unsubscribe_url %}
+              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#aaaaaa;">
+                <a href="{{ unsubscribe_url }}" target="_blank" style="color:#aaaaaa;text-decoration:underline;">Cancelar subscrição</a>
+              </p>
+              {% endif %}
+            </td>
+          </tr>
+
+        </table>
+        <!-- fim container principal -->
+
+      </td>
+    </tr>
+  </table>
+  <!-- fim wrapper exterior -->
+
+</body>
+</html>
