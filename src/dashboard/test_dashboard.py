@@ -9,6 +9,7 @@ Uso:
 
 from __future__ import annotations
 
+import os
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -19,7 +20,7 @@ import streamlit as st
 # Configuracao
 # ---------------------------------------------------------------------------
 
-API_BASE = "http://localhost:8000"
+API_BASE = os.environ.get("API_BASE_URL", "http://localhost:8000")
 TIMEOUT = 15.0
 
 TEAL = "#0F766E"
