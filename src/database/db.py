@@ -9,6 +9,8 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
+from urllib.parse import quote_plus, urlparse
+
 from loguru import logger
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -26,6 +28,13 @@ def _get_engine():
     if _engine is None:
         settings = get_settings()
         db_url = settings.database_url
+
+        # Garantir que a password está URL-encoded (caracteres especiais como @)
+        if "postgresql" in db_url:
+            parsed = urlparse(db_url)
+            if parsed.password and "%" not in parsed.password:
+                encoded_pw = quote_plus(parsed.password)
+                db_url = db_url.replace(f":{parsed.password}@", f":{encoded_pw}@", 1)
 
         # Garantir que o diretório data/ existe para SQLite
         if db_url.startswith("sqlite:///"):
