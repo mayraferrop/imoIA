@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { fetcher } from "@/lib/api";
 import { formatEUR, cn } from "@/lib/utils";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
 
 interface BrandKit {
   brand_name?: string;

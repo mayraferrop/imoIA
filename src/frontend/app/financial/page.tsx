@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { formatEUR, formatPercent, GRADE_COLORS } from "@/lib/utils";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
 
 interface CashFlowEntry {
   label: string;

@@ -5,7 +5,7 @@ import { fetcher } from "@/lib/api";
 import { formatEUR, cn, GRADE_COLORS } from "@/lib/utils";
 import { supabaseGet } from "@/lib/supabase";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
 
 interface Lead {
   id: string;
