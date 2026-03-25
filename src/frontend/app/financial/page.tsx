@@ -99,6 +99,7 @@ export default function FinancialPage() {
   const [modelId, setModelId] = useState<string | null>(null);
   const [scenarios, setScenarios] = useState<ScenarioData[] | null>(null);
   const [lastPayload, setLastPayload] = useState<Record<string, any> | null>(null);
+  const [errorMsg, setErrorMsg] = useState("");
 
   // IMT
   const [imtResult, setImtResult] = useState<IMTResult | null>(null);
@@ -115,32 +116,61 @@ export default function FinancialPage() {
     setModelId(null);
     setScenarios(null);
     setSaveMsg("");
+    setErrorMsg("");
     const fd = new FormData(e.currentTarget);
+
+    // Helper: parse number from form, return fallback if empty/0
+    const num = (name: string, fallback: number) => {
+      const raw = fd.get(name);
+      if (!raw || raw === "") return fallback;
+      const v = Number(raw);
+      return isNaN(v) || v === 0 ? fallback : v;
+    };
+    const numOrZero = (name: string) => {
+      const raw = fd.get(name);
+      if (!raw || raw === "") return 0;
+      const v = Number(raw);
+      return isNaN(v) ? 0 : v;
+    };
+
+    const purchasePrice = num("purchase_price", 295000);
+    const estimatedSalePrice = num("estimated_sale_price", 500000);
+
+    if (purchasePrice <= 0) {
+      setErrorMsg("Preco de compra e obrigatorio.");
+      setLoading(false);
+      return;
+    }
+    if (estimatedSalePrice <= 0) {
+      setErrorMsg("Preco de venda (ARV) e obrigatorio.");
+      setLoading(false);
+      return;
+    }
 
     const financingType = fd.get("financing_type") as string || "cash";
     const payload: Record<string, any> = {
-      purchase_price: Number(fd.get("purchase_price")) || 295000,
-      renovation_budget: Number(fd.get("renovation_cost")) || 0,
-      estimated_sale_price: Number(fd.get("estimated_sale_price")) || 0,
-      additional_holding_months: Number(fd.get("holding_months")) || 6,
+      purchase_price: purchasePrice,
+      renovation_budget: numOrZero("renovation_cost"),
+      estimated_sale_price: estimatedSalePrice,
+      additional_holding_months: num("holding_months", 6),
       municipality: (fd.get("municipality") as string) || "Lisboa",
       property_type: fd.get("property_type") as string || "secondary",
       country: fd.get("country") as string || "PT",
       entity_structure: fd.get("entity_structure") as string || "pf_jp",
       imt_resale_regime: fd.get("imt_resale_regime") as string || "none",
       financing_type: financingType,
-      renovation_duration_months: Number(fd.get("renovation_duration_months")) || 3,
-      comissao_venda_pct: Number(fd.get("comissao_venda_pct")) || 6.15,
-      comissao_compra_pct: Number(fd.get("comissao_compra_pct")) || 0,
-      monthly_condominio: Number(fd.get("monthly_condominio")) || 100,
-      roi_target_pct: Number(fd.get("roi_target_pct")) || 15,
+      renovation_duration_months: num("renovation_duration_months", 3),
+      comissao_venda_pct: num("comissao_venda_pct", 6.15),
+      comissao_compra_pct: numOrZero("comissao_compra_pct"),
+      monthly_condominio: num("monthly_condominio", 100),
+      roi_target_pct: num("roi_target_pct", 15),
       scenario_name: "simulacao",
     };
 
     if (financingType !== "cash") {
-      payload.loan_amount = Number(fd.get("loan_amount")) || 0;
-      payload.interest_rate_pct = Number(fd.get("interest_rate_pct")) || 2.73;
-      payload.loan_term_months = (Number(fd.get("loan_term_years")) || 30) * 12;
+      payload.loan_amount = numOrZero("loan_amount");
+      payload.interest_rate_pct = num("interest_rate_pct", 2.73);
+      payload.loan_term_months = num("loan_term_years", 30) * 12;
     }
 
     setLastPayload(payload);
@@ -155,9 +185,17 @@ export default function FinancialPage() {
         const data = await res.json();
         setResult(data);
         if (data.model_id) setModelId(data.model_id);
+      } else {
+        const err = await res.json().catch(() => null);
+        const detail = err?.detail;
+        if (Array.isArray(detail)) {
+          setErrorMsg(detail.map((d: any) => `${d.loc?.join(".")}: ${d.msg}`).join("; "));
+        } else {
+          setErrorMsg(`Erro ${res.status}: ${typeof detail === "string" ? detail : "Falha na simulacao"}`);
+        }
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      setErrorMsg("Erro de comunicacao com a API. Verifique a ligacao.");
     } finally {
       setLoading(false);
     }
@@ -483,6 +521,13 @@ export default function FinancialPage() {
                 </button>
               </form>
             </div>
+
+            {/* Error message */}
+            {errorMsg && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <p className="text-sm text-red-700">{errorMsg}</p>
+              </div>
+            )}
 
             {/* Result */}
             {result && (
