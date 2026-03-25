@@ -24,7 +24,7 @@ class FinancialModelCreateRequest(BaseModel):
 
     # Obra
     renovation_budget: float = Field(default=0, ge=0)
-    renovation_contingency_pct: float = Field(default=15, ge=0, le=50)
+    renovation_contingency_pct: float = Field(default=0, ge=0, le=50)
     renovation_duration_months: int = Field(default=6, ge=0, le=36)
 
     # Financiamento

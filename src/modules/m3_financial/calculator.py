@@ -732,10 +732,12 @@ class FinancialCalculator:
             retorno_total = res.caixa_closing + imt_reembolso
             res.moic = round(retorno_total / res.total_investment, 2)
 
-            # Cash-on-cash (relevante com financiamento)
-            if equity > 0:
+            # ROI equity = lucro / capital proprio investido
+            # equity_real = total_investment - loan (dinheiro que sai do bolso)
+            equity_real = res.total_investment - res.loan_amount
+            if equity_real > 0:
                 res.cash_on_cash_return_pct = round(
-                    (res.net_profit / equity) * 100, 2
+                    (res.net_profit / equity_real) * 100, 2
                 )
 
         # Warnings

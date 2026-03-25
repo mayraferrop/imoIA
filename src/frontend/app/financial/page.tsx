@@ -168,7 +168,9 @@ export default function FinancialPage() {
       renovation_duration_months: num("renovation_duration_months", 3),
       comissao_venda_pct: num("comissao_venda_pct", 6.15),
       comissao_compra_pct: numOrZero("comissao_compra_pct"),
-      monthly_condominio: num("monthly_condominio", 100),
+      renovation_contingency_pct: numOrZero("renovation_contingency_pct"),
+      monthly_condominio: num("monthly_condominio", 50),
+      annual_insurance: num("annual_insurance", 300),
       roi_target_pct: num("roi_target_pct", 15),
       scenario_name: "simulacao",
     };
@@ -437,9 +439,10 @@ export default function FinancialPage() {
                 {/* Obra */}
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Obra</p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
                     <Field name="renovation_cost" label="Orcamento obra (EUR)" placeholder="98400" />
                     <Field name="renovation_duration_months" label="Meses de obra" placeholder="3" />
+                    <Field name="renovation_contingency_pct" label="Contingencia %" placeholder="0" />
                   </div>
                 </div>
 
@@ -492,7 +495,8 @@ export default function FinancialPage() {
                     <Field name="estimated_sale_price" label="Preco venda / ARV (EUR)" placeholder="500000" />
                     <Field name="holding_months" label="Meses ate venda (apos obra)" placeholder="6" />
                     <Field name="comissao_venda_pct" label="Comissao venda + IVA %" placeholder="6.15" />
-                    <Field name="monthly_condominio" label="Manutencao mensal (EUR)" placeholder="100" />
+                    <Field name="monthly_condominio" label="Condominio mensal (EUR)" placeholder="50" />
+                    <Field name="annual_insurance" label="Seguro anual (EUR)" placeholder="300" />
                   </div>
                 </div>
 
@@ -541,54 +545,90 @@ export default function FinancialPage() {
                 ? (result.imt_2 ?? 0) : 0;
               const totalTax = result.total_corporate_tax ?? result.capital_gains_tax ?? 0;
               const lucroPosImpostos = result.net_profit - totalTax;
-              const roiPosImpostos = result.total_investment > 0
+              const margemBruta = result.total_investment > 0
+                ? (result.net_profit / result.total_investment * 100) : 0;
+              const margemLiquida = result.total_investment > 0
                 ? (lucroPosImpostos / result.total_investment * 100) : 0;
               const holdingDetail = result.holding_detail;
               const totalEscritura1 = (result.imt ?? 0) + (result.imposto_selo ?? 0) + (result.notario_registo ?? 0) + (result.comissao_compra ?? 0);
+              const roiTarget = lastPayload?.roi_target_pct ?? 15;
 
               return (
               <div className="space-y-6">
                 {/* Go/No-Go badge + KPIs */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6">
                   <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h2 className="text-lg font-semibold">Resultado</h2>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {result.go_nogo === "go" ? `ROI >= ${lastPayload?.roi_target_pct ?? 15}%` :
-                         result.go_nogo === "marginal" ? `ROI >= ${((lastPayload?.roi_target_pct ?? 15) * 0.7).toFixed(0)}% (70% do target)` :
-                         `ROI < ${((lastPayload?.roi_target_pct ?? 15) * 0.7).toFixed(0)}%`}
-                      </p>
+                    <h2 className="text-lg font-semibold">Resultado</h2>
+                    <div className="relative group">
+                      <span
+                        className="px-6 py-2 rounded-xl text-lg font-bold text-white cursor-help"
+                        style={{ backgroundColor: goNoGoColor }}
+                      >
+                        {goNoGoLabel}
+                      </span>
+                      <div className="hidden group-hover:block absolute z-10 top-full right-0 mt-2 w-72 bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs text-slate-600 leading-relaxed">
+                        <p className="font-bold mb-1">ROI anualizado {(result.roi_pct ?? 0).toFixed(1)}% vs target {roiTarget}%</p>
+                        <p>ROI &ge; {roiTarget}% &rarr; GO</p>
+                        <p>ROI &ge; {(roiTarget * 0.7).toFixed(0)}% (70% target) &rarr; MARGINAL</p>
+                        <p>ROI &lt; {(roiTarget * 0.7).toFixed(0)}% &rarr; NO GO</p>
+                      </div>
                     </div>
-                    <span
-                      className="px-6 py-2 rounded-xl text-lg font-bold text-white"
-                      style={{ backgroundColor: goNoGoColor }}
-                    >
-                      {goNoGoLabel}
-                    </span>
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <KpiCard
+                      label="Margem bruta"
+                      value={`${margemBruta.toFixed(1)}%`}
+                      color={margemBruta >= 0 ? "#0F766E" : "#DC2626"}
+                      tooltip={`Lucro bruto / Investimento total = ${formatEUR(result.net_profit)} / ${formatEUR(result.total_investment)}. Mede a qualidade do deal independente de quem financia.`}
+                    />
+                    <KpiCard
+                      label="Margem liquida"
+                      value={`${margemLiquida.toFixed(1)}%`}
+                      color={margemLiquida >= 0 ? "#0F766E" : "#DC2626"}
+                      tooltip={`Lucro pos-impostos / Investimento total = ${formatEUR(lucroPosImpostos)} / ${formatEUR(result.total_investment)}. Retorno real depois de IRC e derrama.`}
+                    />
+                    <KpiCard
+                      label="ROI anualizado"
+                      value={`${(result.roi_pct ?? 0).toFixed(1)}%`}
+                      tooltip={`CAGR: (1 + margem)^(12/${result.holding_months ?? 0}m) - 1. Converte o retorno para base anual para comparar deals com duracoes diferentes.`}
+                    />
+                    <KpiCard
+                      label="MOIC"
+                      value={`${(result.moic ?? 0).toFixed(2)}x`}
+                      tooltip={`Retorno total / Capital investido. Acima de 1.0x = lucro. Por cada euro investido, recebes ${(result.moic ?? 0).toFixed(2)} euros.`}
+                    />
+                  </div>
+
+                  {/* Linha 2: lucro absoluto + ROI equity */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 pt-3 border-t border-slate-100">
+                    <KpiCard
                       label="Lucro bruto"
                       value={formatEUR(result.net_profit)}
                       color={result.net_profit >= 0 ? "#0F766E" : "#DC2626"}
+                      tooltip="Retorno total (venda + reembolsos) menos capital investido. Antes de impostos."
                     />
-                    <KpiCard label="MOIC" value={`${(result.moic ?? 0).toFixed(2)}x`} />
-                    <KpiCard label="ROI anualizado" value={`${(result.roi_pct ?? 0).toFixed(1)}%`} />
-                    <KpiCard label="ROI simples" value={`${(result.roi_simple_pct ?? 0).toFixed(1)}%`} />
+                    {totalTax > 0 && (
+                      <KpiCard
+                        label="Lucro pos-impostos"
+                        value={formatEUR(lucroPosImpostos)}
+                        color={lucroPosImpostos >= 0 ? "#0F766E" : "#DC2626"}
+                        tooltip={`Lucro bruto ${formatEUR(result.net_profit)} - impostos ${formatEUR(totalTax)} = ${formatEUR(lucroPosImpostos)}`}
+                      />
+                    )}
+                    {result.cash_on_cash_return_pct != null && (
+                      <KpiCard
+                        label="ROI equity"
+                        value={`${result.cash_on_cash_return_pct.toFixed(1)}%`}
+                        tooltip={`Lucro / Capital proprio investido (investimento total - emprestimo). ${result.loan_amount ? "Com financiamento o ROI equity sobe porque menos capital proprio e usado." : "Num deal cash, ROI equity = margem bruta."}`}
+                      />
+                    )}
+                    <KpiCard
+                      label="Investimento total"
+                      value={formatEUR(result.total_investment)}
+                      tooltip="Todo o capital desembolsado: compra + custos escrituras + obra + manutencao + PMT credito."
+                    />
                   </div>
-
-                  {/* Pos-impostos */}
-                  {totalTax > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 pt-3 border-t border-slate-100">
-                      <KpiCard label="Lucro pos-impostos" value={formatEUR(lucroPosImpostos)} color={lucroPosImpostos >= 0 ? "#0F766E" : "#DC2626"} />
-                      <KpiCard label="ROI pos-impostos" value={`${roiPosImpostos.toFixed(1)}%`} />
-                      {result.cash_on_cash_return_pct != null && (
-                        <KpiCard label="Cash-on-cash" value={`${result.cash_on_cash_return_pct.toFixed(1)}%`} />
-                      )}
-                      <KpiCard label="Impostos estimados" value={formatEUR(totalTax)} color="#DC2626" />
-                    </div>
-                  )}
 
                   {/* Warnings */}
                   {result.warnings && result.warnings.length > 0 && (
@@ -615,7 +655,12 @@ export default function FinancialPage() {
                     <DetailRow label="Custos financiamento" value={formatEUR(result.bank_fees)} />
                   )}
                   {holdingDetail && (
-                    <DetailRow label={`Manutencao (${holdingDetail.meses}m × ${formatEUR(holdingDetail.total_mensal)}/m)`} value={formatEUR(result.total_holding_cost)} />
+                    <>
+                      <DetailRow label={`Manutencao (${holdingDetail.meses}m × ${formatEUR(holdingDetail.total_mensal)}/m)`} value={formatEUR(result.total_holding_cost)} />
+                      <p className="text-xs text-slate-400 -mt-1 ml-1">
+                        Cond. {formatEUR(holdingDetail.condominio_mensal)} + Seguro {formatEUR(holdingDetail.seguro_mensal)} + IMI {formatEUR(holdingDetail.imi_mensal)} = {formatEUR(holdingDetail.total_mensal)}/m
+                      </p>
+                    </>
                   )}
                   {(result.monthly_payment ?? 0) > 0 && (
                     <DetailRow label={`PMT credito (${result.holding_months}m × ${formatEUR(result.monthly_payment)}/m)`} value={formatEUR((result.monthly_payment ?? 0) * (result.holding_months ?? 0))} />
@@ -635,7 +680,7 @@ export default function FinancialPage() {
                       {result.entity_structure === "pf_jp" ? "PF → JP" : result.entity_structure === "jp_only" ? "JP only" : "PF only"}
                     </span>
                   </div>
-                  <DetailRow label="IMT" value={formatEUR(result.imt)} />
+                  <DetailRow label="IMT (tabela OE2026)" value={formatEUR(result.imt)} />
                   <DetailRow label="Imposto de Selo (0.8%)" value={formatEUR(result.imposto_selo)} />
                   <DetailRow label="Escritura + Registo" value={formatEUR(result.notario_registo)} />
                   {result.comissao_compra != null && result.comissao_compra > 0 && (
@@ -900,17 +945,29 @@ function KpiCard({
   label,
   value,
   color,
+  tooltip,
 }: {
   label: string;
   value: string;
   color?: string;
+  tooltip?: string;
 }) {
   return (
-    <div className="bg-slate-50 rounded-lg p-4">
-      <p className="text-xs text-slate-500 uppercase tracking-wider">{label}</p>
+    <div className="bg-slate-50 rounded-lg p-4 relative group">
+      <div className="flex items-center gap-1">
+        <p className="text-xs text-slate-500 uppercase tracking-wider">{label}</p>
+        {tooltip && (
+          <span className="text-slate-400 cursor-help text-xs" title={tooltip}>i</span>
+        )}
+      </div>
       <p className="text-xl font-bold mt-1" style={{ color: color ?? "#0F172A" }}>
         {value}
       </p>
+      {tooltip && (
+        <div className="hidden group-hover:block absolute z-10 bottom-full left-0 mb-2 w-72 bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs text-slate-600 leading-relaxed">
+          {tooltip}
+        </div>
+      )}
     </div>
   );
 }
