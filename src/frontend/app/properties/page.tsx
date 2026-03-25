@@ -47,6 +47,13 @@ interface Opportunity {
   deal_score?: number;
   confidence?: number;
   opportunity_type?: string;
+  original_message?: string;
+  ai_reasoning?: string;
+  location_extracted?: string;
+  price_mentioned?: number;
+  area_m2?: number;
+  property_type?: string;
+  status?: string;
 }
 
 interface IngestStats {
@@ -115,7 +122,7 @@ async function fetchSupabaseProperties(): Promise<Property[]> {
 
 async function fetchSupabaseOpportunities(): Promise<Opportunity[]> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/opportunities?select=id,deal_grade,deal_score,confidence,opportunity_type&is_opportunity=eq.true`,
+    `${SUPABASE_URL}/rest/v1/opportunities?select=id,deal_grade,deal_score,confidence,opportunity_type,original_message,ai_reasoning,location_extracted,price_mentioned,area_m2,property_type,status&is_opportunity=eq.true`,
     { headers: SUPA_HEADERS }
   );
   if (!res.ok) return [];
@@ -128,7 +135,7 @@ function enrichProperties(properties: Property[], opportunities: Opportunity[]):
   return properties.map((p) => {
     if (p.source_opportunity_id && oppMap.has(p.source_opportunity_id)) {
       const opp = oppMap.get(p.source_opportunity_id)!;
-      return { ...p, deal_grade: opp.deal_grade, deal_score: opp.deal_score, confidence: opp.confidence, opportunity_type: opp.opportunity_type };
+      return { ...p, deal_grade: opp.deal_grade, deal_score: opp.deal_score, confidence: opp.confidence, opportunity_type: opp.opportunity_type, _opp: opp } as any;
     }
     return p;
   });
@@ -145,6 +152,8 @@ export default function PropertiesPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createMsg, setCreateMsg] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [actionMsg, setActionMsg] = useState("");
 
   // Filters
   const [filterMunicipality, setFilterMunicipality] = useState("");
@@ -265,6 +274,28 @@ export default function PropertiesPage() {
       setCreateMsg("Erro de comunicacao.");
     } finally {
       setCreateLoading(false);
+    }
+  }
+
+  async function handleStatusChange(propertyId: string, newStatus: string) {
+    setActionMsg("");
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/properties/${propertyId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        setActionMsg(`Estado alterado para "${STATUS_LABELS[newStatus] || newStatus}"`);
+        // Update local state
+        setProperties((prev) =>
+          prev.map((p) => (p.id === propertyId ? { ...p, status: newStatus } : p))
+        );
+      } else {
+        setActionMsg("Erro ao alterar estado.");
+      }
+    } catch {
+      setActionMsg("Erro de comunicacao com a API.");
     }
   }
 
@@ -530,6 +561,13 @@ export default function PropertiesPage() {
       {/* Property count */}
       <p className="text-xs text-slate-400">{filtered.length} propriedade(s) encontrada(s)</p>
 
+      {/* Action message */}
+      {actionMsg && (
+        <div className={`px-4 py-3 rounded-lg text-sm ${actionMsg.includes("Erro") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+          {actionMsg}
+        </div>
+      )}
+
       {/* Property cards */}
       {loading ? (
         <div className="text-center py-16 text-slate-400">A carregar...</div>
@@ -540,13 +578,18 @@ export default function PropertiesPage() {
             const pricePerM2 = p.asking_price && p.gross_area_m2
               ? Math.round(p.asking_price / p.gross_area_m2)
               : null;
+            const opp = (p as any)._opp as Opportunity | undefined;
+            const isExpanded = expandedId === p.id;
             return (
               <div
                 key={p.id}
-                className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-md transition-shadow"
+                className={`bg-white rounded-xl border overflow-hidden transition-shadow ${isExpanded ? "border-teal-300 shadow-lg col-span-1 md:col-span-2 lg:col-span-3" : "border-slate-200 hover:shadow-md"}`}
                 style={{ borderLeftWidth: 4, borderLeftColor: statusColor }}
               >
-                <div className="p-5">
+                <div
+                  className="p-5 cursor-pointer"
+                  onClick={() => setExpandedId(isExpanded ? null : p.id)}
+                >
                   {/* Header */}
                   <div className="flex items-start justify-between">
                     <div>
@@ -610,11 +653,120 @@ export default function PropertiesPage() {
                     )}
                   </div>
 
-                  {/* Price */}
-                  <div className="mt-4">
+                  {/* Price + expand hint */}
+                  <div className="mt-4 flex items-center justify-between">
                     <p className="text-lg font-bold text-teal-700">{formatEUR(p.asking_price)}</p>
+                    <span className="text-xs text-slate-400">{isExpanded ? "Fechar" : "Ver detalhe"}</span>
                   </div>
                 </div>
+
+                {/* Expanded detail panel */}
+                {isExpanded && (
+                  <div className="border-t border-slate-200 p-5 space-y-4 bg-slate-50">
+                    {/* Property info grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs text-slate-500">Distrito</p>
+                        <p className="font-medium text-slate-900">{p.district || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Concelho</p>
+                        <p className="font-medium text-slate-900">{p.municipality || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Preco pedido</p>
+                        <p className="font-medium text-teal-700">{formatEUR(p.asking_price)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Preco/m2</p>
+                        <p className="font-medium text-slate-900">{pricePerM2 ? formatEUR(pricePerM2) : "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Area</p>
+                        <p className="font-medium text-slate-900">{p.gross_area_m2 ? `${p.gross_area_m2} m2` : "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Tipo</p>
+                        <p className="font-medium text-slate-900">{p.property_type || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Quartos</p>
+                        <p className="font-medium text-slate-900">{p.bedrooms ?? "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Fonte</p>
+                        <p className="font-medium text-slate-900">{p.source || "—"}</p>
+                      </div>
+                    </div>
+
+                    {/* Contact info */}
+                    {(p.contact_name || p.contact_phone) && (
+                      <div className="bg-white rounded-lg p-3 border border-slate-200">
+                        <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Contacto</p>
+                        <p className="text-sm text-slate-900">{p.contact_name || "—"} {p.contact_phone ? `| ${p.contact_phone}` : ""}</p>
+                      </div>
+                    )}
+
+                    {/* Notes */}
+                    {p.notes && (
+                      <div className="bg-white rounded-lg p-3 border border-slate-200">
+                        <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Notas</p>
+                        <p className="text-sm text-slate-700 whitespace-pre-wrap">{p.notes}</p>
+                      </div>
+                    )}
+
+                    {/* Original WhatsApp message */}
+                    {opp?.original_message && (
+                      <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+                        <p className="text-xs font-semibold text-green-700 uppercase mb-1">Mensagem original (WhatsApp)</p>
+                        <p className="text-sm text-green-900 whitespace-pre-wrap">{opp.original_message}</p>
+                      </div>
+                    )}
+
+                    {/* AI Analysis */}
+                    {opp?.ai_reasoning && (
+                      <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                        <p className="text-xs font-semibold text-blue-700 uppercase mb-1">Analise IA</p>
+                        <p className="text-sm text-blue-900 whitespace-pre-wrap">{opp.ai_reasoning}</p>
+                      </div>
+                    )}
+
+                    {/* Location extracted */}
+                    {opp?.location_extracted && (
+                      <div className="text-sm text-slate-600">
+                        <span className="font-medium">Localizacao extraida:</span> {opp.location_extracted}
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleStatusChange(p.id, "analise"); }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                      >
+                        Analisar
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleStatusChange(p.id, "contacted"); }}
+                        className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
+                      >
+                        Contactar
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleStatusChange(p.id, "negotiating"); }}
+                        className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors"
+                      >
+                        Negociar
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleStatusChange(p.id, "descartado"); }}
+                        className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
+                      >
+                        Descartar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
