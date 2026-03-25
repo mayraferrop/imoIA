@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import quote_plus, urlparse
 
 from loguru import logger
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.config import get_settings
@@ -70,11 +70,34 @@ def _get_session_factory() -> sessionmaker[Session]:
     return _SessionLocal
 
 
+def _sync_sequences(engine) -> None:
+    """Sincroniza sequences do PostgreSQL com o max(id) de cada tabela.
+
+    Evita erros de duplicate key quando a sequence está dessincronizada
+    (ex: dados importados sem passar pelo auto-increment).
+    """
+    if "sqlite" in str(engine.url):
+        return
+    tables = ["messages", "groups", "opportunities", "market_data"]
+    try:
+        with engine.connect() as conn:
+            for table in tables:
+                conn.execute(text(
+                    f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
+                    f"COALESCE(MAX(id), 1)) FROM {table}"
+                ))
+            conn.commit()
+        logger.info("Sequences PostgreSQL sincronizadas")
+    except Exception as e:
+        logger.warning(f"Aviso ao sincronizar sequences: {e}")
+
+
 def init_db() -> None:
     """Inicializa a base de dados — cria todas as tabelas."""
     engine = _get_engine()
     try:
         Base.metadata.create_all(bind=engine)
+        _sync_sequences(engine)
         logger.info("Base de dados inicializada com sucesso")
     except Exception as e:
         logger.warning(f"Aviso ao criar tabelas (podem ja existir): {e}")
