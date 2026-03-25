@@ -53,8 +53,10 @@ class FinancialInput:
     renovation_duration_months: int = 6
 
     # Financiamento (default: cash)
-    financing_type: str = "cash"
-    loan_amount: float = 0
+    financing_type: str = "cash"  # cash ou mortgage
+    loan_amount: float = 0  # override directo (se > 0, ignora percentagens)
+    loan_pct_purchase: float = 0  # % do preco compra financiado (0-90)
+    loan_pct_renovation: float = 0  # % da obra financiada (0-100)
     interest_rate_pct: float = 0
     spread_pct: float = 0
     euribor_pct: float = EURIBOR_12M_REFERENCE
@@ -350,10 +352,16 @@ class FinancialCalculator:
         """Calcula custos de financiamento bancario."""
         res.financing_type = inp.financing_type
 
+        # Calcular emprestimo: override directo ou via percentagens
         if inp.loan_amount > 0:
             res.loan_amount = inp.loan_amount
+        elif inp.loan_pct_purchase > 0 or inp.loan_pct_renovation > 0:
+            loan_purchase = inp.purchase_price * (inp.loan_pct_purchase / 100)
+            loan_reno = res.renovation_total * (inp.loan_pct_renovation / 100)
+            res.loan_amount = round(loan_purchase + loan_reno, 2)
         else:
-            res.loan_amount = inp.purchase_price * LTV_MAX_INVESTMENT
+            # Sem financiamento (cash) — loan_amount fica 0
+            res.loan_amount = 0
 
         res.ltv_pct = (
             (res.loan_amount / inp.purchase_price) * 100

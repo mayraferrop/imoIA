@@ -101,6 +101,7 @@ export default function FinancialPage() {
   const [activeTab, setActiveTab] = useState<Tab>("simulator");
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [financingMode, setFinancingMode] = useState<"cash" | "mortgage">("cash");
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [modelId, setModelId] = useState<string | null>(null);
@@ -154,7 +155,6 @@ export default function FinancialPage() {
       return;
     }
 
-    const financingType = fd.get("financing_type") as string || "cash";
     const payload: Record<string, any> = {
       purchase_price: purchasePrice,
       renovation_budget: numOrZero("renovation_cost"),
@@ -165,7 +165,7 @@ export default function FinancialPage() {
       country: fd.get("country") as string || "PT",
       entity_structure: fd.get("entity_structure") as string || "pf_jp",
       imt_resale_regime: fd.get("imt_resale_regime") as string || "none",
-      financing_type: financingType,
+      financing_type: financingMode,
       renovation_duration_months: num("renovation_duration_months", 3),
       comissao_venda_pct: num("comissao_venda_pct", 6.15),
       comissao_compra_pct: numOrZero("comissao_compra_pct"),
@@ -176,8 +176,9 @@ export default function FinancialPage() {
       scenario_name: "simulacao",
     };
 
-    if (financingType !== "cash") {
-      payload.loan_amount = numOrZero("loan_amount");
+    if (financingMode === "mortgage") {
+      payload.loan_pct_purchase = num("loan_pct_purchase", 75);
+      payload.loan_pct_renovation = numOrZero("loan_pct_renovation");
       payload.interest_rate_pct = num("interest_rate_pct", 2.73);
       payload.loan_term_months = num("loan_term_years", 30) * 12;
     }
@@ -474,18 +475,98 @@ export default function FinancialPage() {
                 {/* Financiamento */}
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Financiamento</p>
+                  {/* Toggle Cash / Financiado */}
+                  <div className="flex gap-1 bg-slate-100 rounded-lg p-1 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setFinancingMode("cash")}
+                      className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                        financingMode === "cash" ? "bg-white text-teal-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      Cash
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFinancingMode("mortgage")}
+                      className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                        financingMode === "mortgage" ? "bg-white text-teal-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      Financiado
+                    </button>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-                      <select name="financing_type" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
-                        <option value="cash">Cash</option>
-                        <option value="mortgage">Credito</option>
-                        <option value="mixed">Misto</option>
-                      </select>
+                    <div className="relative group">
+                      <label className={`block text-sm font-medium mb-1 ${financingMode === "cash" ? "text-slate-400" : "text-slate-700"}`}>% financiado compra</label>
+                      <input
+                        name="loan_pct_purchase"
+                        type="number"
+                        placeholder="75"
+                        step="any"
+                        disabled={financingMode === "cash"}
+                        className={`w-full border rounded-lg px-3 py-2 text-sm outline-none ${
+                          financingMode === "cash"
+                            ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                            : "border-slate-300 focus:ring-2 focus:ring-teal-500"
+                        }`}
+                      />
+                      {financingMode === "cash" && (
+                        <div className="hidden group-hover:block absolute z-10 bottom-full left-0 mb-1 bg-white border border-slate-200 rounded-lg shadow-lg p-2 text-xs text-slate-500 w-48">
+                          Disponivel no modo Financiado
+                        </div>
+                      )}
                     </div>
-                    <Field name="loan_amount" label="Emprestimo (EUR)" placeholder="221250" />
-                    <Field name="interest_rate_pct" label="TAN %" placeholder="2.73" />
-                    <Field name="loan_term_years" label="Prazo (anos)" placeholder="30" />
+                    <div className="relative group">
+                      <label className={`block text-sm font-medium mb-1 ${financingMode === "cash" ? "text-slate-400" : "text-slate-700"}`}>% financiado obra</label>
+                      <input
+                        name="loan_pct_renovation"
+                        type="number"
+                        placeholder="0"
+                        step="any"
+                        disabled={financingMode === "cash"}
+                        className={`w-full border rounded-lg px-3 py-2 text-sm outline-none ${
+                          financingMode === "cash"
+                            ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                            : "border-slate-300 focus:ring-2 focus:ring-teal-500"
+                        }`}
+                      />
+                      {financingMode === "cash" && (
+                        <div className="hidden group-hover:block absolute z-10 bottom-full left-0 mb-1 bg-white border border-slate-200 rounded-lg shadow-lg p-2 text-xs text-slate-500 w-48">
+                          Disponivel no modo Financiado
+                        </div>
+                      )}
+                    </div>
+                    <div className="relative group">
+                      <label className={`block text-sm font-medium mb-1 ${financingMode === "cash" ? "text-slate-400" : "text-slate-700"}`}>TAN % (a.a.)</label>
+                      <input
+                        name="interest_rate_pct"
+                        type="number"
+                        placeholder="2.73"
+                        step="any"
+                        disabled={financingMode === "cash"}
+                        className={`w-full border rounded-lg px-3 py-2 text-sm outline-none ${
+                          financingMode === "cash"
+                            ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                            : "border-slate-300 focus:ring-2 focus:ring-teal-500"
+                        }`}
+                      />
+                    </div>
+                    <div className="relative group">
+                      <label className={`block text-sm font-medium mb-1 ${financingMode === "cash" ? "text-slate-400" : "text-slate-700"}`}>Prazo (anos)</label>
+                      <input
+                        name="loan_term_years"
+                        type="number"
+                        placeholder="30"
+                        step="any"
+                        disabled={financingMode === "cash"}
+                        className={`w-full border rounded-lg px-3 py-2 text-sm outline-none ${
+                          financingMode === "cash"
+                            ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                            : "border-slate-300 focus:ring-2 focus:ring-teal-500"
+                        }`}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -641,34 +722,70 @@ export default function FinancialPage() {
                   )}
                 </div>
 
-                {/* Breakdown investimento (Melhoria 5) */}
+                {/* Breakdown investimento */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
-                  <h3 className="text-sm font-semibold text-teal-700">Investimento Total</h3>
-                  <DetailRow label="Preco de compra (equity)" value={formatEUR((result.total_investment ?? 0) - (result.renovation_total ?? 0) - totalEscritura1 - (result.total_acquisition_cost_2 ?? 0) - (result.bank_fees ?? 0) - (result.total_holding_cost ?? 0))} />
-                  <DetailRow label="Custos 1a escritura" value={formatEUR(totalEscritura1)} />
-                  {result.entity_structure === "pf_jp" && (result.total_acquisition_cost_2 ?? 0) > 0 && (
-                    <DetailRow label="Custos 2a escritura" value={formatEUR(result.total_acquisition_cost_2)} />
-                  )}
-                  {(result.renovation_total ?? 0) > 0 && (
-                    <DetailRow label="Obra (budget + contingencia)" value={formatEUR(result.renovation_total)} />
-                  )}
-                  {(result.bank_fees ?? 0) > 0 && (
-                    <DetailRow label="Custos financiamento" value={formatEUR(result.bank_fees)} />
-                  )}
-                  {holdingDetail && (
+                  <h3 className="text-sm font-semibold text-teal-700">Investimento</h3>
+                  {(result.loan_amount ?? 0) > 0 ? (
                     <>
-                      <DetailRow label={`Manutencao (${holdingDetail.meses}m × ${formatEUR(holdingDetail.total_mensal)}/m)`} value={formatEUR(result.total_holding_cost)} />
-                      <p className="text-xs text-slate-400 -mt-1 ml-1">
-                        Cond. {formatEUR(holdingDetail.condominio_mensal)} + Seguro {formatEUR(holdingDetail.seguro_mensal)} + IMI {formatEUR(holdingDetail.imi_mensal)} = {formatEUR(holdingDetail.total_mensal)}/m
-                      </p>
+                      {/* Modo Financiado — mostrar equity vs emprestimo */}
+                      <DetailRow label="Preco de compra" value={formatEUR(lastPayload?.purchase_price)} />
+                      <DetailRow label={`Emprestimo compra (${lastPayload?.loan_pct_purchase ?? 0}%)`} value={`-${formatEUR((lastPayload?.purchase_price ?? 0) * (lastPayload?.loan_pct_purchase ?? 0) / 100)}`} color="#2563EB" />
+                      <DetailRow label="Equity compra" value={formatEUR((lastPayload?.purchase_price ?? 0) - (lastPayload?.purchase_price ?? 0) * (lastPayload?.loan_pct_purchase ?? 0) / 100)} bold />
+                      {(result.renovation_total ?? 0) > 0 && (
+                        <>
+                          <DetailRow label="Obra" value={formatEUR(result.renovation_total)} />
+                          {(lastPayload?.loan_pct_renovation ?? 0) > 0 && (
+                            <>
+                              <DetailRow label={`Emprestimo obra (${lastPayload?.loan_pct_renovation}%)`} value={`-${formatEUR((result.renovation_total ?? 0) * (lastPayload?.loan_pct_renovation ?? 0) / 100)}`} color="#2563EB" />
+                              <DetailRow label="Equity obra" value={formatEUR((result.renovation_total ?? 0) * (1 - (lastPayload?.loan_pct_renovation ?? 0) / 100))} bold />
+                            </>
+                          )}
+                        </>
+                      )}
+                      <DetailRow label="Custos 1a escritura" value={formatEUR(totalEscritura1)} />
+                      {result.entity_structure === "pf_jp" && (result.total_acquisition_cost_2 ?? 0) > 0 && (
+                        <DetailRow label="Custos 2a escritura" value={formatEUR(result.total_acquisition_cost_2)} />
+                      )}
+                      <DetailRow label="Custos hipoteca" value={formatEUR(result.bank_fees)} />
+                      {holdingDetail && (
+                        <>
+                          <DetailRow label={`Manutencao (${holdingDetail.meses}m × ${formatEUR(holdingDetail.total_mensal)}/m)`} value={formatEUR(result.total_holding_cost)} />
+                          <p className="text-xs text-slate-400 -mt-1 ml-1">
+                            Cond. {formatEUR(holdingDetail.condominio_mensal)} + Seguro {formatEUR(holdingDetail.seguro_mensal)} + IMI {formatEUR(holdingDetail.imi_mensal)} = {formatEUR(holdingDetail.total_mensal)}/m
+                          </p>
+                        </>
+                      )}
+                      <DetailRow label={`Prestacoes pagas (${result.holding_months}m × ${formatEUR(result.monthly_payment)}/m)`} value={formatEUR((result.monthly_payment ?? 0) * (result.holding_months ?? 0))} />
+                      <div className="border-t border-slate-300 pt-2 space-y-1">
+                        <DetailRow label="Custo total do projecto" value={formatEUR(result.total_investment)} />
+                        <DetailRow label={`Emprestimo total`} value={`-${formatEUR(result.loan_amount)}`} color="#2563EB" />
+                        <DetailRow label="Caixa investido (do teu bolso)" value={formatEUR((result.total_investment ?? 0) - (result.loan_amount ?? 0))} bold color="#0F766E" />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Modo Cash — breakdown simples */}
+                      <DetailRow label="Preco de compra (equity)" value={formatEUR(lastPayload?.purchase_price)} />
+                      <DetailRow label="Custos 1a escritura" value={formatEUR(totalEscritura1)} />
+                      {result.entity_structure === "pf_jp" && (result.total_acquisition_cost_2 ?? 0) > 0 && (
+                        <DetailRow label="Custos 2a escritura" value={formatEUR(result.total_acquisition_cost_2)} />
+                      )}
+                      {(result.renovation_total ?? 0) > 0 && (
+                        <DetailRow label="Obra" value={formatEUR(result.renovation_total)} />
+                      )}
+                      {holdingDetail && (
+                        <>
+                          <DetailRow label={`Manutencao (${holdingDetail.meses}m × ${formatEUR(holdingDetail.total_mensal)}/m)`} value={formatEUR(result.total_holding_cost)} />
+                          <p className="text-xs text-slate-400 -mt-1 ml-1">
+                            Cond. {formatEUR(holdingDetail.condominio_mensal)} + Seguro {formatEUR(holdingDetail.seguro_mensal)} + IMI {formatEUR(holdingDetail.imi_mensal)} = {formatEUR(holdingDetail.total_mensal)}/m
+                          </p>
+                        </>
+                      )}
+                      <div className="border-t border-slate-300 pt-2">
+                        <DetailRow label="Total investido (caixa desembolsado)" value={formatEUR(result.total_investment)} bold />
+                      </div>
                     </>
                   )}
-                  {(result.monthly_payment ?? 0) > 0 && (
-                    <DetailRow label={`PMT credito (${result.holding_months}m × ${formatEUR(result.monthly_payment)}/m)`} value={formatEUR((result.monthly_payment ?? 0) * (result.holding_months ?? 0))} />
-                  )}
-                  <div className="border-t border-slate-300 pt-2">
-                    <DetailRow label="Total investido (caixa desembolsado)" value={formatEUR(result.total_investment)} bold />
-                  </div>
                 </div>
 
                 {/* 1a Escritura */}

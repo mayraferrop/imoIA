@@ -29,9 +29,11 @@ class FinancialModelCreateRequest(BaseModel):
 
     # Financiamento
     financing_type: str = Field(
-        default="cash", pattern="^(cash|mortgage|mixed)$"
+        default="cash", pattern="^(cash|mortgage)$"
     )
     loan_amount: float = Field(default=0, ge=0)
+    loan_pct_purchase: float = Field(default=0, ge=0, le=90)
+    loan_pct_renovation: float = Field(default=0, ge=0, le=100)
     interest_rate_pct: float = Field(default=0, ge=0, le=20)
     spread_pct: float = Field(default=0, ge=0, le=5)
     loan_term_months: int = Field(default=240, ge=0, le=480)
