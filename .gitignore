@@ -64,7 +64,7 @@ logs/
 .cursor/
 .gemini/
 aios-core/
-squads/
+squads/.designs/
 tmp/
 storage/
 .aiox/install-log.txt

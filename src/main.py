@@ -7,6 +7,7 @@ Uso:
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
 from src.api.health import router as health_router
@@ -32,6 +33,18 @@ def create_app() -> FastAPI:
         description=(
             "Plataforma de gestao de investimento imobiliario fix and flip."
         ),
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "https://imoia.vercel.app",
+            "https://imoia-frontend.vercel.app",
+            "http://localhost:3000",
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     @app.on_event("startup")
