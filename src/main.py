@@ -40,8 +40,10 @@ def create_app() -> FastAPI:
         allow_origins=[
             "https://imoia.vercel.app",
             "https://imoia-frontend.vercel.app",
+            "https://frontend-three-omega-51.vercel.app",
             "http://localhost:3000",
         ],
+        allow_origin_regex=r"https://frontend-.*-mayraferrops-projects\.vercel\.app",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
