@@ -653,6 +653,13 @@ export default function FinancialPage() {
               // Caixa investido = o que saiu do bolso (total_investment - emprestimo)
               const caixaInvestido = result.total_investment - (result.loan_amount ?? 0);
 
+              // ROI equity e ROI anualizado
+              const roiEquity = caixaInvestido > 0 ? (result.net_profit / caixaInvestido) : 0;
+              const holdingMonths = result.holding_months ?? 9;
+              const roiAnualizado = roiEquity !== 0 && holdingMonths > 0
+                ? (Math.pow(1 + roiEquity, 12 / holdingMonths) - 1) * 100
+                : 0;
+
               return (
               <div className="space-y-6">
                 {/* Go/No-Go badge + KPIs */}
@@ -680,23 +687,23 @@ export default function FinancialPage() {
                       label="Margem bruta"
                       value={`${margemBruta.toFixed(1)}%`}
                       color={margemBruta >= 0 ? "#0F766E" : "#DC2626"}
-                      tooltip={`Lucro bruto / Investimento total = ${formatEUR(result.net_profit)} / ${formatEUR(result.total_investment)}. Mede a qualidade do deal independente de quem financia.`}
+                      tooltip={`Lucro sem juros / Custo total projecto = ${formatEUR(lucroSemJuros)} / ${formatEUR(custoTotalProjecto)}. Mede a qualidade do deal independente de quem financia. Igual em Cash e Financiado.`}
                     />
                     <KpiCard
                       label="Margem liquida"
                       value={`${margemLiquida.toFixed(1)}%`}
                       color={margemLiquida >= 0 ? "#0F766E" : "#DC2626"}
-                      tooltip={`Lucro pos-impostos / Investimento total = ${formatEUR(lucroPosImpostos)} / ${formatEUR(result.total_investment)}. Retorno real depois de IRC e derrama.`}
+                      tooltip={`Lucro liq. sem juros / Custo total projecto = ${formatEUR(lucroLiqSemJuros)} / ${formatEUR(custoTotalProjecto)}. Retorno real pos-impostos. Igual em Cash e Financiado.`}
                     />
                     <KpiCard
                       label="TIR anual"
                       value={`${(result.tir_anual_pct ?? result.roi_pct ?? 0).toFixed(1)}%`}
-                      tooltip={`Taxa Interna de Retorno anualizada. Pesa cada fluxo pelo mes exacto: CPCV no mes 0, escritura no mes 1, obra faseada, venda no mes ${result.holding_months ?? 0}, reembolso IMT 12m depois. Padrao da industria para investimento imobiliario.`}
+                      tooltip={`Taxa Interna de Retorno anualizada. Pesa cada fluxo pelo mes exacto: CPCV, escritura, obra faseada, venda, reembolso IMT. Padrao da industria.`}
                     />
                     <KpiCard
-                      label="MOIC"
-                      value={`${(result.moic ?? 0).toFixed(2)}x`}
-                      tooltip={`Retorno total / Capital investido. Acima de 1.0x = lucro. Por cada euro investido, recebes ${(result.moic ?? 0).toFixed(2)} euros.`}
+                      label="ROI anualizado"
+                      value={`${roiAnualizado.toFixed(1)}%`}
+                      tooltip={`(1 + ROI equity)^(12/${holdingMonths}m) - 1 = (1 + ${(roiEquity * 100).toFixed(1)}%)^${(12/holdingMonths).toFixed(1)} - 1. Converte o ROI equity para base anual para comparar deals com duracoes diferentes.`}
                     />
                   </div>
 
