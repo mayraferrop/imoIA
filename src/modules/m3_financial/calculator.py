@@ -641,8 +641,13 @@ class FinancialCalculator:
 
         custos_compra_2 = res.total_acquisition_cost_2
 
+        # Manutencao mensal = condominio + seguro + IMI (PT)
+        monthly_imi = 0.0
+        if inp.country == "PT":
+            vpt_estimate = inp.purchase_price * VPT_ESTIMATE_PCT
+            monthly_imi = (vpt_estimate * IMI_RATE_DEFAULT) / 12
         monthly_maintenance = (
-            inp.monthly_condominio + inp.annual_insurance / 12
+            inp.monthly_condominio + inp.annual_insurance / 12 + monthly_imi
         )
 
         res.total_investment = round(
@@ -723,8 +728,9 @@ class FinancialCalculator:
 
             res.roi_annualized_pct = res.roi_pct
 
-            # MOIC
-            res.moic = round(res.caixa_closing / res.total_investment, 2)
+            # MOIC — inclui reembolso IMT para consistencia com net_profit
+            retorno_total = res.caixa_closing + imt_reembolso
+            res.moic = round(retorno_total / res.total_investment, 2)
 
             # Cash-on-cash (relevante com financiamento)
             if equity > 0:
@@ -834,7 +840,12 @@ class FinancialCalculator:
             (res.interest_rate_pct / 100) / 12 if res.interest_rate_pct > 0 else 0
         )
         saldo = res.loan_amount
-        manut_mensal = inp.monthly_condominio + inp.annual_insurance / 12
+        # Manutencao mensal inclui IMI (consistente com _calc_holding)
+        monthly_imi_cf = 0.0
+        if inp.country == "PT":
+            vpt_est = inp.purchase_price * VPT_ESTIMATE_PCT
+            monthly_imi_cf = (vpt_est * IMI_RATE_DEFAULT) / 12
+        manut_mensal = inp.monthly_condominio + inp.annual_insurance / 12 + monthly_imi_cf
 
         for m in range(1, res.holding_months + 1):
             obra_val = reno_per_month if m <= inp.renovation_duration_months else 0

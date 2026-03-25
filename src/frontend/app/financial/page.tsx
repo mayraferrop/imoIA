@@ -52,6 +52,12 @@ interface SimulationResult {
   derrama_estimated?: number;
   total_corporate_tax?: number;
   irc_taxable_income?: number;
+  capital_gains_detail?: Record<string, any>;
+  roi_annualized_pct?: number;
+  cash_on_cash_return_pct?: number;
+  renovation_total?: number;
+  holding_detail?: { meses: number; condominio_mensal: number; seguro_mensal: number; imi_mensal: number; total_mensal: number };
+  total_holding_cost?: number;
   warnings?: string[];
   cash_flow?: { flows: CashFlowEntry[]; pico_caixa_necessario: number; saldo_final: number };
   model_id?: string;
@@ -530,12 +536,29 @@ export default function FinancialPage() {
             )}
 
             {/* Result */}
-            {result && (
+            {result && (() => {
+              const imtReembolso = result.imt_resale_regime === "reembolso" && result.entity_structure === "pf_jp"
+                ? (result.imt_2 ?? 0) : 0;
+              const totalTax = result.total_corporate_tax ?? result.capital_gains_tax ?? 0;
+              const lucroPosImpostos = result.net_profit - totalTax;
+              const roiPosImpostos = result.total_investment > 0
+                ? (lucroPosImpostos / result.total_investment * 100) : 0;
+              const holdingDetail = result.holding_detail;
+              const totalEscritura1 = (result.imt ?? 0) + (result.imposto_selo ?? 0) + (result.notario_registo ?? 0) + (result.comissao_compra ?? 0);
+
+              return (
               <div className="space-y-6">
                 {/* Go/No-Go badge + KPIs */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6">
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-semibold">Resultado</h2>
+                    <div>
+                      <h2 className="text-lg font-semibold">Resultado</h2>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {result.go_nogo === "go" ? `ROI >= ${lastPayload?.roi_target_pct ?? 15}%` :
+                         result.go_nogo === "marginal" ? `ROI >= ${((lastPayload?.roi_target_pct ?? 15) * 0.7).toFixed(0)}% (70% do target)` :
+                         `ROI < ${((lastPayload?.roi_target_pct ?? 15) * 0.7).toFixed(0)}%`}
+                      </p>
+                    </div>
                     <span
                       className="px-6 py-2 rounded-xl text-lg font-bold text-white"
                       style={{ backgroundColor: goNoGoColor }}
@@ -544,16 +567,28 @@ export default function FinancialPage() {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <KpiCard
-                      label="Lucro Liquido"
+                      label="Lucro bruto"
                       value={formatEUR(result.net_profit)}
                       color={result.net_profit >= 0 ? "#0F766E" : "#DC2626"}
                     />
                     <KpiCard label="MOIC" value={`${(result.moic ?? 0).toFixed(2)}x`} />
-                    <KpiCard label="ROI" value={`${(result.roi_pct ?? 0).toFixed(1)}%`} />
-                    <KpiCard label="Investimento Total" value={formatEUR(result.total_investment)} />
+                    <KpiCard label="ROI anualizado" value={`${(result.roi_pct ?? 0).toFixed(1)}%`} />
+                    <KpiCard label="ROI simples" value={`${(result.roi_simple_pct ?? 0).toFixed(1)}%`} />
                   </div>
+
+                  {/* Pos-impostos */}
+                  {totalTax > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 pt-3 border-t border-slate-100">
+                      <KpiCard label="Lucro pos-impostos" value={formatEUR(lucroPosImpostos)} color={lucroPosImpostos >= 0 ? "#0F766E" : "#DC2626"} />
+                      <KpiCard label="ROI pos-impostos" value={`${roiPosImpostos.toFixed(1)}%`} />
+                      {result.cash_on_cash_return_pct != null && (
+                        <KpiCard label="Cash-on-cash" value={`${result.cash_on_cash_return_pct.toFixed(1)}%`} />
+                      )}
+                      <KpiCard label="Impostos estimados" value={formatEUR(totalTax)} color="#DC2626" />
+                    </div>
+                  )}
 
                   {/* Warnings */}
                   {result.warnings && result.warnings.length > 0 && (
@@ -565,7 +600,32 @@ export default function FinancialPage() {
                   )}
                 </div>
 
-                {/* Detail cards */}
+                {/* Breakdown investimento (Melhoria 5) */}
+                <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
+                  <h3 className="text-sm font-semibold text-teal-700">Investimento Total</h3>
+                  <DetailRow label="Preco de compra (equity)" value={formatEUR((result.total_investment ?? 0) - (result.renovation_total ?? 0) - totalEscritura1 - (result.total_acquisition_cost_2 ?? 0) - (result.bank_fees ?? 0) - (result.total_holding_cost ?? 0))} />
+                  <DetailRow label="Custos 1a escritura" value={formatEUR(totalEscritura1)} />
+                  {result.entity_structure === "pf_jp" && (result.total_acquisition_cost_2 ?? 0) > 0 && (
+                    <DetailRow label="Custos 2a escritura" value={formatEUR(result.total_acquisition_cost_2)} />
+                  )}
+                  {(result.renovation_total ?? 0) > 0 && (
+                    <DetailRow label="Obra (budget + contingencia)" value={formatEUR(result.renovation_total)} />
+                  )}
+                  {(result.bank_fees ?? 0) > 0 && (
+                    <DetailRow label="Custos financiamento" value={formatEUR(result.bank_fees)} />
+                  )}
+                  {holdingDetail && (
+                    <DetailRow label={`Manutencao (${holdingDetail.meses}m × ${formatEUR(holdingDetail.total_mensal)}/m)`} value={formatEUR(result.total_holding_cost)} />
+                  )}
+                  {(result.monthly_payment ?? 0) > 0 && (
+                    <DetailRow label={`PMT credito (${result.holding_months}m × ${formatEUR(result.monthly_payment)}/m)`} value={formatEUR((result.monthly_payment ?? 0) * (result.holding_months ?? 0))} />
+                  )}
+                  <div className="border-t border-slate-300 pt-2">
+                    <DetailRow label="Total investido (caixa desembolsado)" value={formatEUR(result.total_investment)} bold />
+                  </div>
+                </div>
+
+                {/* 1a Escritura */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-teal-700">
@@ -582,7 +642,7 @@ export default function FinancialPage() {
                     <DetailRow label="Comissao compra" value={formatEUR(result.comissao_compra)} />
                   )}
                   <div className="border-t border-slate-300 pt-2">
-                    <DetailRow label="Total 1a aquisicao" value={formatEUR(result.total_acquisition_cost)} bold />
+                    <DetailRow label="Total 1a escritura" value={formatEUR(totalEscritura1)} bold />
                   </div>
                 </div>
 
@@ -623,16 +683,24 @@ export default function FinancialPage() {
                     <DetailRow label="PMT mensal" value={formatEUR(result.monthly_payment)} />
                     <DetailRow label={`Payoff mes ${result.holding_months ?? 0}`} value={formatEUR(result.payoff_at_sale)} />
                     <DetailRow label="Custos hipoteca" value={formatEUR(result.bank_fees)} />
+                    {result.cash_on_cash_return_pct != null && (
+                      <DetailRow label="Cash-on-cash return" value={`${result.cash_on_cash_return_pct.toFixed(1)}%`} />
+                    )}
                   </div>
                 )}
 
+                {/* Resultado cash (Melhoria 2 — reembolso visivel) */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
-                  <h3 className="text-sm font-semibold text-teal-700">Resultado</h3>
-                  <DetailRow label="Caixa no closing" value={formatEUR(result.caixa_closing)} />
-                  <DetailRow label="Caixa investido" value={`-${formatEUR(result.total_investment)}`} />
+                  <h3 className="text-sm font-semibold text-teal-700">Resultado Cash</h3>
+                  <DetailRow label="Caixa no closing (venda - payoff)" value={formatEUR(result.caixa_closing)} />
+                  {imtReembolso > 0 && (
+                    <DetailRow label="Reembolso IMT (12 meses depois)" value={`+${formatEUR(imtReembolso)}`} color="#16A34A" />
+                  )}
+                  <DetailRow label="Retorno total" value={formatEUR((result.caixa_closing ?? 0) + imtReembolso)} />
+                  <DetailRow label="Capital investido" value={`-${formatEUR(result.total_investment)}`} />
                   <div className="border-t border-slate-300 pt-2">
                     <DetailRow
-                      label="Lucro (cash)"
+                      label="Lucro bruto (cash)"
                       value={formatEUR(result.net_profit)}
                       bold
                       color={result.net_profit >= 0 ? "#0F766E" : "#DC2626"}
@@ -640,17 +708,17 @@ export default function FinancialPage() {
                   </div>
                 </div>
 
-                {/* Fiscalidade */}
-                {(result.total_corporate_tax != null || result.capital_gains_tax != null) && (
+                {/* Fiscalidade + lucro pos-impostos (Melhoria 3) */}
+                {totalTax > 0 && (
                   <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
-                    <h3 className="text-sm font-semibold text-amber-700">Fiscalidade (informativo)</h3>
+                    <h3 className="text-sm font-semibold text-amber-700">Fiscalidade</h3>
                     {result.entity_structure !== "pf_only" && result.total_corporate_tax != null ? (
                       <>
                         {result.irc_taxable_income != null && <DetailRow label="Base tributavel (JP)" value={formatEUR(result.irc_taxable_income)} />}
                         {result.irc_estimated != null && <DetailRow label="IRC (21%)" value={formatEUR(result.irc_estimated)} />}
                         {result.derrama_estimated != null && <DetailRow label="Derrama (1.5%)" value={formatEUR(result.derrama_estimated)} />}
                         <div className="border-t border-slate-300 pt-2">
-                          <DetailRow label="Total impostos empresa" value={formatEUR(result.total_corporate_tax)} bold color="#DC2626" />
+                          <DetailRow label="Total impostos" value={formatEUR(result.total_corporate_tax)} bold color="#DC2626" />
                         </div>
                       </>
                     ) : result.capital_gains_tax != null ? (
@@ -659,6 +727,11 @@ export default function FinancialPage() {
                         <p className="text-xs text-slate-500">50% da mais-valia englobada no IRS progressivo</p>
                       </>
                     ) : null}
+                    <div className="border-t border-teal-200 pt-3 mt-2">
+                      <DetailRow label="Lucro bruto" value={formatEUR(result.net_profit)} />
+                      <DetailRow label="Impostos estimados" value={`-${formatEUR(totalTax)}`} color="#DC2626" />
+                      <DetailRow label="Lucro liquido (pos-impostos)" value={formatEUR(lucroPosImpostos)} bold color={lucroPosImpostos >= 0 ? "#0F766E" : "#DC2626"} />
+                    </div>
                   </div>
                 )}
 
@@ -676,7 +749,8 @@ export default function FinancialPage() {
                   <p className={`text-sm ${saveMsg.includes("Erro") ? "text-red-600" : "text-green-600"}`}>{saveMsg}</p>
                 )}
               </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* Scenarios */}
