@@ -37,14 +37,15 @@ def create_app() -> FastAPI:
     @app.on_event("startup")
     def on_startup() -> None:
         """Inicializa a BD ao arrancar (cria tabelas se necessario)."""
-        init_db()
-        import src.database.models_v2  # noqa: F401
-
-        from src.database.models import Base
-        from src.database.db import _get_engine
-
-        Base.metadata.create_all(bind=_get_engine())
-        logger.info("ImoIA API iniciada — tabelas verificadas")
+        try:
+            init_db()
+            import src.database.models_v2  # noqa: F401
+            from src.database.models import Base
+            from src.database.db import _get_engine
+            Base.metadata.create_all(bind=_get_engine())
+        except Exception as e:
+            logger.warning(f"Aviso ao inicializar BD (tabelas podem ja existir): {e}")
+        logger.info("ImoIA API iniciada")
 
     app.include_router(health_router, tags=["Sistema"])
     app.include_router(

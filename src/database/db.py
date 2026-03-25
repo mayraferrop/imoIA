@@ -46,10 +46,11 @@ def _get_engine():
         if "sqlite" in db_url:
             connect_args["check_same_thread"] = False
         else:
-            # PostgreSQL — pool settings para Supabase pooler
-            kwargs["pool_size"] = 5
-            kwargs["max_overflow"] = 10
+            # PostgreSQL — pool settings para Supabase Transaction pooler
+            kwargs["pool_size"] = 2
+            kwargs["max_overflow"] = 3
             kwargs["pool_pre_ping"] = True
+            kwargs["pool_recycle"] = 300
 
         _engine = create_engine(
             db_url,
@@ -72,8 +73,11 @@ def _get_session_factory() -> sessionmaker[Session]:
 def init_db() -> None:
     """Inicializa a base de dados — cria todas as tabelas."""
     engine = _get_engine()
-    Base.metadata.create_all(bind=engine)
-    logger.info("Base de dados inicializada com sucesso")
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Base de dados inicializada com sucesso")
+    except Exception as e:
+        logger.warning(f"Aviso ao criar tabelas (podem ja existir): {e}")
 
 
 @contextmanager
