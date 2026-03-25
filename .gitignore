@@ -70,3 +70,4 @@ storage/
 .aiox/install-log.txt
 *.db
 .next/
+.vercel

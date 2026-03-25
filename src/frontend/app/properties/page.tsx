@@ -216,22 +216,59 @@ export default function PropertiesPage() {
     return true;
   });
 
+  async function pollPipelineStatus() {
+    const MAX_POLLS = 90; // 90 x 2s = 3 minutos max
+    for (let i = 0; i < MAX_POLLS; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/ingest/status`);
+        if (!res.ok) continue;
+        const data = await res.json();
+
+        if (data.status === "done") {
+          const erros = data.errors?.length ? ` | ${data.errors.length} erro(s)` : "";
+          setTriggerMsg(
+            `Pipeline concluido: ${data.groups_processed ?? 0} grupos, ${data.messages_fetched ?? 0} mensagens, ${data.opportunities_found ?? 0} oportunidades${erros}`
+          );
+          fetchData();
+          return;
+        }
+        if (data.status === "error") {
+          setTriggerMsg(`Erro no pipeline: ${data.errors?.[0] ?? "erro desconhecido"}`);
+          return;
+        }
+        // ainda running — atualizar mensagem com tempo decorrido
+        const elapsed = data.started_at
+          ? Math.round((Date.now() - new Date(data.started_at).getTime()) / 1000)
+          : i * 2;
+        setTriggerMsg(`Pipeline a correr... (${elapsed}s)`);
+      } catch {
+        // falha de rede no poll — continuar a tentar
+      }
+    }
+    setTriggerMsg("Pipeline demorou demasiado. Verifique os logs do servidor.");
+  }
+
   async function handleTriggerPipeline() {
     setTriggerLoading(true);
-    setTriggerMsg("");
+    setTriggerMsg("A iniciar pipeline...");
     try {
       const res = await fetch(`${API_BASE}/api/v1/ingest/trigger`, { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        setTriggerMsg(
-          `Pipeline concluido: ${data.messages_fetched ?? 0} mensagens, ${data.opportunities_found ?? 0} oportunidades`
-        );
-        fetchData();
-      } else {
-        setTriggerMsg("Erro ao executar pipeline.");
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        setTriggerMsg(`Erro ao disparar pipeline. ${detail}`);
+        setTriggerLoading(false);
+        return;
       }
+      const data = await res.json();
+      if (data.status === "already_running") {
+        setTriggerMsg("Pipeline ja esta a correr. A acompanhar...");
+      } else {
+        setTriggerMsg("Pipeline iniciado. A acompanhar...");
+      }
+      await pollPipelineStatus();
     } catch {
-      setTriggerMsg("Erro de comunicacao com a API.");
+      setTriggerMsg("Erro de comunicacao com a API (offline?).");
     } finally {
       setTriggerLoading(false);
     }

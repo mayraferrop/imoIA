@@ -1,17 +1,18 @@
-"""Router FastAPI de retrocompatibilidade para o ingestor (M1).
+"""Router FastAPI para o ingestor (M1).
 
-Le dados historicos das tabelas legacy (groups, messages, opportunities, market_data)
-que continuam a existir na BD como read-only.
-O pipeline de ingestao WhatsApp foi descontinuado.
+Gere o pipeline de ingestao WhatsApp (trigger + polling de estado)
+e expoe dados historicos das tabelas legacy como read-only.
 """
 
 from __future__ import annotations
 
 import json
+import threading
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from loguru import logger
 from sqlalchemy import func, select
 
@@ -21,6 +22,53 @@ from src.database.models import Group, MarketData, Message, Opportunity
 router = APIRouter()
 
 _LOGS_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
+
+# ── Estado in-memory do pipeline ────────────────────────────────────
+_pipeline_lock = threading.Lock()
+_pipeline_state: Dict[str, Any] = {
+    "status": "idle",  # idle | running | done | error
+    "started_at": None,
+    "finished_at": None,
+    "messages_fetched": 0,
+    "opportunities_found": 0,
+    "groups_processed": 0,
+    "errors": [],
+}
+
+
+def _run_pipeline_background() -> None:
+    """Executa o pipeline numa thread separada e atualiza o estado global."""
+    global _pipeline_state
+    from src.modules.m1_ingestor.service import run_pipeline
+
+    try:
+        result = run_pipeline()
+        with _pipeline_lock:
+            _pipeline_state = {
+                "status": "done",
+                "started_at": _pipeline_state["started_at"],
+                "finished_at": datetime.now(timezone.utc).isoformat(),
+                "messages_fetched": result.messages_fetched,
+                "opportunities_found": result.opportunities_found,
+                "groups_processed": result.groups_processed,
+                "errors": result.errors,
+            }
+        logger.info(
+            f"Pipeline M1 concluido: {result.messages_fetched} msgs, "
+            f"{result.opportunities_found} oportunidades"
+        )
+    except Exception as e:
+        with _pipeline_lock:
+            _pipeline_state = {
+                "status": "error",
+                "started_at": _pipeline_state["started_at"],
+                "finished_at": datetime.now(timezone.utc).isoformat(),
+                "messages_fetched": 0,
+                "opportunities_found": 0,
+                "groups_processed": 0,
+                "errors": [str(e)],
+            }
+        logger.error(f"Pipeline M1 falhou: {e}")
 
 
 def _opp_to_dict(opp: Opportunity) -> Dict[str, Any]:
@@ -72,28 +120,38 @@ def _market_to_dict(md: MarketData) -> Dict[str, Any]:
 
 
 @router.post("/trigger", summary="Disparar pipeline de ingestao")
-async def trigger_pipeline(background_tasks: BackgroundTasks) -> Dict[str, str]:
-    """Dispara o pipeline M1 (WhatsApp → IA → oportunidades) em background."""
-    from src.modules.m1_ingestor.service import run_pipeline
+async def trigger_pipeline() -> Dict[str, Any]:
+    """Dispara o pipeline M1 em background. Usar GET /status para acompanhar."""
+    global _pipeline_state
 
-    background_tasks.add_task(run_pipeline)
-    logger.info("Pipeline M1 disparado via API")
-    return {
-        "status": "pipeline_iniciado",
-        "mensagem": "Pipeline a correr em background",
-    }
+    with _pipeline_lock:
+        if _pipeline_state["status"] == "running":
+            return {
+                "status": "already_running",
+                "started_at": _pipeline_state["started_at"],
+            }
+
+        _pipeline_state = {
+            "status": "running",
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "finished_at": None,
+            "messages_fetched": 0,
+            "opportunities_found": 0,
+            "groups_processed": 0,
+            "errors": [],
+        }
+
+    thread = threading.Thread(target=_run_pipeline_background, daemon=True)
+    thread.start()
+    logger.info("Pipeline M1 disparado via API (background)")
+    return {"status": "started", "started_at": _pipeline_state["started_at"]}
 
 
-@router.get("/status", summary="Estado da ultima execucao")
+@router.get("/status", summary="Estado do pipeline")
 async def get_pipeline_status() -> Dict[str, Any]:
-    """Retorna estado do sistema (retrocompatibilidade)."""
-    status_file = _LOGS_DIR / "pipeline_status.json"
-    if status_file.exists():
-        try:
-            return json.loads(status_file.read_text())
-        except (json.JSONDecodeError, ValueError):
-            pass
-    return {"state": "descontinuado", "mensagem": "Pipeline migrado para API REST"}
+    """Retorna estado atual do pipeline (polling endpoint)."""
+    with _pipeline_lock:
+        return dict(_pipeline_state)
 
 
 @router.get("/groups", summary="Listar grupos monitorizados")
