@@ -627,13 +627,31 @@ export default function FinancialPage() {
                 ? (result.imt_2 ?? 0) : 0;
               const totalTax = result.total_corporate_tax ?? result.capital_gains_tax ?? 0;
               const lucroPosImpostos = result.net_profit - totalTax;
-              const margemBruta = result.total_investment > 0
-                ? (result.net_profit / result.total_investment * 100) : 0;
-              const margemLiquida = result.total_investment > 0
-                ? (lucroPosImpostos / result.total_investment * 100) : 0;
               const holdingDetail = result.holding_detail;
               const totalEscritura1 = (result.imt ?? 0) + (result.imposto_selo ?? 0) + (result.notario_registo ?? 0) + (result.comissao_compra ?? 0);
               const roiTarget = lastPayload?.roi_target_pct ?? 15;
+
+              // Custo total do projecto (independente de financiamento — mede o deal)
+              const custoTotalProjecto = (lastPayload?.purchase_price ?? 0)
+                + (result.renovation_total ?? 0)
+                + totalEscritura1
+                + (result.total_acquisition_cost_2 ?? 0)
+                + (result.total_holding_cost ?? 0);
+
+              // Juros + custos hipoteca pagos (efeito do financiamento)
+              const jurosPagos = (result.monthly_payment ?? 0) * (result.holding_months ?? 0) - ((result.loan_amount ?? 0) - (result.payoff_at_sale ?? 0));
+              const custosHipoteca = result.bank_fees ?? 0;
+
+              // Margem bruta = qualidade do deal (nao muda com financiamento)
+              const lucroSemJuros = result.net_profit + Math.max(jurosPagos, 0) + custosHipoteca;
+              const margemBruta = custoTotalProjecto > 0
+                ? (lucroSemJuros / custoTotalProjecto * 100) : 0;
+              const lucroLiqSemJuros = lucroPosImpostos + Math.max(jurosPagos, 0) + custosHipoteca;
+              const margemLiquida = custoTotalProjecto > 0
+                ? (lucroLiqSemJuros / custoTotalProjecto * 100) : 0;
+
+              // Caixa investido = o que saiu do bolso (total_investment - emprestimo)
+              const caixaInvestido = result.total_investment - (result.loan_amount ?? 0);
 
               return (
               <div className="space-y-6">
@@ -698,17 +716,18 @@ export default function FinancialPage() {
                         tooltip={`Lucro bruto ${formatEUR(result.net_profit)} - impostos ${formatEUR(totalTax)} = ${formatEUR(lucroPosImpostos)}`}
                       />
                     )}
-                    {result.cash_on_cash_return_pct != null && (
-                      <KpiCard
-                        label="ROI equity"
-                        value={`${result.cash_on_cash_return_pct.toFixed(1)}%`}
-                        tooltip={`Lucro / Capital proprio investido (investimento total - emprestimo). ${result.loan_amount ? "Com financiamento o ROI equity sobe porque menos capital proprio e usado." : "Num deal cash, ROI equity = margem bruta."}`}
-                      />
-                    )}
                     <KpiCard
-                      label="Investimento total"
-                      value={formatEUR(result.total_investment)}
-                      tooltip="Todo o capital desembolsado: compra + custos escrituras + obra + manutencao + PMT credito."
+                      label="ROI equity"
+                      value={caixaInvestido > 0 ? `${(result.net_profit / caixaInvestido * 100).toFixed(1)}%` : "N/A"}
+                      tooltip={caixaInvestido > 0
+                        ? `Lucro ${formatEUR(result.net_profit)} / Caixa investido ${formatEUR(caixaInvestido)} = ${(result.net_profit / caixaInvestido * 100).toFixed(1)}%. ${(result.loan_amount ?? 0) > 0 ? "Com financiamento sobe porque menos capital proprio e usado." : "Num deal cash, ROI equity = margem bruta."}`
+                        : "Capital investido invalido. Verificar parametros."}
+                    />
+                    <KpiCard
+                      label="Caixa investido"
+                      value={formatEUR(caixaInvestido)}
+                      tooltip={`Investimento total ${formatEUR(result.total_investment)} - Emprestimo ${formatEUR(result.loan_amount ?? 0)} = ${formatEUR(caixaInvestido)}. O dinheiro que saiu do teu bolso.`}
+                      color={caixaInvestido > 0 ? undefined : "#DC2626"}
                     />
                   </div>
 
@@ -725,22 +744,19 @@ export default function FinancialPage() {
                 {/* Breakdown investimento */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
                   <h3 className="text-sm font-semibold text-teal-700">Investimento</h3>
-                  {(result.loan_amount ?? 0) > 0 ? (
+                  {(result.loan_amount ?? 0) > 0 ? (() => {
+                    const loanPctPurchase = lastPayload?.loan_pct_purchase ?? 0;
+                    const loanPctReno = lastPayload?.loan_pct_renovation ?? 0;
+                    const loanCompra = (lastPayload?.purchase_price ?? 0) * loanPctPurchase / 100;
+                    const loanObra = (result.renovation_total ?? 0) * loanPctReno / 100;
+                    const equityCompra = (lastPayload?.purchase_price ?? 0) - loanCompra;
+                    const equityObra = (result.renovation_total ?? 0) - loanObra;
+                    return (
                     <>
-                      {/* Modo Financiado — mostrar equity vs emprestimo */}
+                      {/* Modo Financiado — custo total, subtrair emprestimo 1x no final */}
                       <DetailRow label="Preco de compra" value={formatEUR(lastPayload?.purchase_price)} />
-                      <DetailRow label={`Emprestimo compra (${lastPayload?.loan_pct_purchase ?? 0}%)`} value={`-${formatEUR((lastPayload?.purchase_price ?? 0) * (lastPayload?.loan_pct_purchase ?? 0) / 100)}`} color="#2563EB" />
-                      <DetailRow label="Equity compra" value={formatEUR((lastPayload?.purchase_price ?? 0) - (lastPayload?.purchase_price ?? 0) * (lastPayload?.loan_pct_purchase ?? 0) / 100)} bold />
                       {(result.renovation_total ?? 0) > 0 && (
-                        <>
-                          <DetailRow label="Obra" value={formatEUR(result.renovation_total)} />
-                          {(lastPayload?.loan_pct_renovation ?? 0) > 0 && (
-                            <>
-                              <DetailRow label={`Emprestimo obra (${lastPayload?.loan_pct_renovation}%)`} value={`-${formatEUR((result.renovation_total ?? 0) * (lastPayload?.loan_pct_renovation ?? 0) / 100)}`} color="#2563EB" />
-                              <DetailRow label="Equity obra" value={formatEUR((result.renovation_total ?? 0) * (1 - (lastPayload?.loan_pct_renovation ?? 0) / 100))} bold />
-                            </>
-                          )}
-                        </>
+                        <DetailRow label="Obra" value={formatEUR(result.renovation_total)} />
                       )}
                       <DetailRow label="Custos 1a escritura" value={formatEUR(totalEscritura1)} />
                       {result.entity_structure === "pf_jp" && (result.total_acquisition_cost_2 ?? 0) > 0 && (
@@ -757,12 +773,29 @@ export default function FinancialPage() {
                       )}
                       <DetailRow label={`Prestacoes pagas (${result.holding_months}m × ${formatEUR(result.monthly_payment)}/m)`} value={formatEUR((result.monthly_payment ?? 0) * (result.holding_months ?? 0))} />
                       <div className="border-t border-slate-300 pt-2 space-y-1">
-                        <DetailRow label="Custo total do projecto" value={formatEUR(result.total_investment)} />
-                        <DetailRow label={`Emprestimo total`} value={`-${formatEUR(result.loan_amount)}`} color="#2563EB" />
-                        <DetailRow label="Caixa investido (do teu bolso)" value={formatEUR((result.total_investment ?? 0) - (result.loan_amount ?? 0))} bold color="#0F766E" />
+                        <DetailRow label="Custo total do projecto" value={formatEUR(result.total_investment)} bold />
+                      </div>
+                      {/* Decomposicao do financiamento */}
+                      <div className="bg-blue-50 rounded-lg p-3 space-y-1">
+                        <p className="text-xs font-semibold text-blue-700 uppercase mb-1">Financiamento</p>
+                        <DetailRow label={`Emprestimo compra (${loanPctPurchase}%)`} value={formatEUR(loanCompra)} color="#2563EB" />
+                        {loanObra > 0 && (
+                          <DetailRow label={`Emprestimo obra (${loanPctReno}%)`} value={formatEUR(loanObra)} color="#2563EB" />
+                        )}
+                        <DetailRow label="Emprestimo total" value={formatEUR(result.loan_amount)} bold color="#2563EB" />
+                      </div>
+                      <div className="bg-teal-50 rounded-lg p-3 space-y-1">
+                        <p className="text-xs font-semibold text-teal-700 uppercase mb-1">Capital proprio (do teu bolso)</p>
+                        <DetailRow label="Equity compra" value={formatEUR(equityCompra)} />
+                        <DetailRow label="Equity obra" value={formatEUR(equityObra)} />
+                        <DetailRow label="Custos (escrituras + hipoteca + manut. + PMT)" value={formatEUR(caixaInvestido - equityCompra - equityObra)} />
+                        <div className="border-t border-teal-200 pt-1">
+                          <DetailRow label="Total caixa investido" value={formatEUR(caixaInvestido)} bold color="#0F766E" />
+                        </div>
                       </div>
                     </>
-                  ) : (
+                    );
+                  })() : (
                     <>
                       {/* Modo Cash — breakdown simples */}
                       <DetailRow label="Preco de compra (equity)" value={formatEUR(lastPayload?.purchase_price)} />
