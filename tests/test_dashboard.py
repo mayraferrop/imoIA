@@ -1,4 +1,4 @@
-"""Testes para o dashboard Streamlit do ImoScout.
+"""Testes para o dashboard Streamlit do ImoIA.
 
 Testa funcoes de query, filtragem e helpers usando BD SQLite in-memory.
 """

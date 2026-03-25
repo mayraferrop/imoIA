@@ -4,7 +4,7 @@ Coexistem com os modelos existentes em models.py (que NAO sao alterados).
 Usam a mesma Base para partilhar o metadata.
 
 Tabela central: Property — todos os modulos futuros referenciam esta tabela.
-Liga ao ImoScout existente via Property.source_opportunity_id → opportunities.id.
+Liga aos dados legacy via Property.source_opportunity_id → opportunities.id.
 """
 
 from __future__ import annotations
@@ -91,7 +91,7 @@ class Property(Base):
     """Propriedade — tabela central do ImoIA.
 
     Todos os modulos futuros (M2-M9) referenciam esta tabela.
-    Pode ser criada a partir de uma Opportunity do ImoScout
+    Pode ser criada a partir de uma Opportunity legacy
     ou inserida manualmente.
     """
 

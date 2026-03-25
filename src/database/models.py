@@ -1,4 +1,4 @@
-"""Modelos SQLAlchemy para o ImoScout.
+"""Modelos SQLAlchemy legacy (READ-ONLY).
 
 Define as tabelas: Group, Message, Opportunity, MarketData.
 Todos os teammates devem respeitar este schema — é o contrato central.

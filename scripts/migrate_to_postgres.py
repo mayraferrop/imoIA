@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Migracao dos dados do ImoScout (SQLite) para PostgreSQL (Supabase).
+"""Migracao dos dados legacy (SQLite) para PostgreSQL (Supabase).
 
 Pode ser executado multiplas vezes (idempotente).
 

@@ -120,7 +120,7 @@ async def create_deal(data: DealCreateSchema) -> Dict[str, Any]:
 async def create_from_opportunity(
     opportunity_id: int, data: DealFromOpportunitySchema
 ) -> Dict[str, Any]:
-    """Cria deal a partir de uma Opportunity do ImoScout."""
+    """Cria deal a partir de uma Opportunity legacy."""
     try:
         return service.create_deal_from_opportunity(
             opportunity_id, data.model_dump()

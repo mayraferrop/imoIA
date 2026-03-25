@@ -1,4 +1,4 @@
-"""Cliente WhatsApp para o ImoScout.
+"""Cliente WhatsApp para o ImoIA.
 
 Suporta dois backends:
 - Baileys Bridge (local, gratuito) — http://localhost:3000

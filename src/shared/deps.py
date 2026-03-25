@@ -14,7 +14,7 @@ from src.database.db import get_session
 def get_db() -> Generator:
     """Dependencia FastAPI para obter sessao de BD.
 
-    Reutiliza o get_session() existente do ImoScout.
+    Reutiliza o get_session() existente.
     """
     with get_session() as session:
         yield session

@@ -1,4 +1,4 @@
-"""Configuração central do ImoScout.
+"""Configuração central do ImoIA.
 
 Carrega variáveis de ambiente e define constantes partilhadas por todos os módulos.
 """
@@ -19,7 +19,7 @@ load_dotenv(_PROJECT_ROOT / ".env")
 
 @dataclass(frozen=True)
 class Settings:
-    """Configurações globais do ImoScout."""
+    """Configurações globais do ImoIA."""
 
     # Whapi.Cloud
     whapi_token: str = field(default_factory=lambda: os.getenv("WHAPI_TOKEN", ""))
@@ -103,7 +103,7 @@ class Settings:
 
     # Base de dados
     database_url: str = field(
-        default_factory=lambda: os.getenv("DATABASE_URL", f"sqlite:///{_PROJECT_ROOT / 'data' / 'imoscout.db'}")
+        default_factory=lambda: os.getenv("DATABASE_URL", f"sqlite:///{_PROJECT_ROOT / 'data' / 'imoia.db'}")
     )
 
     # Pipeline

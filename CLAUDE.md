@@ -1,6 +1,4 @@
 # CLAUDE.md — imoIA
-> ⚠️ Este projeto foi renomeado de **imoscout** para **imoIA**. Referências antigas ao nome imoscout são válidas.
-
 > Este arquivo define o comportamento padrão do Claude Code neste projeto.
 > Leia este arquivo integralmente antes de qualquer ação.
 

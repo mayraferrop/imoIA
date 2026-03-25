@@ -59,7 +59,7 @@ if _broker_url == "filesystem://":
 def run_ingest_pipeline() -> dict:
     """Placeholder — pipeline de ingestao sera reimplementado nos modulos.
 
-    O pipeline legacy (ImoScout) foi removido. A ingestao de novas propriedades
+    O pipeline legacy foi removido. A ingestao de novas propriedades
     deve ser feita via API (POST /api/v1/properties/) ou futura integracao directa.
     """
     logger.info("Pipeline de ingestao: a aguardar reimplementacao nos modulos")

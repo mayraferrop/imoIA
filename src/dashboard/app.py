@@ -884,7 +884,7 @@ def page_dashboard() -> None:
     with col_btn:
         st.markdown("<br>", unsafe_allow_html=True)
         status = _get_pipeline_status()
-        is_running = status and status.get("state") == "a_correr"
+        is_running = bool(status and status.get("state") == "a_correr")
         if st.button("Executar agora", disabled=is_running, use_container_width=True):
             with st.spinner("A executar o pipeline..."):
                 result = _run_pipeline_now()
@@ -1555,7 +1555,7 @@ def page_configuracao() -> None:
     # WhatsApp
     st.markdown("### WhatsApp")
     st.caption(
-        "Por defeito, o ImoScout conecta-se diretamente ao WhatsApp via Baileys Bridge "
+        "Por defeito, o ImoIA conecta-se diretamente ao WhatsApp via Baileys Bridge "
         "(gratuito). Opcionalmente, pode usar a API paga Whapi.Cloud."
     )
 
@@ -1675,7 +1675,7 @@ def page_configuracao() -> None:
     st.markdown("### Base de Dados")
     db_url = st.text_input(
         "DATABASE_URL",
-        value=env_values.get("DATABASE_URL", "sqlite:///data/imoscout.db"),
+        value=env_values.get("DATABASE_URL", "sqlite:///data/imoia.db"),
         help="URL de conexao a base de dados",
     )
 
@@ -2678,7 +2678,7 @@ def page_mercado() -> None:
 def main() -> None:
     """Ponto de entrada principal do dashboard."""
     st.set_page_config(
-        page_title="ImoScout",
+        page_title="ImoIA",
         page_icon="https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f3e0.png",
         layout="wide",
         initial_sidebar_state="expanded",
@@ -2695,9 +2695,9 @@ def main() -> None:
         st.markdown(
             '<div style="text-align:center; padding:16px 0 24px 0;">'
             '<h1 style="font-family:Cinzel,serif; font-size:1.8rem; color:#14B8A6; '
-            'margin:0; letter-spacing:0.05em;">ImoScout</h1>'
+            'margin:0; letter-spacing:0.05em;">ImoIA</h1>'
             '<p style="font-family:Josefin Sans,sans-serif; font-size:0.8rem; '
-            'color:#64748B; margin:4px 0 0 0;">Detetor de Oportunidades</p>'
+            'color:#64748B; margin:4px 0 0 0;">Gestao de Investimento Imobiliario</p>'
             "</div>",
             unsafe_allow_html=True,
         )
@@ -2717,7 +2717,7 @@ def main() -> None:
         st.markdown(
             '<div style="position:fixed; bottom:16px; padding:0 16px;">'
             '<p style="font-family:Josefin Sans,sans-serif; font-size:0.75rem; color:#475569;">'
-            "ImoScout v0.1.0</p>"
+            "ImoIA v0.2.0</p>"
             "</div>",
             unsafe_allow_html=True,
         )

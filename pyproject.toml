@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "imoia"
 version = "0.2.0"
-description = "Plataforma de gestão de investimento imobiliário fix and flip (evolução do ImoScout)"
+description = "Plataforma de gestão de investimento imobiliário fix and flip"
 requires-python = ">=3.9"
 dependencies = [
     "anthropic>=0.40.0",
