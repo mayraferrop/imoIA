@@ -1,20 +1,26 @@
 export interface Property {
   id: string;
   source: string;
+  district?: string;
   municipality: string;
   parish?: string;
   address?: string;
   property_type?: string;
   typology?: string;
-  area_m2?: number;
+  gross_area_m2?: number;
+  net_area_m2?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  condition?: string;
   asking_price?: number;
-  price_per_m2?: number;
-  deal_grade?: string;
-  confidence?: number;
-  opportunity_type?: string;
-  description?: string;
-  url?: string;
+  currency?: string;
   status?: string;
+  contact_name?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  notes?: string;
+  tags?: string[];
+  is_off_market?: boolean;
   created_at: string;
 }
 
@@ -28,12 +34,16 @@ export interface PropertiesResponse {
 export interface Deal {
   id: string;
   property_id: string;
-  strategy: string;
+  investment_strategy: string;
   status: string;
-  current_state: string;
-  asking_price?: number;
-  offered_price?: number;
-  estimated_arv?: number;
+  title?: string;
+  purchase_price?: number;
+  target_sale_price?: number;
+  monthly_rent?: number;
+  renovation_budget?: number;
+  contact_name?: string;
+  contact_phone?: string;
+  notes?: string;
   created_at: string;
   property?: Property;
 }
@@ -44,10 +54,11 @@ export interface KanbanData {
 }
 
 export interface FinancialSimulation {
-  go_no_go: string;
+  go_nogo: string;
   total_investment: number;
-  estimated_profit: number;
-  roi_simple: number;
+  net_profit: number;
+  roi_pct: number;
+  roi_simple_pct: number;
   moic: number;
   cash_flow?: any[];
 }

@@ -16,28 +16,37 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://jurzdyncax
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1cnpkeW5jYXhrZ3ZjYXR5ZmR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNzM2MDcsImV4cCI6MjA4OTk0OTYwN30.2DCCWcrhdwBLMxJ9hUbYkhOBQIgE_aD2jGNaZlAhO5k";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
 
-const GRADE_ORDER = ["A", "B", "C", "D", "F"];
-
 interface Property {
   id: string;
   source: string;
-  municipality: string;
+  source_opportunity_id?: number;
   district?: string;
+  municipality: string;
   parish?: string;
-  address?: string;
   property_type?: string;
   typology?: string;
-  area_m2?: number;
+  gross_area_m2?: number;
+  bedrooms?: number;
+  condition?: string;
   asking_price?: number;
-  price_per_m2?: number;
+  status?: string;
+  contact_name?: string;
+  contact_phone?: string;
+  notes?: string;
+  created_at: string;
+  // Enriched from opportunities table
   deal_grade?: string;
   deal_score?: number;
   confidence?: number;
   opportunity_type?: string;
-  description?: string;
-  url?: string;
-  status?: string;
-  created_at: string;
+}
+
+interface Opportunity {
+  id: number;
+  deal_grade?: string;
+  deal_score?: number;
+  confidence?: number;
+  opportunity_type?: string;
 }
 
 interface IngestStats {
@@ -60,18 +69,69 @@ const OPP_TYPE_LABELS: Record<string, string> = {
   outro: "Outro",
 };
 
+const CONDITION_LABELS: Record<string, string> = {
+  novo: "Novo",
+  renovado: "Renovado",
+  usado: "Usado",
+  para_renovar: "Para renovar",
+  ruina: "Ruina",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  lead: "Lead",
+  oportunidade: "Oportunidade",
+  analise: "Analise",
+  active: "Activo",
+  contacted: "Contactado",
+  negotiating: "Negociacao",
+  cpcv_compra: "CPCV",
+  arrendamento: "Arrendamento",
+  marketing_activo: "Marketing",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  lead: "#94A3B8",
+  oportunidade: "#0F766E",
+  analise: "#D97706",
+  active: "#16A34A",
+  cpcv_compra: "#6366F1",
+  arrendamento: "#EC4899",
+  marketing_activo: "#14B8A6",
+};
+
+const SUPA_HEADERS = {
+  apikey: SUPABASE_KEY,
+  Authorization: `Bearer ${SUPABASE_KEY}`,
+};
+
 async function fetchSupabaseProperties(): Promise<Property[]> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/properties?select=*&order=created_at.desc&limit=50`,
-    {
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-      },
-    }
+    `${SUPABASE_URL}/rest/v1/properties?select=id,source,source_opportunity_id,district,municipality,parish,property_type,typology,gross_area_m2,bedrooms,condition,asking_price,status,contact_name,contact_phone,notes,created_at&order=created_at.desc&limit=200`,
+    { headers: SUPA_HEADERS }
   );
   if (!res.ok) throw new Error("Supabase fetch failed");
   return res.json();
+}
+
+async function fetchSupabaseOpportunities(): Promise<Opportunity[]> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/opportunities?select=id,deal_grade,deal_score,confidence,opportunity_type&is_opportunity=eq.true`,
+    { headers: SUPA_HEADERS }
+  );
+  if (!res.ok) return [];
+  return res.json();
+}
+
+function enrichProperties(properties: Property[], opportunities: Opportunity[]): Property[] {
+  const oppMap = new Map<number, Opportunity>();
+  for (const opp of opportunities) oppMap.set(opp.id, opp);
+  return properties.map((p) => {
+    if (p.source_opportunity_id && oppMap.has(p.source_opportunity_id)) {
+      const opp = oppMap.get(p.source_opportunity_id)!;
+      return { ...p, deal_grade: opp.deal_grade, deal_score: opp.deal_score, confidence: opp.confidence, opportunity_type: opp.opportunity_type };
+    }
+    return p;
+  });
 }
 
 export default function PropertiesPage() {
@@ -89,6 +149,7 @@ export default function PropertiesPage() {
   // Filters
   const [filterMunicipality, setFilterMunicipality] = useState("");
   const [filterType, setFilterType] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [filterGrade, setFilterGrade] = useState("");
   const [filterMinPrice, setFilterMinPrice] = useState("");
   const [filterMaxPrice, setFilterMaxPrice] = useState("");
@@ -96,15 +157,17 @@ export default function PropertiesPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Try Supabase first for instant loading
       let props: Property[] = [];
       try {
-        props = await fetchSupabaseProperties();
+        const [rawProps, opps] = await Promise.all([
+          fetchSupabaseProperties(),
+          fetchSupabaseOpportunities(),
+        ]);
+        props = enrichProperties(rawProps, opps);
         setDataSource("supabase");
         setTotal(props.length);
       } catch {
-        // Fallback to FastAPI
-        const propsRes = await fetch(`${API_BASE}/api/v1/properties/?limit=50`);
+        const propsRes = await fetch(`${API_BASE}/api/v1/properties/?limit=200`);
         if (propsRes.ok) {
           const data = await propsRes.json();
           props = data.items ?? [];
@@ -114,14 +177,13 @@ export default function PropertiesPage() {
       }
       setProperties(props);
 
-      // Stats always from FastAPI (legacy ingest stats)
       try {
         const statsRes = await fetch(`${API_BASE}/api/v1/ingest/stats`);
         if (statsRes.ok) {
           setStats(await statsRes.json());
         }
       } catch {
-        // Stats unavailable, compute from properties
+        // Stats unavailable
       }
     } catch {
       // ignore
@@ -138,6 +200,7 @@ export default function PropertiesPage() {
   const filtered = properties.filter((p) => {
     if (filterMunicipality && !p.municipality?.toLowerCase().includes(filterMunicipality.toLowerCase())) return false;
     if (filterType && p.property_type !== filterType) return false;
+    if (filterStatus && p.status !== filterStatus) return false;
     if (filterGrade && p.deal_grade !== filterGrade) return false;
     if (filterMinPrice && (p.asking_price ?? 0) < Number(filterMinPrice)) return false;
     if (filterMaxPrice && (p.asking_price ?? 0) > Number(filterMaxPrice)) return false;
@@ -205,44 +268,36 @@ export default function PropertiesPage() {
     }
   }
 
-  // Stats from API or computed from properties
+  // Stats from API or computed
   const totalGroups = stats?.groups?.total ?? 0;
   const activeGroups = stats?.groups?.active ?? 0;
   const totalMsgs = stats?.messages ?? 0;
   const totalOpps = stats?.opportunities ?? properties.length;
   const conversion = totalMsgs > 0 ? ((totalOpps / totalMsgs) * 100).toFixed(1) : "0.0";
 
-  // Grade distribution — prefer API stats, fallback to client computation
+  // Grade distribution — enriched properties first, fallback to API stats
+  const GRADE_ORDER = ["A", "B", "C", "D", "F"];
+  const computedGrades: Record<string, number> = {};
+  properties.forEach((p) => {
+    if (p.deal_grade && GRADE_ORDER.includes(p.deal_grade)) {
+      computedGrades[p.deal_grade] = (computedGrades[p.deal_grade] || 0) + 1;
+    }
+  });
+  const hasComputedGrades = Object.keys(computedGrades).length > 0;
   const gradeDistFromApi = stats?.grade_distribution ?? {};
   const hasApiGrades = Object.keys(gradeDistFromApi).length > 0;
-
-  let gradeChartData: { grade: string; count: number; color: string }[];
-  if (hasApiGrades) {
-    gradeChartData = GRADE_ORDER.filter((g) => gradeDistFromApi[g])
-      .map((g) => ({
-        grade: g,
-        count: gradeDistFromApi[g] || 0,
-        color: GRADE_COLORS[g] || GRADE_COLORS.D,
-      }));
-  } else {
-    const computed: Record<string, number> = {};
-    properties.forEach((p) => {
-      const g = p.deal_grade;
-      if (g && GRADE_ORDER.includes(g)) {
-        computed[g] = (computed[g] || 0) + 1;
-      }
-    });
-    gradeChartData = GRADE_ORDER.filter((g) => computed[g])
-      .map((g) => ({
-        grade: g,
-        count: computed[g] || 0,
-        color: GRADE_COLORS[g] || GRADE_COLORS.D,
-      }));
-  }
+  const gradeDist = hasComputedGrades ? computedGrades : gradeDistFromApi;
+  const gradeChartData = GRADE_ORDER.filter((g) => gradeDist[g])
+    .map((g) => ({
+      grade: g,
+      count: gradeDist[g] || 0,
+      color: GRADE_COLORS[g] || GRADE_COLORS.D,
+    }));
 
   // Unique values for filters
   const municipalities = [...new Set(properties.map((p) => p.municipality).filter(Boolean))].sort();
   const propertyTypes = [...new Set(properties.map((p) => p.property_type).filter(Boolean))].sort();
+  const statuses = [...new Set(properties.map((p) => p.status).filter((s): s is string => !!s))].sort();
 
   return (
     <div className="space-y-6">
@@ -274,14 +329,12 @@ export default function PropertiesPage() {
         </div>
       </div>
 
-      {/* Trigger message */}
+      {/* Messages */}
       {triggerMsg && (
         <div className={`px-4 py-3 rounded-lg text-sm ${triggerMsg.includes("Erro") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
           {triggerMsg}
         </div>
       )}
-
-      {/* Create message */}
       {createMsg && (
         <div className={`px-4 py-3 rounded-lg text-sm ${createMsg.includes("Erro") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
           {createMsg}
@@ -296,7 +349,7 @@ export default function PropertiesPage() {
         <StatCard label="Taxa conversao" value={`${conversion}%`} />
       </div>
 
-      {/* Grade distribution Recharts bar chart */}
+      {/* Grade distribution from API stats (legacy data only) */}
       {gradeChartData.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 p-6">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">Distribuicao por Deal Grade</h2>
@@ -398,7 +451,7 @@ export default function PropertiesPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Concelho</label>
             <select
@@ -426,7 +479,20 @@ export default function PropertiesPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Deal Grade</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Estado</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="">Todos</option>
+              {statuses.map((s) => (
+                <option key={s} value={s}>{STATUS_LABELS[s] || s}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Grade</label>
             <select
               value={filterGrade}
               onChange={(e) => setFilterGrade(e.target.value)}
@@ -470,54 +536,76 @@ export default function PropertiesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((p) => {
-            const gradeColor = GRADE_COLORS[p.deal_grade ?? "D"] ?? GRADE_COLORS.D;
-            const oppLabel = OPP_TYPE_LABELS[p.opportunity_type ?? ""] ?? p.opportunity_type;
+            const statusColor = STATUS_COLORS[p.status ?? "lead"] ?? "#94A3B8";
+            const pricePerM2 = p.asking_price && p.gross_area_m2
+              ? Math.round(p.asking_price / p.gross_area_m2)
+              : null;
             return (
               <div
                 key={p.id}
                 className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-md transition-shadow"
-                style={{ borderLeftWidth: 4, borderLeftColor: gradeColor }}
+                style={{ borderLeftWidth: 4, borderLeftColor: statusColor }}
               >
                 <div className="p-5">
                   {/* Header */}
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-semibold text-slate-900">{p.municipality}</h3>
+                      <h3 className="font-semibold text-slate-900">{p.municipality || "Sem concelho"}</h3>
                       {p.parish && <p className="text-xs text-slate-500">{p.parish}</p>}
                     </div>
-                    {p.deal_grade && (
-                      <span
-                        className="text-xs font-bold px-2.5 py-1 rounded-md text-white"
-                        style={{ backgroundColor: gradeColor }}
-                      >
-                        {p.deal_grade}
-                        {p.deal_score != null && ` (${p.deal_score})`}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {p.deal_grade && (
+                        <span
+                          className="text-xs font-bold px-2 py-1 rounded-md text-white"
+                          style={{ backgroundColor: GRADE_COLORS[p.deal_grade] ?? GRADE_COLORS.D }}
+                        >
+                          {p.deal_grade}
+                          {p.deal_score != null && ` ${p.deal_score}`}
+                        </span>
+                      )}
+                      {p.status && (
+                        <span
+                          className="text-xs font-medium px-2 py-1 rounded-md text-white"
+                          style={{ backgroundColor: statusColor }}
+                        >
+                          {STATUS_LABELS[p.status] || p.status}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Specs line */}
                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                    {oppLabel && (
-                      <span className="bg-slate-100 px-2 py-0.5 rounded">{oppLabel}</span>
+                    {p.opportunity_type && (
+                      <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded">
+                        {OPP_TYPE_LABELS[p.opportunity_type] || p.opportunity_type}
+                      </span>
                     )}
                     {p.property_type && (
                       <span className="bg-slate-100 px-2 py-0.5 rounded">{p.property_type}</span>
                     )}
-                    {p.area_m2 && (
-                      <span className="bg-slate-100 px-2 py-0.5 rounded">{p.area_m2} m2</span>
-                    )}
                     {p.typology && (
                       <span className="bg-slate-100 px-2 py-0.5 rounded">{p.typology}</span>
                     )}
-                    {p.confidence != null && (
+                    {p.gross_area_m2 && (
+                      <span className="bg-slate-100 px-2 py-0.5 rounded">{p.gross_area_m2} m2</span>
+                    )}
+                    {p.bedrooms != null && (
+                      <span className="bg-slate-100 px-2 py-0.5 rounded">{p.bedrooms} quartos</span>
+                    )}
+                    {p.condition && (
                       <span className="bg-slate-100 px-2 py-0.5 rounded">
+                        {CONDITION_LABELS[p.condition] || p.condition}
+                      </span>
+                    )}
+                    {p.confidence != null && (
+                      <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
                         Conf. {(p.confidence * 100).toFixed(0)}%
                       </span>
                     )}
-                    {p.price_per_m2 != null && (
-                      <span className="bg-slate-100 px-2 py-0.5 rounded">
-                        {formatEUR(p.price_per_m2)}/m2
+                    {pricePerM2 != null && (
+                      <span className="bg-teal-50 text-teal-700 px-2 py-0.5 rounded">
+                        {formatEUR(pricePerM2)}/m2
                       </span>
                     )}
                   </div>

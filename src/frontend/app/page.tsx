@@ -19,23 +19,43 @@ const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIU
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
 
 const GRADE_ORDER = ["A", "B", "C", "D", "F"];
+const SUPA_HEADERS = {
+  apikey: SUPABASE_KEY,
+  Authorization: `Bearer ${SUPABASE_KEY}`,
+};
 
 interface Property {
   id: string;
   source: string;
+  source_opportunity_id?: number;
+  district?: string;
   municipality: string;
   parish?: string;
   property_type?: string;
   typology?: string;
-  area_m2?: number;
+  gross_area_m2?: number;
   asking_price?: number;
-  price_per_m2?: number;
+  condition?: string;
+  status?: string;
+  created_at: string;
+  // Enriched from opportunities table
   deal_grade?: string;
   deal_score?: number;
   confidence?: number;
   opportunity_type?: string;
-  status?: string;
-  created_at: string;
+}
+
+interface Opportunity {
+  id: number;
+  deal_grade?: string;
+  deal_score?: number;
+  confidence?: number;
+  opportunity_type?: string;
+  municipality?: string;
+  district?: string;
+  price_mentioned?: number;
+  area_m2?: number;
+  is_opportunity?: boolean;
 }
 
 interface DealStats {
@@ -45,21 +65,21 @@ interface DealStats {
 }
 
 async function fetchSupabaseProperties(): Promise<Property[]> {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/properties?select=*`, {
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
-    },
-  });
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/properties?select=id,source,source_opportunity_id,district,municipality,parish,property_type,typology,gross_area_m2,asking_price,condition,status,created_at&order=created_at.desc`,
+    { headers: SUPA_HEADERS }
+  );
   if (!res.ok) throw new Error("Supabase fetch failed");
   return res.json();
 }
 
-async function fetchFastAPIProperties(): Promise<Property[]> {
-  const res = await fetch(`${API_BASE}/api/v1/properties/?limit=500`);
-  if (!res.ok) throw new Error("FastAPI fetch failed");
-  const data = await res.json();
-  return data.items ?? [];
+async function fetchSupabaseOpportunities(): Promise<Opportunity[]> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/opportunities?select=id,deal_grade,deal_score,confidence,opportunity_type,municipality,district,price_mentioned,area_m2,is_opportunity&is_opportunity=eq.true&order=deal_score.desc.nullslast`,
+    { headers: SUPA_HEADERS }
+  );
+  if (!res.ok) return [];
+  return res.json();
 }
 
 async function fetchDealStats(): Promise<DealStats> {
@@ -72,8 +92,29 @@ async function fetchDealStats(): Promise<DealStats> {
   }
 }
 
+function enrichProperties(properties: Property[], opportunities: Opportunity[]): Property[] {
+  const oppMap = new Map<number, Opportunity>();
+  for (const opp of opportunities) {
+    oppMap.set(opp.id, opp);
+  }
+  return properties.map((p) => {
+    if (p.source_opportunity_id && oppMap.has(p.source_opportunity_id)) {
+      const opp = oppMap.get(p.source_opportunity_id)!;
+      return {
+        ...p,
+        deal_grade: opp.deal_grade,
+        deal_score: opp.deal_score,
+        confidence: opp.confidence,
+        opportunity_type: opp.opportunity_type,
+      };
+    }
+    return p;
+  });
+}
+
 export default function DashboardPage() {
   const [properties, setProperties] = useState<Property[]>([]);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [dealStats, setDealStats] = useState<DealStats>({});
   const [loading, setLoading] = useState(true);
   const [dataSource, setDataSource] = useState<"supabase" | "fastapi" | "offline">("supabase");
@@ -82,22 +123,30 @@ export default function DashboardPage() {
     async function load() {
       setLoading(true);
 
-      // Try Supabase first, fallback to FastAPI
       let props: Property[] = [];
+      let opps: Opportunity[] = [];
       try {
-        props = await fetchSupabaseProperties();
+        [props, opps] = await Promise.all([
+          fetchSupabaseProperties(),
+          fetchSupabaseOpportunities(),
+        ]);
+        props = enrichProperties(props, opps);
         setDataSource("supabase");
       } catch {
         try {
-          props = await fetchFastAPIProperties();
+          const res = await fetch(`${API_BASE}/api/v1/properties/?limit=500`);
+          if (res.ok) {
+            const data = await res.json();
+            props = data.items ?? [];
+          }
           setDataSource("fastapi");
         } catch {
           setDataSource("offline");
         }
       }
       setProperties(props);
+      setOpportunities(opps);
 
-      // Deal stats always from FastAPI
       const stats = await fetchDealStats();
       setDealStats(stats);
 
@@ -108,11 +157,20 @@ export default function DashboardPage() {
 
   // --- Computed chart data ---
 
-  // Grade distribution
+  // Grade distribution (from enriched properties + standalone opportunities)
   const gradeCounts: Record<string, number> = {};
+  // Count from enriched properties
   properties.forEach((p) => {
-    const g = p.deal_grade ?? "N/A";
-    gradeCounts[g] = (gradeCounts[g] || 0) + 1;
+    if (p.deal_grade) {
+      gradeCounts[p.deal_grade] = (gradeCounts[p.deal_grade] || 0) + 1;
+    }
+  });
+  // Add standalone opportunities not linked to properties
+  const linkedOppIds = new Set(properties.map((p) => p.source_opportunity_id).filter(Boolean));
+  opportunities.forEach((opp) => {
+    if (!linkedOppIds.has(opp.id) && opp.deal_grade) {
+      gradeCounts[opp.deal_grade] = (gradeCounts[opp.deal_grade] || 0) + 1;
+    }
   });
   const gradeData = GRADE_ORDER.filter((g) => gradeCounts[g])
     .map((g) => ({
@@ -133,12 +191,7 @@ export default function DashboardPage() {
     .slice(0, 10)
     .map(([name, count]) => ({ name, count }));
 
-  // Opportunity types for pie chart
-  const typeCounts: Record<string, number> = {};
-  properties.forEach((p) => {
-    const t = p.opportunity_type || "outro";
-    typeCounts[t] = (typeCounts[t] || 0) + 1;
-  });
+  // Opportunity types pie chart
   const OPP_TYPE_LABELS: Record<string, string> = {
     abaixo_mercado: "Abaixo Mercado",
     venda_urgente: "Venda Urgente",
@@ -151,6 +204,21 @@ export default function DashboardPage() {
     outro: "Outro",
   };
   const PIE_COLORS = ["#0F766E", "#16A34A", "#14B8A6", "#D97706", "#DC2626", "#94A3B8", "#6366F1", "#EC4899", "#F59E0B"];
+  const typeCounts: Record<string, number> = {};
+  // From enriched properties
+  properties.forEach((p) => {
+    if (p.opportunity_type) {
+      const t = p.opportunity_type;
+      typeCounts[t] = (typeCounts[t] || 0) + 1;
+    }
+  });
+  // From standalone opportunities
+  opportunities.forEach((opp) => {
+    if (!linkedOppIds.has(opp.id) && opp.opportunity_type) {
+      const t = opp.opportunity_type;
+      typeCounts[t] = (typeCounts[t] || 0) + 1;
+    }
+  });
   const pieData = Object.entries(typeCounts)
     .filter(([, count]) => count > 0)
     .sort((a, b) => b[1] - a[1])
@@ -159,20 +227,35 @@ export default function DashboardPage() {
       value: count,
     }));
 
-  // Pipeline / deals by state (computed from properties status)
+  // Pipeline / properties by status
+  const STATUS_LABELS: Record<string, string> = {
+    lead: "Lead",
+    oportunidade: "Oportunidade",
+    analise: "Analise",
+    active: "Activo",
+    contacted: "Contactado",
+    negotiating: "Negociacao",
+    cpcv_compra: "CPCV",
+    arrendamento: "Arrendamento",
+    marketing_activo: "Marketing",
+  };
   const statusCounts: Record<string, number> = {};
   properties.forEach((p) => {
-    const s = p.status || "novo";
+    const s = p.status || "lead";
     statusCounts[s] = (statusCounts[s] || 0) + 1;
   });
   const pipelineData = Object.entries(statusCounts)
     .sort((a, b) => b[1] - a[1])
-    .map(([state, count]) => ({ state, count }));
+    .map(([state, count]) => ({ state: STATUS_LABELS[state] || state, count }));
 
   // Recent 5 properties
   const recentProperties = [...properties]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5);
+
+  // Total opportunities (enriched properties with grade + standalone opps)
+  const totalOpps = properties.filter((p) => p.deal_grade).length +
+    opportunities.filter((opp) => !linkedOppIds.has(opp.id)).length;
 
   if (loading) {
     return (
@@ -212,6 +295,7 @@ export default function DashboardPage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <KPICard label="Propriedades" value={String(properties.length)} />
+        <KPICard label="Oportunidades" value={String(totalOpps)} />
         <KPICard
           label="Deals Activos"
           value={String(dealStats.total_active ?? 0)}
@@ -219,10 +303,6 @@ export default function DashboardPage() {
         <KPICard
           label="Valor Pipeline"
           value={formatEUR(dealStats.total_pipeline_value ?? 0)}
-        />
-        <KPICard
-          label="Deals Concluidos"
-          value={String(dealStats.total_completed ?? 0)}
         />
       </div>
 
@@ -239,7 +319,7 @@ export default function DashboardPage() {
                 <XAxis dataKey="grade" tick={{ fontSize: 13, fontWeight: 700 }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                 <Tooltip
-                  formatter={(value: number) => [value, "Propriedades"]}
+                  formatter={(value: number) => [value, "Oportunidades"]}
                   contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0" }}
                 />
                 <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={60}>
@@ -310,7 +390,7 @@ export default function DashboardPage() {
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: number) => [value, "Propriedades"]}
+                  formatter={(value: number) => [value, "Oportunidades"]}
                   contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0" }}
                 />
               </PieChart>
@@ -353,15 +433,15 @@ export default function DashboardPage() {
               >
                 <div>
                   <p className="text-sm font-medium text-slate-900">
-                    {p.municipality}
+                    {p.municipality || "Sem concelho"}
                     {p.parish ? ` — ${p.parish}` : ""}
                   </p>
                   <p className="text-xs text-slate-500">
-                    {p.property_type} {p.typology ? `| ${p.typology}` : ""}{" "}
-                    {p.area_m2 ? `| ${p.area_m2}m2` : ""}
+                    {p.property_type || ""} {p.typology ? `| ${p.typology}` : ""}{" "}
+                    {p.gross_area_m2 ? `| ${p.gross_area_m2}m2` : ""}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="text-right flex items-center gap-2">
                   <p className="text-sm font-semibold text-teal-700">
                     {formatEUR(p.asking_price)}
                   </p>
