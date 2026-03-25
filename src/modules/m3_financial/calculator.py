@@ -629,16 +629,13 @@ class FinancialCalculator:
     ) -> None:
         """Calcula metricas finais de retorno.
 
-        Metodologia (optica de caixa):
-        - Equity = preco_compra - emprestimo
-        - Caixa investido = equity + custos_compra_1 + custos_compra_2
-          + custos_hipoteca + obra + prestacoes + manutencao
-        - Caixa no closing = venda_liquida - payoff_emprestimo
-        - Lucro = caixa_closing - caixa_investido
-        - ROI = CAGR: (1 + lucro/caixa)^(12/meses) - 1
+        Metodologia:
+        - total_investment = custo total do projecto (com preco_compra completo)
+        - caixa_investido = total_investment - emprestimo (o que sai do bolso)
+        - caixa_closing = venda_liquida - payoff_emprestimo
+        - lucro = caixa_closing - caixa_investido + reembolso_imt
+        - ROI = CAGR: (1 + lucro/caixa_investido)^(12/meses) - 1
         """
-        equity = inp.purchase_price - res.loan_amount
-
         custos_compra_1 = (
             res.imt
             + res.imposto_selo
@@ -659,8 +656,9 @@ class FinancialCalculator:
             inp.monthly_condominio + inp.annual_insurance / 12 + monthly_imi
         )
 
+        # total_investment = custo total do projecto (preco COMPLETO, nao equity)
         res.total_investment = round(
-            equity
+            inp.purchase_price
             + custos_compra_1
             + custos_compra_2
             + res.bank_fees
@@ -705,9 +703,10 @@ class FinancialCalculator:
             2,
         )
 
-        # Lucro cash = caixa no closing - caixa investido
-        # Impostos pagam-se a parte (IRS ou IRC), nao saem do caixa no closing
-        # No regime reembolso, o IMT 2 volta 12 meses depois — somar ao lucro
+        # Caixa investido = custo total do projecto - emprestimo (dinheiro do bolso)
+        caixa_investido = res.total_investment - res.loan_amount
+
+        # Lucro cash = caixa no closing - caixa investido + reembolso IMT
         imt_reembolso = 0.0
         if inp.imt_resale_regime == "reembolso" and inp.entity_structure == "pf_jp":
             imt_reembolso = res.imt_2
@@ -715,13 +714,13 @@ class FinancialCalculator:
             imt_reembolso = res.imt_2_original
 
         res.gross_profit = round(
-            res.caixa_closing - res.total_investment + imt_reembolso, 2
+            res.caixa_closing - caixa_investido + imt_reembolso, 2
         )
         res.net_profit = res.gross_profit
 
-        # ROI — CAGR anualizado
-        if res.total_investment > 0 and res.holding_months > 0:
-            raw_return = res.net_profit / res.total_investment
+        # ROI — baseado no caixa investido (o que saiu do bolso)
+        if caixa_investido > 0 and res.holding_months > 0:
+            raw_return = res.net_profit / caixa_investido
             res.roi_simple_pct = round(raw_return * 100, 2)
 
             if 1 + raw_return > 0:
@@ -737,16 +736,14 @@ class FinancialCalculator:
 
             res.roi_annualized_pct = res.roi_pct
 
-            # MOIC — inclui reembolso IMT para consistencia com net_profit
+            # MOIC — retorno total / caixa investido
             retorno_total = res.caixa_closing + imt_reembolso
-            res.moic = round(retorno_total / res.total_investment, 2)
+            res.moic = round(retorno_total / caixa_investido, 2)
 
-            # ROI equity = lucro / capital proprio investido
-            # equity_real = total_investment - loan (dinheiro que sai do bolso)
-            equity_real = res.total_investment - res.loan_amount
-            if equity_real > 0:
+            # ROI equity = lucro / caixa investido (mesmo que roi_simple quando cash)
+            if caixa_investido > 0:
                 res.cash_on_cash_return_pct = round(
-                    (res.net_profit / equity_real) * 100, 2
+                    (res.net_profit / caixa_investido) * 100, 2
                 )
 
         # Warnings
