@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { fetcher } from "@/lib/api";
 import { formatEUR, cn } from "@/lib/utils";
+import { supabaseGet } from "@/lib/supabase";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -116,18 +117,43 @@ export default function ClosingPage() {
   const [fiscalYear, setFiscalYear] = useState(new Date().getFullYear());
   const [fiscalReport, setFiscalReport] = useState<FiscalReport | null>(null);
 
+  /* ------------------------------------------------------------------ */
+  /*  PRIMARY: Load closings from Supabase, with FastAPI fallback        */
+  /* ------------------------------------------------------------------ */
+
   const loadClosings = useCallback(async () => {
-    const data = await fetcher("/api/v1/closing");
-    setClosings(data ?? []);
+    // PRIMARY: Supabase direct query (instant, no cold start)
+    const supaClosings = await supabaseGet<Closing>("closing_processes", "select=*&order=created_at.desc");
+
+    if (supaClosings.length > 0) {
+      setClosings(supaClosings);
+    } else {
+      // FALLBACK: FastAPI
+      const data = await fetcher("/api/v1/closing");
+      setClosings(data ?? []);
+    }
   }, []);
 
   const loadDeals = useCallback(async () => {
-    const resp = await fetcher("/api/v1/deals?limit=100");
-    const items = resp?.items ?? (Array.isArray(resp) ? resp : []);
-    setDeals(items.map((d: any) => ({ id: d.id, title: d.title ?? d.id.slice(0, 8), property_id: d.property_id })));
-    if (items.length > 0) {
-      setCreateDealId(items[0].id);
-      setPnlDealId(items[0].id);
+    // PRIMARY: Supabase for deals list
+    const supaDeals = await supabaseGet<any>("deals", "select=id,title,property_id&order=created_at.desc&limit=100");
+
+    if (supaDeals.length > 0) {
+      const items = supaDeals.map((d: any) => ({ id: d.id, title: d.title ?? d.id.slice(0, 8), property_id: d.property_id }));
+      setDeals(items);
+      if (items.length > 0) {
+        setCreateDealId(items[0].id);
+        setPnlDealId(items[0].id);
+      }
+    } else {
+      // FALLBACK: FastAPI
+      const resp = await fetcher("/api/v1/deals?limit=100");
+      const items = resp?.items ?? (Array.isArray(resp) ? resp : []);
+      setDeals(items.map((d: any) => ({ id: d.id, title: d.title ?? d.id.slice(0, 8), property_id: d.property_id })));
+      if (items.length > 0) {
+        setCreateDealId(items[0].id);
+        setPnlDealId(items[0].id);
+      }
     }
   }, []);
 
@@ -136,6 +162,7 @@ export default function ClosingPage() {
     Promise.all([loadClosings(), loadDeals()]).then(() => setLoading(false));
   }, [loadClosings, loadDeals]);
 
+  // Write operations: always via FastAPI (needs business logic)
   async function createClosing() {
     if (!createDealId) return;
     const dealData = deals.find((d) => d.id === createDealId);
@@ -193,8 +220,14 @@ export default function ClosingPage() {
   }
 
   async function loadPnl(dealId: string) {
-    const data = await fetcher(`/api/v1/pnl/${dealId}`);
-    setPnlData(data);
+    // P&L data from Supabase first, then FastAPI
+    const supaPnl = await supabaseGet<PnlData>("deal_pnl", `select=*&deal_id=eq.${dealId}`);
+    if (supaPnl.length > 0) {
+      setPnlData(supaPnl[0]);
+    } else {
+      const data = await fetcher(`/api/v1/pnl/${dealId}`);
+      setPnlData(data);
+    }
   }
 
   async function calculatePnl() {

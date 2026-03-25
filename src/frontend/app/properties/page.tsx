@@ -2,8 +2,21 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { formatEUR, GRADE_COLORS } from "@/lib/utils";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+const GRADE_ORDER = ["A", "B", "C", "D", "F"];
 
 interface Property {
   id: string;
@@ -47,11 +60,26 @@ const OPP_TYPE_LABELS: Record<string, string> = {
   outro: "Outro",
 };
 
+async function fetchSupabaseProperties(): Promise<Property[]> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/properties?select=*&order=created_at.desc&limit=50`,
+    {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+    }
+  );
+  if (!res.ok) throw new Error("Supabase fetch failed");
+  return res.json();
+}
+
 export default function PropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [stats, setStats] = useState<IngestStats | null>(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [dataSource, setDataSource] = useState<"supabase" | "fastapi">("supabase");
   const [triggerLoading, setTriggerLoading] = useState(false);
   const [triggerMsg, setTriggerMsg] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -68,17 +96,32 @@ export default function PropertiesPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [propsRes, statsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/v1/properties/?limit=50`),
-        fetch(`${API_BASE}/api/v1/ingest/stats`),
-      ]);
-      if (propsRes.ok) {
-        const data = await propsRes.json();
-        setProperties(data.items ?? []);
-        setTotal(data.total ?? 0);
+      // Try Supabase first for instant loading
+      let props: Property[] = [];
+      try {
+        props = await fetchSupabaseProperties();
+        setDataSource("supabase");
+        setTotal(props.length);
+      } catch {
+        // Fallback to FastAPI
+        const propsRes = await fetch(`${API_BASE}/api/v1/properties/?limit=50`);
+        if (propsRes.ok) {
+          const data = await propsRes.json();
+          props = data.items ?? [];
+          setTotal(data.total ?? 0);
+        }
+        setDataSource("fastapi");
       }
-      if (statsRes.ok) {
-        setStats(await statsRes.json());
+      setProperties(props);
+
+      // Stats always from FastAPI (legacy ingest stats)
+      try {
+        const statsRes = await fetch(`${API_BASE}/api/v1/ingest/stats`);
+        if (statsRes.ok) {
+          setStats(await statsRes.json());
+        }
+      } catch {
+        // Stats unavailable, compute from properties
       }
     } catch {
       // ignore
@@ -162,17 +205,40 @@ export default function PropertiesPage() {
     }
   }
 
-  // Stats
+  // Stats from API or computed from properties
   const totalGroups = stats?.groups?.total ?? 0;
   const activeGroups = stats?.groups?.active ?? 0;
   const totalMsgs = stats?.messages ?? 0;
-  const totalOpps = stats?.opportunities ?? 0;
+  const totalOpps = stats?.opportunities ?? properties.length;
   const conversion = totalMsgs > 0 ? ((totalOpps / totalMsgs) * 100).toFixed(1) : "0.0";
 
-  // Grade distribution
-  const gradeDistribution = stats?.grade_distribution ?? {};
-  const gradeEntries = Object.entries(gradeDistribution);
-  const maxGradeCount = Math.max(...gradeEntries.map(([, v]) => v), 1);
+  // Grade distribution — prefer API stats, fallback to client computation
+  const gradeDistFromApi = stats?.grade_distribution ?? {};
+  const hasApiGrades = Object.keys(gradeDistFromApi).length > 0;
+
+  let gradeChartData: { grade: string; count: number; color: string }[];
+  if (hasApiGrades) {
+    gradeChartData = GRADE_ORDER.filter((g) => gradeDistFromApi[g])
+      .map((g) => ({
+        grade: g,
+        count: gradeDistFromApi[g] || 0,
+        color: GRADE_COLORS[g] || GRADE_COLORS.D,
+      }));
+  } else {
+    const computed: Record<string, number> = {};
+    properties.forEach((p) => {
+      const g = p.deal_grade;
+      if (g && GRADE_ORDER.includes(g)) {
+        computed[g] = (computed[g] || 0) + 1;
+      }
+    });
+    gradeChartData = GRADE_ORDER.filter((g) => computed[g])
+      .map((g) => ({
+        grade: g,
+        count: computed[g] || 0,
+        color: GRADE_COLORS[g] || GRADE_COLORS.D,
+      }));
+  }
 
   // Unique values for filters
   const municipalities = [...new Set(properties.map((p) => p.municipality).filter(Boolean))].sort();
@@ -184,7 +250,12 @@ export default function PropertiesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">M1 — Propriedades</h1>
-          <p className="text-sm text-slate-500 mt-1">{total} propriedades no sistema</p>
+          <p className="text-sm text-slate-500 mt-1">
+            {total} propriedades no sistema
+            <span className="ml-2 text-xs text-slate-400">
+              ({dataSource === "supabase" ? "Supabase" : "FastAPI"})
+            </span>
+          </p>
         </div>
         <div className="flex gap-3">
           <button
@@ -225,28 +296,25 @@ export default function PropertiesPage() {
         <StatCard label="Taxa conversao" value={`${conversion}%`} />
       </div>
 
-      {/* Grade distribution chart */}
-      {gradeEntries.length > 0 && (
+      {/* Grade distribution Recharts bar chart */}
+      {gradeChartData.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 p-6">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">Distribuicao por Deal Grade</h2>
-          <div className="flex items-end gap-3 h-32">
-            {gradeEntries.map(([grade, count]) => {
-              const color = GRADE_COLORS[grade] ?? GRADE_COLORS.D;
-              const heightPct = (count / maxGradeCount) * 100;
-              return (
-                <div key={grade} className="flex flex-col items-center flex-1">
-                  <span className="text-xs font-bold text-slate-600 mb-1">{count}</span>
-                  <div
-                    className="w-full rounded-t-md transition-all"
-                    style={{ backgroundColor: color, height: `${Math.max(heightPct, 4)}%`, minHeight: 4 }}
-                  />
-                  <span className="text-xs font-bold mt-1" style={{ color }}>
-                    {grade}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={gradeChartData} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+              <XAxis dataKey="grade" tick={{ fontSize: 13, fontWeight: 700 }} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+              <Tooltip
+                formatter={(value: number) => [value, "Propriedades"]}
+                contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0" }}
+              />
+              <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={60}>
+                {gradeChartData.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       )}
 

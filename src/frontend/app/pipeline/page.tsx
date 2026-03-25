@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { formatEUR, GRADE_COLORS } from "@/lib/utils";
+import { supabaseGet } from "@/lib/supabase";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -31,6 +32,7 @@ interface Deal {
   notes?: string;
   created_at?: string;
   property?: Record<string, any>;
+  properties?: Record<string, any>;
 }
 
 interface KanbanData {
@@ -83,6 +85,28 @@ interface NextAction {
 type PipelineTab = "kanban" | "create" | "mediation";
 type DetailTab = "resumo" | "propostas" | "tasks" | "hist";
 
+/* ------------------------------------------------------------------ */
+/*  Status config for kanban columns (used when reading from Supabase) */
+/* ------------------------------------------------------------------ */
+const DEFAULT_STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
+  triagem: { label: "Triagem", color: "#94A3B8", icon: "" },
+  analise: { label: "Analise", color: "#2563EB", icon: "" },
+  proposta: { label: "Proposta", color: "#7C3AED", icon: "" },
+  negociacao: { label: "Negociacao", color: "#D97706", icon: "" },
+  cpcv: { label: "CPCV", color: "#14B8A6", icon: "" },
+  escritura: { label: "Escritura", color: "#0F766E", icon: "" },
+  obra: { label: "Obra", color: "#F59E0B", icon: "" },
+  venda: { label: "Venda", color: "#16A34A", icon: "" },
+  concluido: { label: "Concluido", color: "#16A34A", icon: "" },
+  descartado: { label: "Descartado", color: "#DC2626", icon: "" },
+  em_pausa: { label: "Em Pausa", color: "#94A3B8", icon: "" },
+  angariacao: { label: "Angariacao", color: "#2563EB", icon: "" },
+  preparacao: { label: "Preparacao", color: "#7C3AED", icon: "" },
+  marketing: { label: "Marketing", color: "#D97706", icon: "" },
+  visitas: { label: "Visitas", color: "#14B8A6", icon: "" },
+  fecho: { label: "Fecho", color: "#0F766E", icon: "" },
+};
+
 export default function PipelinePage() {
   const [activeTab, setActiveTab] = useState<PipelineTab>("kanban");
   const [kanban, setKanban] = useState<KanbanData | null>(null);
@@ -118,22 +142,75 @@ export default function PipelinePage() {
   const [medKanban, setMedKanban] = useState<KanbanData | null>(null);
   const [medStats, setMedStats] = useState<Record<string, any> | null>(null);
 
+  /* ------------------------------------------------------------------ */
+  /*  PRIMARY: Load deals from Supabase, group into kanban columns       */
+  /* ------------------------------------------------------------------ */
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const params = strategyFilter ? `?strategy=${strategyFilter}` : "";
-      const [kanbanRes, statsRes, strategiesRes, dealsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/v1/deals/kanban${params}`),
-        fetch(`${API_BASE}/api/v1/deals/stats`),
-        fetch(`${API_BASE}/api/v1/deals/strategies`),
-        fetch(`${API_BASE}/api/v1/deals/?limit=100`),
-      ]);
-      if (kanbanRes.ok) setKanban(await kanbanRes.json());
-      if (statsRes.ok) setStats(await statsRes.json());
-      if (strategiesRes.ok) setStrategies(await strategiesRes.json());
-      if (dealsRes.ok) {
-        const data = await dealsRes.json();
-        setDealsList(data.items ?? []);
+      // PRIMARY: Supabase direct query for deals (instant, no cold start)
+      const query = strategyFilter
+        ? `select=*,properties(*)&order=created_at.desc&investment_strategy=eq.${strategyFilter}`
+        : "select=*,properties(*)&order=created_at.desc";
+      const supaDeals = await supabaseGet<Deal>("deals", query);
+
+      if (supaDeals.length > 0) {
+        // Group deals by current_state for kanban columns
+        const columns: Record<string, Deal[]> = {};
+        for (const deal of supaDeals) {
+          const state = deal.current_state ?? deal.status ?? "triagem";
+          if (!columns[state]) columns[state] = [];
+          // Map properties relation to property for compatibility
+          if (deal.properties && !deal.property) {
+            (deal as any).property = deal.properties;
+          }
+          columns[state].push(deal);
+        }
+
+        // Build status config from DEFAULT_STATUS_CONFIG
+        const statusConfig: Record<string, { label: string; color: string; icon: string }> = {};
+        for (const state of Object.keys(columns)) {
+          statusConfig[state] = DEFAULT_STATUS_CONFIG[state] ?? { label: state, color: "#94A3B8", icon: "" };
+        }
+
+        setKanban({ columns, total_deals: supaDeals.length, status_config: statusConfig });
+        setDealsList(supaDeals);
+
+        // Calculate basic stats from Supabase data
+        const active = supaDeals.filter((d) => !["concluido", "descartado"].includes(d.current_state ?? d.status ?? ""));
+        const completed = supaDeals.filter((d) => (d.current_state ?? d.status) === "concluido");
+        const discarded = supaDeals.filter((d) => (d.current_state ?? d.status) === "descartado");
+        const totalInvested = supaDeals.reduce((sum, d) => sum + (d.purchase_price ?? 0), 0);
+        const totalRent = supaDeals.reduce((sum, d) => sum + (d.monthly_rent ?? 0), 0);
+        setStats({
+          active_deals: active.length,
+          completed_deals: completed.length,
+          discarded_deals: discarded.length,
+          total_invested: totalInvested,
+          total_monthly_rent: totalRent,
+        });
+      } else {
+        // FALLBACK: FastAPI (handles cold start gracefully)
+        const params = strategyFilter ? `?strategy=${strategyFilter}` : "";
+        const [kanbanRes, statsRes, dealsRes] = await Promise.all([
+          fetch(`${API_BASE}/api/v1/deals/kanban${params}`),
+          fetch(`${API_BASE}/api/v1/deals/stats`),
+          fetch(`${API_BASE}/api/v1/deals/?limit=100`),
+        ]);
+        if (kanbanRes.ok) setKanban(await kanbanRes.json());
+        if (statsRes.ok) setStats(await statsRes.json());
+        if (dealsRes.ok) {
+          const data = await dealsRes.json();
+          setDealsList(data.items ?? []);
+        }
+      }
+
+      // Always fetch strategies from FastAPI (static config, not in DB)
+      try {
+        const strategiesRes = await fetch(`${API_BASE}/api/v1/deals/strategies`);
+        if (strategiesRes.ok) setStrategies(await strategiesRes.json());
+      } catch {
+        // strategies not critical
       }
     } catch {
       // ignore
@@ -149,36 +226,70 @@ export default function PipelinePage() {
   // Fetch properties for create form
   useEffect(() => {
     if (activeTab === "create") {
-      fetch(`${API_BASE}/api/v1/properties/?limit=100`)
-        .then((r) => r.ok ? r.json() : null)
-        .then((data) => {
-          if (data?.items) {
+      // PRIMARY: Supabase for properties list
+      supabaseGet("properties", "select=id,municipality,typology,asking_price&order=created_at.desc&limit=100")
+        .then((items) => {
+          if (items.length > 0) {
             setProperties(
-              data.items.map((p: any) => ({
+              items.map((p: any) => ({
                 id: p.id,
                 label: `${p.municipality ?? "?"} — ${p.typology ?? "?"} (${formatEUR(p.asking_price)})`,
               }))
             );
+          } else {
+            // FALLBACK: FastAPI
+            fetch(`${API_BASE}/api/v1/properties/?limit=100`)
+              .then((r) => r.ok ? r.json() : null)
+              .then((data) => {
+                if (data?.items) {
+                  setProperties(
+                    data.items.map((p: any) => ({
+                      id: p.id,
+                      label: `${p.municipality ?? "?"} — ${p.typology ?? "?"} (${formatEUR(p.asking_price)})`,
+                    }))
+                  );
+                }
+              })
+              .catch(() => {});
           }
-        })
-        .catch(() => {});
+        });
     }
   }, [activeTab]);
 
   // Fetch mediation data
   useEffect(() => {
     if (activeTab === "mediation") {
-      Promise.all([
-        fetch(`${API_BASE}/api/v1/deals/kanban?strategy=mediacao_venda`),
-        fetch(`${API_BASE}/api/v1/deals/stats/mediation`),
-      ]).then(async ([kRes, sRes]) => {
-        if (kRes.ok) setMedKanban(await kRes.json());
-        if (sRes.ok) setMedStats(await sRes.json());
-      }).catch(() => {});
+      // PRIMARY: Supabase for mediation deals
+      supabaseGet<Deal>("deals", "select=*,properties(*)&investment_strategy=eq.mediacao_venda&order=created_at.desc")
+        .then((medDeals) => {
+          if (medDeals.length > 0) {
+            const columns: Record<string, Deal[]> = {};
+            for (const deal of medDeals) {
+              const state = deal.current_state ?? deal.status ?? "triagem";
+              if (!columns[state]) columns[state] = [];
+              columns[state].push(deal);
+            }
+            const statusConfig: Record<string, { label: string; color: string; icon: string }> = {};
+            for (const state of Object.keys(columns)) {
+              statusConfig[state] = DEFAULT_STATUS_CONFIG[state] ?? { label: state, color: "#94A3B8", icon: "" };
+            }
+            setMedKanban({ columns, total_deals: medDeals.length, status_config: statusConfig });
+          } else {
+            // FALLBACK: FastAPI
+            fetch(`${API_BASE}/api/v1/deals/kanban?strategy=mediacao_venda`)
+              .then(async (kRes) => { if (kRes.ok) setMedKanban(await kRes.json()); })
+              .catch(() => {});
+          }
+        });
+
+      // Stats always from FastAPI (computed endpoint)
+      fetch(`${API_BASE}/api/v1/deals/stats/mediation`)
+        .then(async (sRes) => { if (sRes.ok) setMedStats(await sRes.json()); })
+        .catch(() => {});
     }
   }, [activeTab]);
 
-  // Fetch deal detail
+  // Fetch deal detail — keep FastAPI for detail, proposals, history, next-actions (business logic)
   useEffect(() => {
     if (!selectedDealId) {
       setSelectedDeal(null);
@@ -204,6 +315,7 @@ export default function PipelinePage() {
     }).catch(() => {});
   }, [selectedDealId]);
 
+  // Write operations: always via FastAPI (needs business logic)
   async function handleCreateDeal(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setCreateLoading(true);
@@ -402,7 +514,7 @@ export default function PipelinePage() {
                             }}
                           >
                             <p className="text-sm font-semibold text-slate-900">
-                              {(deal as any).strategy_icon ?? ""} {deal.title || deal.property?.municipality || "Sem titulo"}
+                              {(deal as any).strategy_icon ?? ""} {deal.title || deal.property?.municipality || (deal.properties as any)?.municipality || "Sem titulo"}
                             </p>
                             <div className="flex items-center justify-between mt-1.5">
                               <span className="text-xs text-slate-500">{formatEUR(price)}</span>

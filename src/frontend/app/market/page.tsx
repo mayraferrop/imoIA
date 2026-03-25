@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { formatEUR } from "@/lib/utils";
+import { supabaseGet } from "@/lib/supabase";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -223,19 +224,35 @@ export default function MarketPage() {
 
   /* --- Load overview + alerts on mount --- */
   const loadData = useCallback(async () => {
-    const [ov, al] = await Promise.all([
-      api<MarketOverview>("/api/v1/market/overview"),
-      api<MarketAlert[]>("/api/v1/market/alerts"),
-    ]);
+    // PRIMARY: Load alerts from Supabase (instant, no cold start)
+    const supaAlerts = await supabaseGet<MarketAlert>("market_alerts", "select=*&order=created_at.desc");
+
+    if (supaAlerts.length > 0) {
+      setAlerts(supaAlerts);
+      // Build a basic overview from Supabase data
+      const activeAlerts = supaAlerts.filter((a) => a.is_active !== false);
+      setOverview((prev) => ({
+        ...prev,
+        alerts_active: activeAlerts.length,
+      }));
+    }
+
+    // Also try to get full overview from FastAPI (has CASAFARI status etc.)
+    const ov = await api<MarketOverview>("/api/v1/market/overview");
     if (ov) setOverview(ov);
-    if (al) setAlerts(Array.isArray(al) ? al : []);
+
+    // FALLBACK: If Supabase returned nothing, try FastAPI for alerts
+    if (supaAlerts.length === 0) {
+      const al = await api<MarketAlert[]>("/api/v1/market/alerts");
+      if (al) setAlerts(Array.isArray(al) ? al : []);
+    }
   }, []);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  /* --- Comparables search --- */
+  /* --- Comparables search (always FastAPI — needs CASAFARI) --- */
   async function handleSearchComparables(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -258,7 +275,7 @@ export default function MarketPage() {
     setLoading(false);
   }
 
-  /* --- Valuation --- */
+  /* --- Valuation (always FastAPI — needs CASAFARI) --- */
   async function handleValuate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -277,7 +294,7 @@ export default function MarketPage() {
     setLoading(false);
   }
 
-  /* --- Create alert --- */
+  /* --- Create alert (FastAPI — needs business logic) --- */
   async function handleCreateAlert(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -307,14 +324,14 @@ export default function MarketPage() {
     setLoading(false);
   }
 
-  /* --- Delete alert --- */
+  /* --- Delete alert (FastAPI) --- */
   async function handleDeleteAlert(id: string) {
     await api(`/api/v1/market/alerts/${id}`, { method: "DELETE" });
     setConfirmDelete(null);
     await loadData();
   }
 
-  /* --- Check alerts --- */
+  /* --- Check alerts (FastAPI — needs CASAFARI) --- */
   async function handleCheckAlerts() {
     setLoading(true);
     await api("/api/v1/market/alerts/check", { method: "POST" });
@@ -322,7 +339,7 @@ export default function MarketPage() {
     setLoading(false);
   }
 
-  /* --- INE --- */
+  /* --- INE (FastAPI — external API call) --- */
   async function handleINE(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
