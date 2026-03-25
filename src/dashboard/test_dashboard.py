@@ -20,7 +20,14 @@ import streamlit as st
 # Configuracao
 # ---------------------------------------------------------------------------
 
-API_BASE = os.environ.get("API_BASE_URL", "http://localhost:8000")
+def _get_api_base() -> str:
+    """Obtem API_BASE_URL de st.secrets, env var ou default."""
+    try:
+        return st.secrets["API_BASE_URL"]
+    except Exception:
+        return os.environ.get("API_BASE_URL", "http://localhost:8000")
+
+API_BASE = _get_api_base()
 TIMEOUT = 15.0
 
 TEAL = "#0F766E"
