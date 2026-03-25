@@ -97,6 +97,20 @@ async def simulate_financial_model(
     fin_input = FinancialInput(**filtered)
     result = calculator.calculate(fin_input)
     cash_flow = calculator.calc_cash_flow(fin_input, result)
+    # Injectar TIR calculada pelo cash flow no resultado
+    tir = cash_flow.get("tir_anual_pct", 0)
+    result.tir_anual_pct = tir
+    # Recalcular go/no-go com base na TIR (mais preciso que ROI CAGR)
+    if tir > 0:
+        if tir >= fin_input.roi_target_pct:
+            result.go_nogo = "go"
+            result.meets_criteria = True
+        elif tir >= fin_input.roi_target_pct * 0.7:
+            result.go_nogo = "marginal"
+            result.meets_criteria = False
+        else:
+            result.go_nogo = "no_go"
+            result.meets_criteria = False
     return {
         "model_id": None,
         **dataclasses.asdict(result),

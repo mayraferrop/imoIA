@@ -54,6 +54,7 @@ interface SimulationResult {
   irc_taxable_income?: number;
   capital_gains_detail?: Record<string, any>;
   roi_annualized_pct?: number;
+  tir_anual_pct?: number;
   cash_on_cash_return_pct?: number;
   renovation_total?: number;
   holding_detail?: { meses: number; condominio_mensal: number; seguro_mensal: number; imi_mensal: number; total_mensal: number };
@@ -567,10 +568,10 @@ export default function FinancialPage() {
                         {goNoGoLabel}
                       </span>
                       <div className="hidden group-hover:block absolute z-10 top-full right-0 mt-2 w-72 bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs text-slate-600 leading-relaxed">
-                        <p className="font-bold mb-1">ROI anualizado {(result.roi_pct ?? 0).toFixed(1)}% vs target {roiTarget}%</p>
-                        <p>ROI &ge; {roiTarget}% &rarr; GO</p>
-                        <p>ROI &ge; {(roiTarget * 0.7).toFixed(0)}% (70% target) &rarr; MARGINAL</p>
-                        <p>ROI &lt; {(roiTarget * 0.7).toFixed(0)}% &rarr; NO GO</p>
+                        <p className="font-bold mb-1">TIR anual {(result.tir_anual_pct ?? result.roi_pct ?? 0).toFixed(1)}% vs target {roiTarget}%</p>
+                        <p>TIR &ge; {roiTarget}% &rarr; GO</p>
+                        <p>TIR &ge; {(roiTarget * 0.7).toFixed(0)}% (70% target) &rarr; MARGINAL</p>
+                        <p>TIR &lt; {(roiTarget * 0.7).toFixed(0)}% &rarr; NO GO</p>
                       </div>
                     </div>
                   </div>
@@ -589,9 +590,9 @@ export default function FinancialPage() {
                       tooltip={`Lucro pos-impostos / Investimento total = ${formatEUR(lucroPosImpostos)} / ${formatEUR(result.total_investment)}. Retorno real depois de IRC e derrama.`}
                     />
                     <KpiCard
-                      label="ROI anualizado"
-                      value={`${(result.roi_pct ?? 0).toFixed(1)}%`}
-                      tooltip={`CAGR: (1 + margem)^(12/${result.holding_months ?? 0}m) - 1. Converte o retorno para base anual para comparar deals com duracoes diferentes.`}
+                      label="TIR anual"
+                      value={`${(result.tir_anual_pct ?? result.roi_pct ?? 0).toFixed(1)}%`}
+                      tooltip={`Taxa Interna de Retorno anualizada. Pesa cada fluxo pelo mes exacto: CPCV no mes 0, escritura no mes 1, obra faseada, venda no mes ${result.holding_months ?? 0}, reembolso IMT 12m depois. Padrao da industria para investimento imobiliario.`}
                     />
                     <KpiCard
                       label="MOIC"

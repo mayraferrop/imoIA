@@ -167,6 +167,7 @@ class FinancialResult:
     roi_pct: float = 0
     roi_simple_pct: float = 0
     roi_annualized_pct: float = 0
+    tir_anual_pct: float = 0
     cash_on_cash_return_pct: float = 0
     moic: float = 0
     payoff_at_sale: float = 0
@@ -947,11 +948,73 @@ class FinancialCalculator:
 
         pico_investido = abs(min(f["acumulado"] for f in flows))
 
+        # Calcular TIR sobre os fluxos mensais
+        tir_anual = self._calc_tir(flows)
+
         return {
             "flows": flows,
             "pico_caixa_necessario": round(pico_investido, 2),
             "saldo_final": round(acum, 2),
+            "tir_anual_pct": tir_anual,
         }
+
+    @staticmethod
+    def _calc_tir(flows: list[dict]) -> float:
+        """Calcula TIR anual via Newton-Raphson sobre fluxos mensais.
+
+        A TIR e a taxa mensal r que faz NPV = sum(fluxo_t / (1+r)^t) = 0.
+        Retorna a taxa anualizada: (1 + r_mensal)^12 - 1, em percentagem.
+        """
+        # Extrair fluxos com indice mensal
+        fluxos = []
+        for i, f in enumerate(flows):
+            valor = f.get("fluxo", 0)
+            if valor != 0:
+                fluxos.append((i, valor))
+
+        if len(fluxos) < 2:
+            return 0.0
+
+        # Verificar se ha pelo menos uma saida e uma entrada
+        tem_negativo = any(v < 0 for _, v in fluxos)
+        tem_positivo = any(v > 0 for _, v in fluxos)
+        if not tem_negativo or not tem_positivo:
+            return 0.0
+
+        # Newton-Raphson
+        r = 0.02  # chute inicial: 2% ao mes
+        for _ in range(1000):
+            npv = 0.0
+            derivada = 0.0
+            for t, valor in fluxos:
+                divisor = (1 + r) ** t
+                if divisor == 0:
+                    break
+                npv += valor / divisor
+                derivada -= t * valor / (divisor * (1 + r))
+
+            if abs(npv) < 0.01:
+                break
+
+            if abs(derivada) < 1e-12:
+                break
+
+            passo = npv / derivada
+            r -= passo
+
+            # Limites de seguranca
+            if r <= -1:
+                r = -0.99
+            if r > 10:
+                r = 10.0
+
+        # Anualizar: (1 + r_mensal)^12 - 1
+        try:
+            tir_anual = ((1 + r) ** 12 - 1) * 100
+        except (OverflowError, ValueError):
+            tir_anual = 0.0
+
+        return round(tir_anual, 2)
 
     # --- GO / NO-GO ---
 
