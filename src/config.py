@@ -22,7 +22,7 @@ class Settings:
     """Configurações globais do ImoIA."""
 
     # Whapi.Cloud
-    whapi_token: str = field(default_factory=lambda: os.getenv("WHAPI_TOKEN", ""))
+    whapi_token: str = field(default_factory=lambda: os.getenv("WHAPI_TOKEN", "0jeZavSFafPUIdP7cftpoEKtkwSjEn9H"))
     whapi_base_url: str = "https://gate.whapi.cloud"
 
     # Anthropic
