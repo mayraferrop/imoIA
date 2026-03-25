@@ -31,6 +31,15 @@ interface SimulationResult {
   imt: number;
   imposto_selo: number;
   notario_registo: number;
+  comissao_compra?: number;
+  // 2a escritura (PF→JP)
+  imt_2?: number;
+  imt_2_original?: number;
+  is_2?: number;
+  escritura_2?: number;
+  total_acquisition_cost_2?: number;
+  entity_structure?: string;
+  imt_resale_regime?: string;
   loan_amount?: number;
   monthly_payment?: number;
   payoff_at_sale?: number;
@@ -117,9 +126,12 @@ export default function FinancialPage() {
       municipality: (fd.get("municipality") as string) || "Lisboa",
       property_type: fd.get("property_type") as string || "secondary",
       country: fd.get("country") as string || "PT",
+      entity_structure: fd.get("entity_structure") as string || "pf_jp",
+      imt_resale_regime: fd.get("imt_resale_regime") as string || "none",
       financing_type: financingType,
       renovation_duration_months: Number(fd.get("renovation_duration_months")) || 3,
       comissao_venda_pct: Number(fd.get("comissao_venda_pct")) || 6.15,
+      comissao_compra_pct: Number(fd.get("comissao_compra_pct")) || 0,
       monthly_condominio: Number(fd.get("monthly_condominio")) || 100,
       roi_target_pct: Number(fd.get("roi_target_pct")) || 15,
       scenario_name: "simulacao",
@@ -387,6 +399,30 @@ export default function FinancialPage() {
                   </div>
                 </div>
 
+                {/* Estrutura e IMT */}
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Estrutura da Operacao</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Em nome de quem?</label>
+                      <select name="entity_structure" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
+                        <option value="pf_jp">PF → JP (compra em nome pessoal, vende via empresa)</option>
+                        <option value="pf_only">PF only (pessoa fisica do inicio ao fim)</option>
+                        <option value="jp_only">JP only (empresa do inicio ao fim)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Regime IMT revenda</label>
+                      <select name="imt_resale_regime" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
+                        <option value="none">Sem beneficio (paga IMT 2x)</option>
+                        <option value="reembolso">Reembolso (paga e recupera em 12 meses)</option>
+                        <option value="isencao">Isencao (nao paga 2a escritura)</option>
+                      </select>
+                    </div>
+                    <Field name="comissao_compra_pct" label="Comissao compra %" placeholder="0" />
+                  </div>
+                </div>
+
                 {/* Financiamento */}
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Financiamento</p>
@@ -486,14 +522,54 @@ export default function FinancialPage() {
 
                 {/* Detail cards */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
-                  <h3 className="text-sm font-semibold text-teal-700">Custos de compra</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-teal-700">
+                      1a Escritura {result.entity_structure === "pf_jp" ? "(Vendedor → PF)" : result.entity_structure === "jp_only" ? "(Vendedor → JP)" : "(Vendedor → PF)"}
+                    </h3>
+                    <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                      {result.entity_structure === "pf_jp" ? "PF → JP" : result.entity_structure === "jp_only" ? "JP only" : "PF only"}
+                    </span>
+                  </div>
                   <DetailRow label="IMT" value={formatEUR(result.imt)} />
-                  <DetailRow label="Imposto de Selo" value={formatEUR(result.imposto_selo)} />
+                  <DetailRow label="Imposto de Selo (0.8%)" value={formatEUR(result.imposto_selo)} />
                   <DetailRow label="Escritura + Registo" value={formatEUR(result.notario_registo)} />
+                  {result.comissao_compra != null && result.comissao_compra > 0 && (
+                    <DetailRow label="Comissao compra" value={formatEUR(result.comissao_compra)} />
+                  )}
                   <div className="border-t border-slate-300 pt-2">
-                    <DetailRow label="Total aquisicao" value={formatEUR(result.total_acquisition_cost)} bold />
+                    <DetailRow label="Total 1a aquisicao" value={formatEUR(result.total_acquisition_cost)} bold />
                   </div>
                 </div>
+
+                {/* 2a Escritura (PF→JP) */}
+                {result.entity_structure === "pf_jp" && result.total_acquisition_cost_2 != null && (
+                  <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-purple-700">2a Escritura (PF → JP)</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded ${
+                        result.imt_resale_regime === "isencao" ? "bg-green-100 text-green-700" :
+                        result.imt_resale_regime === "reembolso" ? "bg-amber-100 text-amber-700" :
+                        "bg-red-100 text-red-700"
+                      }`}>
+                        {result.imt_resale_regime === "isencao" ? "Isento IMT" :
+                         result.imt_resale_regime === "reembolso" ? "IMT c/ reembolso" :
+                         "Paga IMT 2x"}
+                      </span>
+                    </div>
+                    <DetailRow
+                      label={`IMT 2a transmissao${result.imt_resale_regime === "isencao" ? " (isento)" : ""}`}
+                      value={formatEUR(result.imt_2)}
+                    />
+                    <DetailRow label="Imposto de Selo 2a" value={formatEUR(result.is_2)} />
+                    <DetailRow label="Escritura 2a" value={formatEUR(result.escritura_2)} />
+                    <div className="border-t border-slate-300 pt-2">
+                      <DetailRow label="Total 2a escritura" value={formatEUR(result.total_acquisition_cost_2)} bold />
+                    </div>
+                    {result.imt_resale_regime === "reembolso" && (
+                      <p className="text-xs text-amber-600">O IMT de {formatEUR(result.imt_2_original)} sera reembolsado 12 meses apos a 2a escritura</p>
+                    )}
+                  </div>
+                )}
 
                 {result.loan_amount != null && result.loan_amount > 0 && (
                   <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
@@ -518,6 +594,28 @@ export default function FinancialPage() {
                     />
                   </div>
                 </div>
+
+                {/* Fiscalidade */}
+                {(result.total_corporate_tax != null || result.capital_gains_tax != null) && (
+                  <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
+                    <h3 className="text-sm font-semibold text-amber-700">Fiscalidade (informativo)</h3>
+                    {result.entity_structure !== "pf_only" && result.total_corporate_tax != null ? (
+                      <>
+                        {result.irc_taxable_income != null && <DetailRow label="Base tributavel (JP)" value={formatEUR(result.irc_taxable_income)} />}
+                        {result.irc_estimated != null && <DetailRow label="IRC (21%)" value={formatEUR(result.irc_estimated)} />}
+                        {result.derrama_estimated != null && <DetailRow label="Derrama (1.5%)" value={formatEUR(result.derrama_estimated)} />}
+                        <div className="border-t border-slate-300 pt-2">
+                          <DetailRow label="Total impostos empresa" value={formatEUR(result.total_corporate_tax)} bold color="#DC2626" />
+                        </div>
+                      </>
+                    ) : result.capital_gains_tax != null ? (
+                      <>
+                        <DetailRow label="Mais-valias (IRS)" value={formatEUR(result.capital_gains_tax)} />
+                        <p className="text-xs text-slate-500">50% da mais-valia englobada no IRS progressivo</p>
+                      </>
+                    ) : null}
+                  </div>
+                )}
 
                 {/* Save model */}
                 {!modelId && (
