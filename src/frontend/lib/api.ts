@@ -38,6 +38,18 @@ export async function apiPatch<T = any>(path: string, body?: any): Promise<T | n
   }
 }
 
+export async function apiDelete<T = any>(path: string): Promise<T | null> {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, { method: "DELETE" });
+    if (!res.ok) return null;
+    // Some DELETE endpoints return 204 with no body
+    const text = await res.text();
+    return text ? JSON.parse(text) : ({} as T);
+  } catch {
+    return null;
+  }
+}
+
 // SWR fetcher for client components
 export const fetcher = (path: string) =>
   fetch(`${API_BASE}${path}`).then((r) => (r.ok ? r.json() : null));
