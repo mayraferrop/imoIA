@@ -240,6 +240,52 @@ async def get_cash_flow(model_id: str) -> Dict[str, Any]:
         return calculator.calc_cash_flow(inp, res)
 
 
+@router.post("/{model_id}/export-cashflow", summary="Exportar para CashFlow Pro")
+async def export_to_cashflow_pro(model_id: str) -> Dict[str, Any]:
+    """Exporta fluxo de caixa para o Cash Flow Pro externo."""
+    try:
+        from src.modules.m3_financial.cashflow_export import export_to_cashflow_pro as do_export
+
+        # Buscar modelo e recalcular cash flow
+        model_data = service.get_model(model_id)
+        if not model_data:
+            raise HTTPException(status_code=404, detail="Modelo nao encontrado")
+
+        # Reconstruir input e calcular cash flow
+        valid_fields = {f.name for f in dataclasses.fields(FinancialInput)}
+        filtered = {k: v for k, v in model_data.items() if k in valid_fields}
+        fin_input = FinancialInput(**filtered)
+        result = calculator.calculate(fin_input)
+        cash_flow = calculator.calc_cash_flow(fin_input, result)
+
+        # Buscar datas das payment conditions
+        projections = service.get_projections(model_id)
+        cpcv_date = None
+        escritura_date = None
+        if projections and projections.get("payment_condition"):
+            from datetime import date as date_type
+            pc = projections["payment_condition"]
+            if pc.get("cpcv_date"):
+                cpcv_date = date_type.fromisoformat(pc["cpcv_date"][:10])
+            if pc.get("escritura_date"):
+                escritura_date = date_type.fromisoformat(pc["escritura_date"][:10])
+
+        export_result = do_export(
+            flows=cash_flow.get("flows", []),
+            model_id=model_id,
+            project_name=model_data.get("scenario_name", "ImoIA"),
+            cpcv_date=cpcv_date,
+            escritura_date=escritura_date,
+            renovation_duration_months=fin_input.renovation_duration_months,
+            holding_months=result.holding_months,
+        )
+        return export_result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro na exportacao: {str(e)}")
+
+
 @router.post("/save-scenario", summary="Salvar cenario com condicoes de pagamento")
 async def save_scenario(request: ScenarioSaveRequest) -> Dict[str, Any]:
     """Salva cenario financeiro completo com condicoes de pagamento.

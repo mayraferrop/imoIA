@@ -115,6 +115,8 @@ export default function FinancialPage() {
 
   // Modal de save com condicoes de pagamento
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [existingProperties, setExistingProperties] = useState<any[]>([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
   const [scenarioName, setScenarioName] = useState("base");
   const [cpcvDate, setCpcvDate] = useState("");
   const [escrituraDate, setEscrituraDate] = useState("");
@@ -139,7 +141,7 @@ export default function FinancialPage() {
     setScenariosLoading(true);
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/financial_models?select=id,property_id,scenario_name,go_nogo,roi_pct,net_profit,tir_anual_pct,purchase_price,estimated_sale_price,total_investment,created_at&order=created_at.desc&limit=20`,
+        `${SUPABASE_URL}/rest/v1/financial_models?select=id,property_id,scenario_name,go_nogo,roi_pct,net_profit,tir_anual_pct,purchase_price,estimated_sale_price,total_investment,created_at,properties(municipality,parish,property_type)&order=created_at.desc&limit=20`,
         { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
       );
       if (res.ok) setSavedScenarios(await res.json());
@@ -276,12 +278,17 @@ export default function FinancialPage() {
     const escrituraPct = Math.max(100 - somaPct, 0);
     const purchasePrice = lastPayload.purchase_price || 295000;
 
+    // Calcular data real de cada tranche: CPCV + dias_apos_cpcv
+    const cpcvMs = new Date(cpcvDate).getTime();
     const allTranches = [
-      ...tranches.map((t) => ({
-        ...t,
-        valor: Math.round(purchasePrice * t.pct / 100),
-        data: cpcvDate, // simplificado — idealmente calcular data com dias_apos_cpcv
-      })),
+      ...tranches.map((t) => {
+        const trancheDate = new Date(cpcvMs + t.dias_apos_cpcv * 86400000);
+        return {
+          ...t,
+          valor: Math.round(purchasePrice * t.pct / 100),
+          data: trancheDate.toISOString().slice(0, 10),
+        };
+      }),
       {
         descricao: "Escritura",
         tipo: "escritura",
@@ -294,6 +301,7 @@ export default function FinancialPage() {
 
     const body = {
       ...lastPayload,
+      property_id: selectedPropertyId || null,
       scenario_name: scenarioName,
       cpcv_date: cpcvDate,
       escritura_date: escrituraDate,
@@ -1022,7 +1030,13 @@ export default function FinancialPage() {
                 {/* Save scenario */}
                 {!modelId && (
                   <button
-                    onClick={() => setShowSaveModal(true)}
+                    onClick={() => {
+                      setShowSaveModal(true);
+                      // Carregar propriedades existentes
+                      fetch(`${SUPABASE_URL}/rest/v1/properties?select=id,municipality,parish,asking_price,property_type&status=neq.descartado&order=created_at.desc&limit=50`, {
+                        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+                      }).then(r => r.ok ? r.json() : []).then(setExistingProperties).catch(() => {});
+                    }}
                     className="w-full bg-teal-700 text-white py-2.5 rounded-lg font-medium hover:bg-teal-800 transition-colors text-sm"
                   >
                     Salvar cenário com condições de pagamento
@@ -1248,6 +1262,11 @@ export default function FinancialPage() {
                     <p className="text-xs text-slate-400">
                       {sc.created_at ? new Date(sc.created_at).toLocaleString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
                     </p>
+                    {sc.properties && (
+                      <p className="text-xs text-teal-600 mt-0.5">
+                        {sc.properties.municipality || ""}{sc.properties.parish ? ` — ${sc.properties.parish}` : ""} {sc.properties.property_type ? `(${sc.properties.property_type})` : ""}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <span
@@ -1298,7 +1317,26 @@ export default function FinancialPage() {
           {/* Detalhe do cenário seleccionado */}
           {selectedScenario && (
             <div className="bg-white rounded-xl border-2 border-teal-300 p-6 space-y-4">
-              <h3 className="text-lg font-bold text-teal-700">Detalhe do cenário</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-teal-700">Detalhe do cenário</h3>
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`${API_BASE}/api/v1/financial/${selectedScenario.model_id}/export-cashflow`, { method: "POST" });
+                      if (res.ok) {
+                        const data = await res.json();
+                        alert(`Exportado para CashFlow Pro! ${data.inserted_count ?? 0} lançamentos criados.`);
+                      } else {
+                        const err = await res.json().catch(() => null);
+                        alert(`Erro: ${err?.detail || "Falha na exportação"}`);
+                      }
+                    } catch { alert("Erro de comunicação."); }
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                >
+                  Exportar para CashFlow Pro
+                </button>
+              </div>
 
               {/* Condições de pagamento */}
               {selectedScenario.payment_condition && (
@@ -1378,6 +1416,21 @@ export default function FinancialPage() {
             <div className="space-y-3">
               <p className="text-xs font-semibold text-slate-500 uppercase">Identificacao</p>
               <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Vincular a imovel</label>
+                  <select
+                    value={selectedPropertyId}
+                    onChange={(e) => setSelectedPropertyId(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <option value="">Nenhum — cenario avulso</option>
+                    {existingProperties.map((p: any) => (
+                      <option key={p.id} value={p.id}>
+                        {p.municipality || "?"}{p.parish ? ` — ${p.parish}` : ""} | {p.property_type || ""} | {formatEUR(p.asking_price)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nome do cenario</label>
                   <input
