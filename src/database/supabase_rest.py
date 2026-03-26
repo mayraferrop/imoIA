@@ -34,9 +34,13 @@ def _headers() -> Dict[str, str]:
 
 def _get(table: str, params: str = "", timeout: int = 10) -> List[Dict]:
     url = f"{_url()}/rest/v1/{table}?{params}"
-    resp = httpx.get(url, headers=_headers(), timeout=timeout)
-    resp.raise_for_status()
-    return resp.json()
+    try:
+        resp = httpx.get(url, headers=_headers(), timeout=timeout)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        logger.error(f"Supabase GET {table} falhou: {e}")
+        return []
 
 
 def _post(table: str, data: Dict | List[Dict], timeout: int = 10) -> List[Dict]:

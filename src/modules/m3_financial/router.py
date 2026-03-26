@@ -67,6 +67,20 @@ async def create_scenarios(
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@router.get("/debug-supabase", summary="Debug Supabase connection")
+async def debug_supabase() -> Dict[str, Any]:
+    """Debug: verifica se o backend consegue ligar ao Supabase REST."""
+    import os
+    from src.database.supabase_rest import _url, _key, _get
+    url = _url()
+    key = _key()
+    try:
+        result = _get("financial_models", "select=id&limit=1")
+        return {"url": url[:30] + "..." if url else "EMPTY", "key_len": len(key), "test_result": result}
+    except Exception as e:
+        return {"url": url[:30] + "..." if url else "EMPTY", "key_len": len(key), "error": str(e)}
+
+
 @router.get("/scenarios", summary="Listar cenarios salvos")
 async def list_scenarios() -> list:
     """Lista todos os cenarios financeiros salvos via Supabase REST."""
