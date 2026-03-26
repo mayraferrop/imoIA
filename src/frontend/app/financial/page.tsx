@@ -1050,7 +1050,7 @@ export default function FinancialPage() {
                     onClick={() => {
                       setShowSaveModal(true);
                       // Carregar propriedades existentes
-                      fetch(`${SUPABASE_URL}/rest/v1/properties?select=id,municipality,parish,asking_price,property_type&status=neq.descartado&order=created_at.desc&limit=50`, {
+                      fetch(`${SUPABASE_URL}/rest/v1/properties?select=id,municipality,parish,asking_price,property_type,status,financial_models(id)&status=neq.descartado&order=created_at.desc&limit=50`, {
                         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
                       }).then(r => r.ok ? r.json() : []).then(setExistingProperties).catch(() => {});
                     }}
@@ -1430,15 +1430,16 @@ export default function FinancialPage() {
                     className={`w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500 ${!selectedPropertyId ? "border-red-300" : "border-slate-300"}`}
                   >
                     <option value="">-- Seleccionar imóvel --</option>
-                    {existingProperties
-                      .filter((p: any) => p.municipality !== "Simulacao" && p.municipality !== "Test")
-                      .map((p: any) => (
+                    {existingProperties.map((p: any) => (
                       <option key={p.id} value={p.id}>
-                        {p.municipality || "?"}{p.parish ? ` — ${p.parish}` : ""} | {p.property_type || ""} | {formatEUR(p.asking_price)}
+                        {p.municipality || "?"}{p.parish ? ` — ${p.parish}` : ""} | {p.property_type || ""} | {formatEUR(p.asking_price)}{p.financial_models?.length ? " (já tem cenário)" : ""}
                       </option>
                     ))}
                   </select>
                   {!selectedPropertyId && <p className="text-xs text-red-500 mt-0.5">Obrigatório</p>}
+                  {selectedPropertyId && existingProperties.find((p: any) => p.id === selectedPropertyId)?.financial_models?.length > 0 && (
+                    <p className="text-xs text-amber-600 mt-0.5">Este imóvel já tem cenário(s). O novo será adicionado, mantendo os existentes.</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nome do cenario</label>
