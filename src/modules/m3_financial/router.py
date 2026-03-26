@@ -27,6 +27,7 @@ from src.modules.m3_financial.schemas import (
     FloorPriceRequest,
     MAORequest,
     QuickIMTRequest,
+    ScenarioSaveRequest,
 )
 from src.modules.m3_financial.service import FinancialService
 from src.modules.m3_financial.tax_tables import (
@@ -223,3 +224,31 @@ async def get_cash_flow(model_id: str) -> Dict[str, Any]:
         )
 
         return calculator.calc_cash_flow(inp, res)
+
+
+@router.post("/scenarios/save", summary="Salvar cenario com condicoes de pagamento")
+async def save_scenario(request: ScenarioSaveRequest) -> Dict[str, Any]:
+    """Salva cenario financeiro completo com condicoes de pagamento.
+
+    Cria FinancialModel + PaymentCondition + CashflowProjection.
+    """
+    try:
+        data = request.model_dump()
+        # Converter tranches de Pydantic para dict
+        if "tranches" in data:
+            data["tranches"] = [
+                t if isinstance(t, dict) else t
+                for t in data["tranches"]
+            ]
+        return service.save_scenario_with_conditions(data)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{model_id}/projections", summary="Buscar projecao financeira")
+async def get_projections(model_id: str) -> Dict[str, Any]:
+    """Retorna projecao financeira mensal (projetado vs real)."""
+    result = service.get_projections(model_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Modelo nao encontrado")
+    return result

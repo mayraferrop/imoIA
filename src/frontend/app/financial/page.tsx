@@ -109,6 +109,16 @@ export default function FinancialPage() {
   const [lastPayload, setLastPayload] = useState<Record<string, any> | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Modal de save com condicoes de pagamento
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [scenarioName, setScenarioName] = useState("base");
+  const [cpcvDate, setCpcvDate] = useState("");
+  const [escrituraDate, setEscrituraDate] = useState("");
+  const [tranches, setTranches] = useState<{ descricao: string; tipo: string; pct: number; dias_apos_cpcv: number }[]>([
+    { descricao: "Sinal CPCV", tipo: "cpcv_sinal", pct: 5, dias_apos_cpcv: 0 },
+    { descricao: "2a tranche", tipo: "tranche_intermedia", pct: 5, dias_apos_cpcv: 30 },
+  ]);
+
   // IMT
   const [imtResult, setImtResult] = useState<IMTResult | null>(null);
   const [imtLoading, setImtLoading] = useState(false);
@@ -211,46 +221,61 @@ export default function FinancialPage() {
     }
   }
 
-  async function handleSaveModel() {
+  async function handleSaveScenario() {
     if (!lastPayload) return;
+    if (!cpcvDate || !escrituraDate) {
+      setSaveMsg("Preencha as datas do CPCV e escritura.");
+      return;
+    }
     setSaveLoading(true);
     setSaveMsg("");
-    try {
-      // Create temp property
-      const propRes = await fetch(`${API_BASE}/api/v1/properties/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          property_type: "apartamento",
-          asking_price: lastPayload.purchase_price,
-          municipality: "Simulacao",
-          notes: "Criado automaticamente pelo simulador M3",
-          tags: ["simulacao"],
-        }),
-      });
-      if (!propRes.ok) { setSaveMsg("Erro ao criar propriedade."); return; }
-      const prop = await propRes.json();
-      const propId = prop.id;
 
-      // Save model
-      const modelRes = await fetch(`${API_BASE}/api/v1/financial/?property_id=${propId}`, {
+    // Calcular tranche da escritura (restante ate 100%)
+    const somaPct = tranches.reduce((sum, t) => sum + t.pct, 0);
+    const escrituraPct = Math.max(100 - somaPct, 0);
+    const purchasePrice = lastPayload.purchase_price || 295000;
+
+    const allTranches = [
+      ...tranches.map((t) => ({
+        ...t,
+        valor: Math.round(purchasePrice * t.pct / 100),
+        data: cpcvDate, // simplificado — idealmente calcular data com dias_apos_cpcv
+      })),
+      {
+        descricao: "Escritura",
+        tipo: "escritura",
+        pct: escrituraPct,
+        valor: Math.round(purchasePrice * escrituraPct / 100),
+        data: escrituraDate,
+        dias_apos_cpcv: 0,
+      },
+    ];
+
+    const body = {
+      ...lastPayload,
+      scenario_name: scenarioName,
+      cpcv_date: cpcvDate,
+      escritura_date: escrituraDate,
+      tranches: allTranches,
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/financial/scenarios/save`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(lastPayload),
+        body: JSON.stringify(body),
       });
-      if (modelRes.ok) {
-        const saved = await modelRes.json();
-        if (saved.model_id) {
-          setModelId(saved.model_id);
-          setSaveMsg("Modelo guardado!");
-          // Fetch scenarios
-          fetchScenarios(saved.model_id);
-        }
+      if (res.ok) {
+        const saved = await res.json();
+        setModelId(saved.model_id);
+        setSaveMsg(`Cenario "${scenarioName}" salvo com ${saved.projections_count} periodos de projecao!`);
+        setShowSaveModal(false);
       } else {
-        setSaveMsg("Erro ao guardar modelo.");
+        const err = await res.json().catch(() => null);
+        setSaveMsg(`Erro: ${err?.detail || "Falha ao salvar cenario"}`);
       }
     } catch {
-      setSaveMsg("Erro de comunicacao.");
+      setSaveMsg("Erro de comunicacao com a API.");
     } finally {
       setSaveLoading(false);
     }
@@ -424,7 +449,7 @@ export default function FinancialPage() {
       {/* ===== Full Simulator ===== */}
       {activeTab === "simulator" && (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="simulator-layout">
             {/* Form */}
             <div className="bg-white rounded-xl border border-slate-200 p-6">
               <h2 className="text-lg font-semibold mb-4">Parametros</h2>
@@ -682,7 +707,7 @@ export default function FinancialPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="metrics-grid">
                     <KpiCard
                       label="Margem bruta"
                       value={`${margemBruta.toFixed(1)}%`}
@@ -708,7 +733,7 @@ export default function FinancialPage() {
                   </div>
 
                   {/* Linha 2: lucro absoluto + ROI equity */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 pt-3 border-t border-slate-100">
+                  <div className="metrics-grid mt-3 pt-3 border-t border-slate-100">
                     <KpiCard
                       label="Lucro bruto"
                       value={formatEUR(result.net_profit)}
@@ -938,15 +963,19 @@ export default function FinancialPage() {
                   </div>
                 )}
 
-                {/* Save model */}
+                {/* Save scenario */}
                 {!modelId && (
                   <button
-                    onClick={handleSaveModel}
-                    disabled={saveLoading}
-                    className="w-full bg-slate-100 text-slate-700 py-2.5 rounded-lg font-medium hover:bg-slate-200 disabled:opacity-50 transition-colors text-sm"
+                    onClick={() => setShowSaveModal(true)}
+                    className="w-full bg-teal-700 text-white py-2.5 rounded-lg font-medium hover:bg-teal-800 transition-colors text-sm"
                   >
-                    {saveLoading ? "A guardar..." : "Guardar modelo e ver cenarios + fluxo de caixa"}
+                    Salvar cenario com condicoes de pagamento
                   </button>
+                )}
+                {modelId && (
+                  <div className="bg-green-50 rounded-lg p-3 text-sm text-green-700">
+                    Cenario salvo (ID: {modelId.slice(0, 8)}...)
+                  </div>
                 )}
                 {saveMsg && (
                   <p className={`text-sm ${saveMsg.includes("Erro") ? "text-red-600" : "text-green-600"}`}>{saveMsg}</p>
@@ -1010,8 +1039,8 @@ export default function FinancialPage() {
               </div>
 
               {/* Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="cashflow-wrapper overflow-x-auto">
+                <table className="cashflow-table w-full text-sm">
                   <thead>
                     <tr className="border-b-2 border-slate-200">
                       <th className="text-left py-2 px-2 text-teal-700 font-semibold text-xs">Periodo</th>
@@ -1065,6 +1094,166 @@ export default function FinancialPage() {
           )}
         </>
       )}
+      {/* === Modal de save com condicoes de pagamento === */}
+      {showSaveModal && result && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900">Salvar cenario com condicoes de pagamento</h2>
+              <button onClick={() => setShowSaveModal(false)} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+            </div>
+
+            {/* Seccao 1: Identificacao */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-slate-500 uppercase">Identificacao</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Nome do cenario</label>
+                  <input
+                    type="text"
+                    value={scenarioName}
+                    onChange={(e) => setScenarioName(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Seccao 2: Condicoes de pagamento */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-slate-500 uppercase">Condicoes de pagamento</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Data CPCV</label>
+                  <input
+                    type="date"
+                    value={cpcvDate}
+                    onChange={(e) => setCpcvDate(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Data escritura prevista</label>
+                  <input
+                    type="date"
+                    value={escrituraDate}
+                    onChange={(e) => setEscrituraDate(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+
+              {/* Tabela de tranches */}
+              <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+                <p className="text-sm font-semibold text-slate-700">Tranches de pagamento</p>
+                <div className="space-y-2">
+                  {tranches.map((t, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={t.descricao}
+                        onChange={(e) => { const next = [...tranches]; next[i].descricao = e.target.value; setTranches(next); }}
+                        className="flex-1 border border-slate-300 rounded px-2 py-1.5 text-sm"
+                        placeholder="Descricao"
+                      />
+                      <input
+                        type="number"
+                        value={t.pct}
+                        onChange={(e) => { const next = [...tranches]; next[i].pct = Number(e.target.value); setTranches(next); }}
+                        className="w-20 border border-slate-300 rounded px-2 py-1.5 text-sm text-right"
+                        step="any"
+                      />
+                      <span className="text-sm text-slate-500">%</span>
+                      <span className="text-sm text-slate-700 w-24 text-right">
+                        {formatEUR(Math.round((lastPayload?.purchase_price ?? 0) * t.pct / 100))}
+                      </span>
+                      <input
+                        type="number"
+                        value={t.dias_apos_cpcv}
+                        onChange={(e) => { const next = [...tranches]; next[i].dias_apos_cpcv = Number(e.target.value); setTranches(next); }}
+                        className="w-16 border border-slate-300 rounded px-2 py-1.5 text-sm text-right"
+                      />
+                      <span className="text-xs text-slate-400">dias</span>
+                      <button
+                        onClick={() => setTranches(tranches.filter((_, j) => j !== i))}
+                        className="text-red-400 hover:text-red-600 text-sm px-1"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Linha escritura (auto-calculada) */}
+                {(() => {
+                  const somaPct = tranches.reduce((s, t) => s + t.pct, 0);
+                  const restPct = Math.max(100 - somaPct, 0);
+                  return (
+                    <div className="flex items-center gap-2 text-sm text-slate-500 border-t border-slate-200 pt-2">
+                      <span className="flex-1 italic">Escritura (auto)</span>
+                      <span className="w-20 text-right font-medium">{restPct.toFixed(0)}</span>
+                      <span>%</span>
+                      <span className="w-24 text-right font-medium">{formatEUR(Math.round((lastPayload?.purchase_price ?? 0) * restPct / 100))}</span>
+                      <span className="w-16" />
+                      <span className="text-xs" />
+                      <span className="px-1" />
+                    </div>
+                  );
+                })()}
+
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => setTranches([...tranches, { descricao: `Tranche ${tranches.length + 1}`, tipo: "tranche_intermedia", pct: 5, dias_apos_cpcv: (tranches.length + 1) * 30 }])}
+                    className="text-sm text-teal-600 hover:text-teal-800"
+                  >
+                    + Adicionar tranche
+                  </button>
+                  <span className="text-sm font-medium text-slate-700">
+                    Total: {(tranches.reduce((s, t) => s + t.pct, 0) + Math.max(100 - tranches.reduce((s, t) => s + t.pct, 0), 0)).toFixed(0)}% = {formatEUR(lastPayload?.purchase_price ?? 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Seccao 3: Resumo */}
+            <div className="bg-teal-50 rounded-lg p-4 space-y-2">
+              <p className="text-xs font-semibold text-teal-700 uppercase">Resumo</p>
+              <div className="grid grid-cols-4 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-teal-600">Margem bruta</p>
+                  <p className="font-bold">{result.roi_simple_pct?.toFixed(1)}%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-teal-600">TIR anual</p>
+                  <p className="font-bold">{(result.tir_anual_pct ?? result.roi_pct ?? 0).toFixed(1)}%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-teal-600">Lucro bruto</p>
+                  <p className="font-bold">{formatEUR(result.net_profit)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-teal-600">Badge</p>
+                  <p className="font-bold" style={{ color: result.go_nogo === "go" ? "#16A34A" : result.go_nogo === "marginal" ? "#D97706" : "#DC2626" }}>
+                    {(result.go_nogo ?? "pending").toUpperCase()}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Botao salvar */}
+            <button
+              onClick={handleSaveScenario}
+              disabled={saveLoading || !cpcvDate || !escrituraDate}
+              className="w-full bg-teal-700 text-white py-3 rounded-lg font-medium hover:bg-teal-800 disabled:opacity-50 transition-colors"
+            >
+              {saveLoading ? "A salvar..." : "Salvar e gerar projecao financeira"}
+            </button>
+            {saveMsg && (
+              <p className={`text-sm ${saveMsg.includes("Erro") ? "text-red-600" : "text-green-600"}`}>{saveMsg}</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1113,12 +1302,12 @@ function KpiCard({
   return (
     <div className="bg-slate-50 rounded-lg p-4 relative group">
       <div className="flex items-center gap-1">
-        <p className="text-xs text-slate-500 uppercase tracking-wider">{label}</p>
+        <p className="metric-label text-xs text-slate-500 uppercase tracking-wider">{label}</p>
         {tooltip && (
           <span className="text-slate-400 cursor-help text-xs" title={tooltip}>i</span>
         )}
       </div>
-      <p className="text-xl font-bold mt-1" style={{ color: color ?? "#0F172A" }}>
+      <p className="metric-value text-xl font-bold mt-1" style={{ color: color ?? "#0F172A" }}>
         {value}
       </p>
       {tooltip && (
@@ -1142,9 +1331,9 @@ function DetailRow({
   color?: string;
 }) {
   return (
-    <div className="flex justify-between items-center py-1">
-      <span className={`text-sm ${bold ? "font-bold" : ""} text-slate-600`}>{label}</span>
-      <span className={`text-sm ${bold ? "font-bold" : "font-medium"}`} style={{ color: color ?? "#0F172A" }}>
+    <div className="investment-row items-center py-1">
+      <span className={`label text-sm ${bold ? "font-bold" : ""} text-slate-600`}>{label}</span>
+      <span className={`value text-sm ${bold ? "font-bold" : "font-medium"}`} style={{ color: color ?? "#0F172A" }}>
         {value}
       </span>
     </div>

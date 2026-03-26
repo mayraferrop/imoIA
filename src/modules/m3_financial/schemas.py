@@ -64,6 +64,33 @@ class FinancialModelCreateRequest(BaseModel):
     itbi_pct: float = Field(default=3.0, ge=0, le=10)
 
 
+class TrancheSchema(BaseModel):
+    """Uma tranche de pagamento."""
+
+    descricao: str = "Sinal CPCV"
+    tipo: str = "cpcv_sinal"  # cpcv_sinal, tranche_intermedia, escritura
+    pct: float = Field(ge=0, le=100)
+    valor: float = Field(ge=0)
+    data: str = ""  # ISO date "2026-03-15"
+    dias_apos_cpcv: int = Field(default=0, ge=0)
+
+
+class ScenarioSaveRequest(FinancialModelCreateRequest):
+    """Request para salvar cenario com condicoes de pagamento.
+
+    Extende FinancialModelCreateRequest com campos de identificacao e pagamento.
+    """
+
+    # Identificacao
+    property_id: Optional[str] = None
+    # scenario_name ja existe no parent
+
+    # Condicoes de pagamento
+    cpcv_date: str = ""  # ISO date "2026-03-15"
+    escritura_date: str = ""  # ISO date "2026-05-15"
+    tranches: List[TrancheSchema] = Field(default_factory=list)
+
+
 class MAORequest(BaseModel):
     """Request para calculo de MAO (Maximum Allowable Offer)."""
 

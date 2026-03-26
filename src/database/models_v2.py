@@ -311,6 +311,7 @@ class FinancialModel(Base):
     roi_pct: Mapped[float] = mapped_column(Float, default=0)
     roi_simple_pct: Mapped[float] = mapped_column(Float, default=0)
     roi_annualized_pct: Mapped[float] = mapped_column(Float, default=0)
+    tir_anual_pct: Mapped[float] = mapped_column(Float, default=0)
     cash_on_cash_return_pct: Mapped[float] = mapped_column(Float, default=0)
     moic: Mapped[float] = mapped_column(Float, default=0)
     payoff_at_sale: Mapped[float] = mapped_column(Float, default=0)
@@ -335,6 +336,90 @@ class FinancialModel(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+# ---------------------------------------------------------------------------
+# M3 — Condicoes de pagamento + Projecao financeira
+# ---------------------------------------------------------------------------
+
+
+class PaymentCondition(Base):
+    """Condicoes de pagamento vinculadas a um modelo financeiro.
+
+    Guarda datas do CPCV e escritura + tranches de pagamento (sinal, intermédias, escritura).
+    """
+
+    __tablename__ = "payment_conditions"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid4())
+    )
+    tenant_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("tenants.id"), index=True, nullable=True
+    )
+    financial_model_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("financial_models.id"), nullable=False, index=True
+    )
+
+    cpcv_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    escritura_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+    # Tranches como JSON: [{descricao, tipo, pct, valor, data, dias_apos_cpcv}]
+    tranches: Mapped[Optional[list]] = mapped_column(JSON, default=list)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CashflowProjection(Base):
+    """Projecao financeira mensal — projetado vs real.
+
+    Cada linha corresponde a um periodo (mes) do fluxo de caixa.
+    Valores projetados sao gerados no save do cenario.
+    Valores reais sao preenchidos por M6/M9 a medida que o deal avanca.
+    """
+
+    __tablename__ = "cashflow_projections"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid4())
+    )
+    tenant_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("tenants.id"), index=True, nullable=True
+    )
+    financial_model_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("financial_models.id"), nullable=False, index=True
+    )
+
+    mes: Mapped[int] = mapped_column(Integer, nullable=False)
+    data_referencia: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
+    periodo_label: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    categoria: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
+    # Projetado
+    saidas_projetado: Mapped[float] = mapped_column(Float, default=0)
+    pmt_projetado: Mapped[float] = mapped_column(Float, default=0)
+    manutencao_projetado: Mapped[float] = mapped_column(Float, default=0)
+    payoff_projetado: Mapped[float] = mapped_column(Float, default=0)
+    fluxo_projetado: Mapped[float] = mapped_column(Float, default=0)
+    acumulado_projetado: Mapped[float] = mapped_column(Float, default=0)
+
+    # Real (preenchido por M6/M9)
+    saidas_real: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    pmt_real: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    manutencao_real: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    fluxo_real: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    acumulado_real: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
     )
 
 

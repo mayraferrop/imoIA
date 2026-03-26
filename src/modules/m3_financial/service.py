@@ -9,8 +9,16 @@ from uuid import uuid4
 from loguru import logger
 from sqlalchemy import select
 
+from datetime import datetime
+
 from src.database.db import get_session
-from src.database.models_v2 import FinancialModel, Property, Tenant
+from src.database.models_v2 import (
+    CashflowProjection,
+    FinancialModel,
+    PaymentCondition,
+    Property,
+    Tenant,
+)
 from src.modules.m3_financial.calculator import (
     FinancialCalculator,
     FinancialInput,
@@ -248,6 +256,173 @@ class FinancialService:
             "floor_price": round(floor, 2),
             "profit_at_floor": round(target_profit, 2),
         }
+
+    def save_scenario_with_conditions(
+        self,
+        request_data: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Salva cenario financeiro com condicoes de pagamento e gera projecao.
+
+        Fluxo:
+        1. Cria Property se nao existir
+        2. Cria FinancialModel com calculo completo
+        3. Cria PaymentCondition com tranches
+        4. Gera e persiste CashflowProjection (fluxo mensal)
+        """
+        property_id = request_data.pop("property_id", None)
+        cpcv_date_str = request_data.pop("cpcv_date", "")
+        escritura_date_str = request_data.pop("escritura_date", "")
+        tranches_data = request_data.pop("tranches", [])
+
+        with get_session() as session:
+            # 1. Garantir tenant
+            tenant = session.execute(
+                select(Tenant).where(Tenant.slug == "default")
+            ).scalar_one_or_none()
+            tenant_id = tenant.id if tenant else None
+
+            # 2. Criar Property se necessario
+            if not property_id:
+                prop = Property(
+                    tenant_id=tenant_id,
+                    property_type="apartamento",
+                    asking_price=request_data.get("purchase_price"),
+                    municipality=request_data.get("municipality", "Simulacao"),
+                    source="manual",
+                    status="lead",
+                    notes="Criado pelo simulador M3 com condicoes de pagamento",
+                )
+                session.add(prop)
+                session.flush()
+                property_id = prop.id
+
+            # 3. Calcular modelo financeiro
+            # Converter tranches para cpcv_parcelas
+            cpcv_parcelas = []
+            for t in tranches_data:
+                if isinstance(t, dict):
+                    cpcv_parcelas.append({
+                        "pct": t.get("pct", 0),
+                        "dias": t.get("dias_apos_cpcv", 0),
+                    })
+
+            valid_fields = {f.name for f in dataclasses.fields(FinancialInput)}
+            filtered = {k: v for k, v in request_data.items() if k in valid_fields}
+            if cpcv_parcelas:
+                filtered["cpcv_parcelas"] = cpcv_parcelas
+
+            fin_input = FinancialInput(**filtered)
+            result = self.calculator.calculate(fin_input)
+            cash_flow = self.calculator.calc_cash_flow(fin_input, result)
+
+            # Injectar TIR
+            tir = cash_flow.get("tir_anual_pct", 0)
+            result.tir_anual_pct = tir
+            if tir > 0 and tir >= fin_input.roi_target_pct:
+                result.go_nogo = "go"
+                result.meets_criteria = True
+            elif tir > 0 and tir >= fin_input.roi_target_pct * 0.7:
+                result.go_nogo = "marginal"
+            elif tir > 0:
+                result.go_nogo = "no_go"
+
+            # 4. Persistir FinancialModel
+            result_dict = dataclasses.asdict(result)
+            model = FinancialModel(
+                tenant_id=tenant_id,
+                property_id=property_id,
+                **{
+                    k: v
+                    for k, v in result_dict.items()
+                    if hasattr(FinancialModel, k) and k not in ("warnings",)
+                },
+            )
+            model.scenario_name = request_data.get("scenario_name", "base")
+            model.status = "calculated"
+            session.add(model)
+            session.flush()
+
+            # 5. Persistir PaymentCondition
+            cpcv_dt = datetime.fromisoformat(cpcv_date_str) if cpcv_date_str else datetime.now()
+            escrit_dt = datetime.fromisoformat(escritura_date_str) if escritura_date_str else datetime.now()
+
+            payment_cond = PaymentCondition(
+                tenant_id=tenant_id,
+                financial_model_id=model.id,
+                cpcv_date=cpcv_dt,
+                escritura_date=escrit_dt,
+                tranches=[t if isinstance(t, dict) else t.dict() for t in tranches_data],
+            )
+            session.add(payment_cond)
+
+            # 6. Persistir CashflowProjection (cada linha do fluxo)
+            flows = cash_flow.get("flows", [])
+            for i, f in enumerate(flows):
+                proj = CashflowProjection(
+                    tenant_id=tenant_id,
+                    financial_model_id=model.id,
+                    mes=i,
+                    periodo_label=f.get("label", ""),
+                    categoria=f.get("categoria", ""),
+                    saidas_projetado=f.get("saidas", f.get("aquisicao", 0)),
+                    pmt_projetado=f.get("pmt", 0),
+                    manutencao_projetado=f.get("manut", 0),
+                    payoff_projetado=abs(f.get("payoff", 0)) if f.get("payoff", 0) < 0 else 0,
+                    fluxo_projetado=f.get("fluxo", 0),
+                    acumulado_projetado=f.get("acumulado", 0),
+                )
+                session.add(proj)
+
+            session.flush()
+
+            logger.info(
+                f"Cenario salvo: model={model.id}, payment={payment_cond.id}, "
+                f"projections={len(flows)}"
+            )
+
+            return {
+                "model_id": model.id,
+                "payment_condition_id": payment_cond.id,
+                "projections_count": len(flows),
+                "property_id": property_id,
+                **result_dict,
+                "cash_flow": cash_flow,
+            }
+
+    def get_projections(self, model_id: str) -> Dict[str, Any]:
+        """Busca projecoes financeiras de um modelo."""
+        with get_session() as session:
+            projs = session.execute(
+                select(CashflowProjection)
+                .where(CashflowProjection.financial_model_id == model_id)
+                .order_by(CashflowProjection.mes)
+            ).scalars().all()
+
+            cond = session.execute(
+                select(PaymentCondition)
+                .where(PaymentCondition.financial_model_id == model_id)
+            ).scalar_one_or_none()
+
+            return {
+                "model_id": model_id,
+                "payment_condition": {
+                    "cpcv_date": cond.cpcv_date.isoformat() if cond else None,
+                    "escritura_date": cond.escritura_date.isoformat() if cond else None,
+                    "tranches": cond.tranches if cond else [],
+                } if cond else None,
+                "projections": [
+                    {
+                        "mes": p.mes,
+                        "periodo_label": p.periodo_label,
+                        "categoria": p.categoria,
+                        "fluxo_projetado": p.fluxo_projetado,
+                        "acumulado_projetado": p.acumulado_projetado,
+                        "fluxo_real": p.fluxo_real,
+                        "acumulado_real": p.acumulado_real,
+                    }
+                    for p in projs
+                ],
+            }
 
     @staticmethod
     def _result_to_dict(result: FinancialResult) -> Dict[str, Any]:
