@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { formatEUR, formatPercent, GRADE_COLORS } from "@/lib/utils";
 
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://jurzdyncaxkgvcatyfdu.supabase.co";
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1cnpkeW5jYXhrZ3ZjYXR5ZmR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNzM2MDcsImV4cCI6MjA4OTk0OTYwN30.2DCCWcrhdwBLMxJ9hUbYkhOBQIgE_aD2jGNaZlAhO5k";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
 
 interface CashFlowEntry {
@@ -88,7 +90,7 @@ interface MAOResult {
   nota?: string;
 }
 
-type Tab = "simulator" | "imt" | "mao";
+type Tab = "simulator" | "imt" | "mao" | "saved";
 
 const CAT_COLORS: Record<string, string> = {
   aquisicao: "#2563EB",
@@ -99,6 +101,8 @@ const CAT_COLORS: Record<string, string> = {
 
 export default function FinancialPage() {
   const [activeTab, setActiveTab] = useState<Tab>("simulator");
+  // biome-ignore lint: auto-fetch
+  const handleTabChange = (tab: Tab) => { setActiveTab(tab); if (tab === "saved") fetchSavedScenarios(); };
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [financingMode, setFinancingMode] = useState<"cash" | "mortgage">("cash");
@@ -119,6 +123,9 @@ export default function FinancialPage() {
     { descricao: "2a tranche", tipo: "tranche_intermedia", pct: 5, dias_apos_cpcv: 30 },
   ]);
   const [savedProjection, setSavedProjection] = useState<any>(null);
+  const [savedScenarios, setSavedScenarios] = useState<any[]>([]);
+  const [selectedScenario, setSelectedScenario] = useState<any>(null);
+  const [scenariosLoading, setScenariosLoading] = useState(false);
 
   // IMT
   const [imtResult, setImtResult] = useState<IMTResult | null>(null);
@@ -127,6 +134,28 @@ export default function FinancialPage() {
   // MAO
   const [maoResult, setMaoResult] = useState<MAOResult | null>(null);
   const [maoLoading, setMaoLoading] = useState(false);
+
+  async function fetchSavedScenarios() {
+    setScenariosLoading(true);
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/financial_models?select=id,property_id,scenario_name,go_nogo,roi_pct,net_profit,tir_anual_pct,purchase_price,estimated_sale_price,total_investment,created_at&order=created_at.desc&limit=20`,
+        { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+      );
+      if (res.ok) setSavedScenarios(await res.json());
+    } catch { /* ignore */ }
+    finally { setScenariosLoading(false); }
+  }
+
+  async function loadScenarioDetail(modelId: string) {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/financial/${modelId}/projections`);
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedScenario(data);
+      }
+    } catch { /* ignore */ }
+  }
 
   async function handleSimulate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -371,10 +400,11 @@ export default function FinancialPage() {
           ["simulator", "Simulador"],
           ["imt", "Calculadora IMT"],
           ["mao", "Calculadora MAO"],
+          ["saved", "Cenários Salvos"],
         ] as [Tab, string][]).map(([key, label]) => (
           <button
             key={key}
-            onClick={() => setActiveTab(key)}
+            onClick={() => handleTabChange(key)}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === key ? "bg-white text-teal-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
             }`}
@@ -1169,6 +1199,150 @@ export default function FinancialPage() {
           )}
         </>
       )}
+
+      {/* ===== Cenários Salvos ===== */}
+      {activeTab === "saved" && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Cenários Salvos</h2>
+            <button
+              onClick={fetchSavedScenarios}
+              disabled={scenariosLoading}
+              className="px-4 py-2 bg-teal-700 text-white rounded-lg text-sm hover:bg-teal-800 disabled:opacity-50"
+            >
+              {scenariosLoading ? "A carregar..." : "Actualizar"}
+            </button>
+          </div>
+
+          {savedScenarios.length === 0 && !scenariosLoading && (
+            <div className="text-center py-8">
+              <p className="text-slate-400">Nenhum cenário salvo.</p>
+              <p className="text-sm text-slate-400 mt-1">Simule e clique em &ldquo;Salvar cenário&rdquo; para criar.</p>
+            </div>
+          )}
+
+          {/* Lista de cenários */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {savedScenarios.map((sc: any) => (
+              <div
+                key={sc.id}
+                className={`bg-white rounded-xl border-2 p-5 cursor-pointer transition-all hover:shadow-md ${
+                  selectedScenario?.model_id === sc.id ? "border-teal-400" : "border-slate-200"
+                }`}
+                onClick={() => loadScenarioDetail(sc.id)}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="font-semibold text-slate-900">{sc.scenario_name || "base"}</p>
+                    <p className="text-xs text-slate-400">{sc.created_at?.slice(0, 10)}</p>
+                  </div>
+                  <span
+                    className="px-3 py-1 rounded-lg text-sm font-bold text-white"
+                    style={{ backgroundColor: sc.go_nogo === "go" ? "#16A34A" : sc.go_nogo === "marginal" ? "#D97706" : "#DC2626" }}
+                  >
+                    {(sc.go_nogo ?? "").toUpperCase()}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <p className="text-xs text-slate-500">Compra</p>
+                    <p className="font-medium">{formatEUR(sc.purchase_price)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Venda</p>
+                    <p className="font-medium">{formatEUR(sc.estimated_sale_price)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Lucro</p>
+                    <p className="font-medium text-teal-700">{formatEUR(sc.net_profit)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">TIR</p>
+                    <p className="font-medium">{(sc.tir_anual_pct ?? 0).toFixed(1)}%</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">ROI</p>
+                    <p className="font-medium">{(sc.roi_pct ?? 0).toFixed(1)}%</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Investimento</p>
+                    <p className="font-medium">{formatEUR(sc.total_investment)}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Detalhe do cenário seleccionado */}
+          {selectedScenario && (
+            <div className="bg-white rounded-xl border-2 border-teal-300 p-6 space-y-4">
+              <h3 className="text-lg font-bold text-teal-700">Detalhe do cenário</h3>
+
+              {/* Condições de pagamento */}
+              {selectedScenario.payment_condition && (
+                <div className="bg-teal-50 rounded-lg p-4 space-y-2">
+                  <p className="text-xs font-semibold text-teal-700 uppercase">Condições de pagamento</p>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <p className="text-xs text-teal-600">Data CPCV</p>
+                      <p className="font-medium">{selectedScenario.payment_condition.cpcv_date?.slice(0, 10)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-teal-600">Data escritura</p>
+                      <p className="font-medium">{selectedScenario.payment_condition.escritura_date?.slice(0, 10)}</p>
+                    </div>
+                  </div>
+                  {selectedScenario.payment_condition.tranches?.map((t: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: t.tipo === "escritura" ? "#2563EB" : "#14B8A6" }} />
+                      <span className="font-medium">{t.descricao}</span>
+                      <span className="text-slate-500">{t.pct}%</span>
+                      <span className="text-teal-700 font-medium">{formatEUR(t.valor)}</span>
+                      <span className="text-xs text-slate-400">{t.data}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Projecção mensal */}
+              {selectedScenario.projections?.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Projecção mensal ({selectedScenario.projections.length} períodos)</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b-2 border-slate-200">
+                          <th className="text-left py-2 px-2 text-xs font-semibold text-teal-700">Período</th>
+                          <th className="text-right py-2 px-2 text-xs font-semibold text-teal-700">Projetado</th>
+                          <th className="text-right py-2 px-2 text-xs font-semibold text-teal-700">Real</th>
+                          <th className="text-right py-2 px-2 text-xs font-semibold text-teal-700">Acumulado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedScenario.projections.map((p: any, i: number) => (
+                          <tr key={i} className="border-b border-slate-100">
+                            <td className="py-1.5 px-2 text-xs font-medium">{p.periodo_label}</td>
+                            <td className={`py-1.5 px-2 text-right text-xs ${p.fluxo_projetado < 0 ? "text-red-600" : "text-teal-700"}`}>
+                              {p.fluxo_projetado?.toLocaleString("pt-PT", { maximumFractionDigits: 0 }) ?? "-"}
+                            </td>
+                            <td className="py-1.5 px-2 text-right text-xs text-slate-400">
+                              {p.fluxo_real != null ? p.fluxo_real.toLocaleString("pt-PT", { maximumFractionDigits: 0 }) : "—"}
+                            </td>
+                            <td className={`py-1.5 px-2 text-right text-xs font-medium ${p.acumulado_projetado < 0 ? "text-red-600" : "text-teal-700"}`}>
+                              {p.acumulado_projetado?.toLocaleString("pt-PT", { maximumFractionDigits: 0 }) ?? "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* === Modal de save com condicoes de pagamento === */}
       {showSaveModal && result && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
