@@ -147,12 +147,12 @@ export default function FinancialPage() {
   const [cfpExporting, setCfpExporting] = useState(false);
   const [showCfpModal, setShowCfpModal] = useState(false);
 
-  useEffect(() => {
+  function loadCfpProjects() {
     fetch(`${API_BASE}/api/v1/financial/cashflow-pro/projects`)
       .then(r => r.ok ? r.json() : [])
       .then(setCfpProjects)
       .catch(() => {});
-  }, []);
+  }
 
   async function fetchSavedScenarios() {
     setScenariosLoading(true);
@@ -1343,7 +1343,7 @@ export default function FinancialPage() {
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-teal-700">Detalhe do cenário</h3>
                 <button
-                  onClick={() => setShowCfpModal(true)}
+                  onClick={() => { setShowCfpModal(true); loadCfpProjects(); }}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                 >
                   Exportar para CashFlow Pro
