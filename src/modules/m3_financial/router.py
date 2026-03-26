@@ -67,6 +67,12 @@ async def create_scenarios(
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@router.get("/scenarios", summary="Listar cenarios salvos")
+async def list_scenarios() -> list:
+    """Lista todos os cenarios financeiros salvos."""
+    return service.list_scenarios()
+
+
 @router.get("/cashflow-pro/projects", summary="Listar projectos CashFlow Pro")
 async def list_cashflow_pro_projects() -> List[Dict[str, str]]:
     """Lista projectos do CashFlow Pro para o dropdown de exportacao."""

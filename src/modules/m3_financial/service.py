@@ -212,6 +212,41 @@ class FinancialService:
                 return None
             return self._model_to_dict(model)
 
+    def list_scenarios(self, limit: int = 20) -> list:
+        """Lista todos os cenarios financeiros salvos."""
+        with get_session() as session:
+            models = session.execute(
+                select(FinancialModel)
+                .order_by(FinancialModel.created_at.desc())
+                .limit(limit)
+            ).scalars().all()
+            results = []
+            for m in models:
+                d = {
+                    "id": m.id,
+                    "property_id": m.property_id,
+                    "scenario_name": m.scenario_name,
+                    "go_nogo": m.go_nogo,
+                    "roi_pct": m.roi_pct,
+                    "tir_anual_pct": getattr(m, "tir_anual_pct", 0) or 0,
+                    "net_profit": m.net_profit,
+                    "purchase_price": m.purchase_price,
+                    "estimated_sale_price": m.estimated_sale_price,
+                    "total_investment": m.total_investment,
+                    "created_at": m.created_at.isoformat() if m.created_at else None,
+                }
+                # Buscar propriedade associada
+                if m.property_id:
+                    prop = session.get(Property, m.property_id)
+                    if prop:
+                        d["properties"] = {
+                            "municipality": prop.municipality,
+                            "parish": prop.parish,
+                            "property_type": prop.property_type,
+                        }
+                results.append(d)
+            return results
+
     def list_by_property(self, property_id: str) -> list:
         """Lista todos os modelos financeiros de uma propriedade."""
         with get_session() as session:
