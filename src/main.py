@@ -291,12 +291,6 @@ def create_app() -> FastAPI:
         except Exception as e:
             logger.warning(f"Aviso ao inicializar BD (tabelas podem ja existir): {e}")
 
-        # Sincronizar dados do Supabase para SQLite (cold start)
-        try:
-            _sync_from_supabase()
-        except Exception as e:
-            logger.warning(f"Sync Supabase falhou (continuando sem dados): {e}")
-
         logger.info("ImoIA API iniciada")
 
     @app.post("/api/v1/admin/migrate", tags=["Admin"])

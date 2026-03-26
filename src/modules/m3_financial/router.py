@@ -69,8 +69,9 @@ async def create_scenarios(
 
 @router.get("/scenarios", summary="Listar cenarios salvos")
 async def list_scenarios() -> list:
-    """Lista todos os cenarios financeiros salvos."""
-    return service.list_scenarios()
+    """Lista todos os cenarios financeiros salvos via Supabase REST."""
+    from src.database.supabase_rest import list_scenarios as supa_list
+    return supa_list()
 
 
 @router.get("/cashflow-pro/projects", summary="Listar projectos CashFlow Pro")
@@ -309,27 +310,116 @@ async def export_to_cashflow_pro(
 
 @router.post("/save-scenario", summary="Salvar cenario com condicoes de pagamento")
 async def save_scenario(request: ScenarioSaveRequest) -> Dict[str, Any]:
-    """Salva cenario financeiro completo com condicoes de pagamento.
+    """Salva cenario financeiro completo via Supabase REST.
 
     Cria FinancialModel + PaymentCondition + CashflowProjection.
     """
     try:
+        from uuid import uuid4
+        from src.database import supabase_rest as supa
+
         data = request.model_dump()
-        # Converter tranches de Pydantic para dict
-        if "tranches" in data:
-            data["tranches"] = [
-                t if isinstance(t, dict) else t
-                for t in data["tranches"]
-            ]
-        return service.save_scenario_with_conditions(data)
-    except Exception as e:
+        property_id = data.pop("property_id", None)
+        cpcv_date_str = data.pop("cpcv_date", "")
+        escritura_date_str = data.pop("escritura_date", "")
+        tranches_data = data.pop("tranches", [])
+        if isinstance(tranches_data, list):
+            tranches_data = [t if isinstance(t, dict) else t for t in tranches_data]
+
+        if not property_id:
+            raise ValueError("Seleccione um imóvel para vincular o cenário.")
+
+        tenant_id = supa.ensure_tenant()
+
+        # Calcular modelo financeiro
+        cpcv_parcelas = []
+        for t in tranches_data:
+            if isinstance(t, dict):
+                cpcv_parcelas.append({"pct": t.get("pct", 0), "dias": t.get("dias_apos_cpcv", 0)})
+
+        valid_fields = {f.name for f in dataclasses.fields(FinancialInput)}
+        filtered = {k: v for k, v in data.items() if k in valid_fields}
+        if cpcv_parcelas:
+            filtered["cpcv_parcelas"] = cpcv_parcelas
+
+        fin_input = FinancialInput(**filtered)
+        result = calculator.calculate(fin_input)
+        cash_flow = calculator.calc_cash_flow(fin_input, result)
+
+        tir = cash_flow.get("tir_anual_pct", 0)
+        result.tir_anual_pct = tir
+        if tir > 0 and tir >= fin_input.roi_target_pct:
+            result.go_nogo = "go"
+            result.meets_criteria = True
+        elif tir > 0 and tir >= fin_input.roi_target_pct * 0.7:
+            result.go_nogo = "marginal"
+        elif tir > 0:
+            result.go_nogo = "no_go"
+
+        result_dict = dataclasses.asdict(result)
+        model_id = str(uuid4())
+
+        # Persistir no Supabase via REST
+        model_row = {
+            "id": model_id,
+            "tenant_id": tenant_id,
+            "property_id": property_id,
+            "scenario_name": data.get("scenario_name", "base"),
+            "status": "calculated",
+            **{k: v for k, v in result_dict.items()
+               if k not in ("warnings", "holding_detail", "bank_fees_detail")
+               and not isinstance(v, (dict, list))},
+        }
+        supa.save_financial_model(model_row)
+
+        payment_id = str(uuid4())
+        supa.save_payment_condition({
+            "id": payment_id,
+            "tenant_id": tenant_id,
+            "financial_model_id": model_id,
+            "cpcv_date": cpcv_date_str or None,
+            "escritura_date": escritura_date_str or None,
+            "tranches": tranches_data,
+        })
+
+        flows = cash_flow.get("flows", [])
+        projections = []
+        for i, f in enumerate(flows):
+            projections.append({
+                "id": str(uuid4()),
+                "tenant_id": tenant_id,
+                "financial_model_id": model_id,
+                "mes": i,
+                "periodo_label": f.get("label", ""),
+                "categoria": f.get("categoria", ""),
+                "saidas_projetado": f.get("saidas", f.get("aquisicao", 0)),
+                "pmt_projetado": f.get("pmt", 0),
+                "manutencao_projetado": f.get("manut", 0),
+                "payoff_projetado": abs(f.get("payoff", 0)) if f.get("payoff", 0) < 0 else 0,
+                "fluxo_projetado": f.get("fluxo", 0),
+                "acumulado_projetado": f.get("acumulado", 0),
+            })
+        supa.save_projections(projections)
+
+        return {
+            "model_id": model_id,
+            "payment_condition_id": payment_id,
+            "projections_count": len(flows),
+            "property_id": property_id,
+            **result_dict,
+            "cash_flow": cash_flow,
+        }
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar: {str(e)}")
 
 
 @router.get("/{model_id}/projections", summary="Buscar projecao financeira")
 async def get_projections(model_id: str) -> Dict[str, Any]:
-    """Retorna projecao financeira mensal (projetado vs real)."""
-    result = service.get_projections(model_id)
-    if not result:
+    """Retorna projecao financeira mensal (projetado vs real) via Supabase REST."""
+    from src.database.supabase_rest import get_projections as supa_proj
+    result = supa_proj(model_id)
+    if not result or not result.get("projections"):
         raise HTTPException(status_code=404, detail="Modelo nao encontrado")
     return result

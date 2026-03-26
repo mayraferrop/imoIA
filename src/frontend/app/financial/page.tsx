@@ -157,7 +157,10 @@ export default function FinancialPage() {
   async function fetchSavedScenarios() {
     setScenariosLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/financial/scenarios`);
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/financial_models?select=id,property_id,scenario_name,go_nogo,roi_pct,net_profit,tir_anual_pct,purchase_price,estimated_sale_price,total_investment,created_at,properties(municipality,parish,property_type)&order=created_at.desc&limit=20`,
+        { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+      );
       if (res.ok) setSavedScenarios(await res.json());
     } catch { /* ignore */ }
     finally { setScenariosLoading(false); }
@@ -1053,10 +1056,9 @@ export default function FinancialPage() {
                     onClick={() => {
                       setShowSaveModal(true);
                       // Carregar propriedades existentes
-                      fetch(`${API_BASE}/api/v1/properties/?limit=50`)
-                        .then(r => r.ok ? r.json() : { items: [] })
-                        .then(data => setExistingProperties(data.items || data))
-                        .catch(() => {});
+                      fetch(`${SUPABASE_URL}/rest/v1/properties?select=id,municipality,parish,asking_price,property_type,status,financial_models(id)&status=neq.descartado&order=created_at.desc&limit=50`, {
+                        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+                      }).then(r => r.ok ? r.json() : []).then(setExistingProperties).catch(() => {});
                     }}
                     className="w-full bg-teal-700 text-white py-2.5 rounded-lg font-medium hover:bg-teal-800 transition-colors text-sm"
                   >
