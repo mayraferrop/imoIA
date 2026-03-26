@@ -506,7 +506,7 @@ export default function FinancialPage() {
                         <option value="isencao">Isenção</option>
                       </select>
                     </div>
-                    <Field name="comissao_compra_pct" label="Comissão compra %" placeholder="0" />
+                    <Field name="comissao_compra_pct" label="Com. compra %" placeholder="0" />
                   </div>
                 </div>
 
@@ -616,9 +616,9 @@ export default function FinancialPage() {
                     <Field name="holding_months" label="Meses até venda" placeholder="6" />
                   </div>
                   <div className="grid grid-cols-3 gap-3 mt-3">
-                    <Field name="comissao_venda_pct" label="Comissão venda %" placeholder="6.15" />
-                    <Field name="monthly_condominio" label="Condomínio/mês (€)" placeholder="50" />
-                    <Field name="annual_insurance" label="Seguro anual (EUR)" placeholder="300" />
+                    <Field name="comissao_venda_pct" label="Com. venda %" placeholder="6.15" />
+                    <Field name="monthly_condominio" label="Condomínio (€)" placeholder="50" />
+                    <Field name="annual_insurance" label="Seguro anual (€)" placeholder="300" />
                   </div>
                 </div>
 

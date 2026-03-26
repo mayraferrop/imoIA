@@ -105,13 +105,31 @@ body {
 }
 
 .form-field label {
-  min-height: 32px;
+  min-height: 20px;
   display: flex;
   align-items: flex-end;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
 }
 
 .form-field input,
 .form-field select {
+  height: 38px;
+  box-sizing: border-box;
+}
+
+/* Labels dentro de grids de 3 colunas — nunca quebrar */
+.simulator-layout label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.simulator-layout input[type="number"],
+.simulator-layout input[type="text"],
+.simulator-layout select {
   height: 38px;
   box-sizing: border-box;
 }
