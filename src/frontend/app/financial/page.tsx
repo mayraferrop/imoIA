@@ -118,6 +118,7 @@ export default function FinancialPage() {
     { descricao: "Sinal CPCV", tipo: "cpcv_sinal", pct: 5, dias_apos_cpcv: 0 },
     { descricao: "2a tranche", tipo: "tranche_intermedia", pct: 5, dias_apos_cpcv: 30 },
   ]);
+  const [savedProjection, setSavedProjection] = useState<any>(null);
 
   // IMT
   const [imtResult, setImtResult] = useState<IMTResult | null>(null);
@@ -155,12 +156,12 @@ export default function FinancialPage() {
     const estimatedSalePrice = num("estimated_sale_price", 500000);
 
     if (purchasePrice <= 0) {
-      setErrorMsg("Preco de compra e obrigatorio.");
+      setErrorMsg("Preço de compra é obrigatório.");
       setLoading(false);
       return;
     }
     if (estimatedSalePrice <= 0) {
-      setErrorMsg("Preco de venda (ARV) e obrigatorio.");
+      setErrorMsg("Preço de venda (ARV) é obrigatório.");
       setLoading(false);
       return;
     }
@@ -211,11 +212,11 @@ export default function FinancialPage() {
         if (Array.isArray(detail)) {
           setErrorMsg(detail.map((d: any) => `${d.loc?.join(".")}: ${d.msg}`).join("; "));
         } else {
-          setErrorMsg(`Erro ${res.status}: ${typeof detail === "string" ? detail : "Falha na simulacao"}`);
+          setErrorMsg(`Erro ${res.status}: ${typeof detail === "string" ? detail : "Falha na simulação"}`);
         }
       }
     } catch (err) {
-      setErrorMsg("Erro de comunicacao com a API. Verifique a ligacao.");
+      setErrorMsg("Erro de comunicação com a API. Verifique a ligação.");
     } finally {
       setLoading(false);
     }
@@ -268,14 +269,26 @@ export default function FinancialPage() {
       if (res.ok) {
         const saved = await res.json();
         setModelId(saved.model_id);
-        setSaveMsg(`Cenario "${scenarioName}" salvo com ${saved.projections_count} periodos de projecao!`);
+        setSaveMsg(`Cenário "${scenarioName}" salvo com ${saved.projections_count} períodos de projeção!`);
         setShowSaveModal(false);
+        // Buscar projeção para mostrar
+        setSavedProjection({
+          model_id: saved.model_id,
+          cpcv_date: cpcvDate,
+          escritura_date: escrituraDate,
+          tranches: allTranches,
+          cash_flow: saved.cash_flow,
+          tir_anual_pct: saved.tir_anual_pct,
+          go_nogo: saved.go_nogo,
+          net_profit: saved.net_profit,
+          total_investment: saved.total_investment,
+        });
       } else {
         const err = await res.json().catch(() => null);
-        setSaveMsg(`Erro: ${err?.detail || "Falha ao salvar cenario"}`);
+        setSaveMsg(`Erro: ${err?.detail || "Falha ao salvar cenário"}`);
       }
     } catch {
-      setSaveMsg("Erro de comunicacao com a API.");
+      setSaveMsg("Erro de comunicação com a API.");
     } finally {
       setSaveLoading(false);
     }
@@ -374,12 +387,12 @@ export default function FinancialPage() {
       {/* ===== IMT Calculator ===== */}
       {activeTab === "imt" && (
         <div className="bg-white rounded-xl border border-slate-200 p-6 max-w-2xl">
-          <h2 className="text-lg font-semibold mb-4">Calculo rapido de IMT</h2>
+          <h2 className="text-lg font-semibold mb-4">Cálculo rápido de IMT</h2>
           <form onSubmit={handleIMT} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Field name="imt_value" label="Valor do imovel (EUR)" placeholder="295000" />
+              <Field name="imt_value" label="Valor do imóvel (€)" placeholder="295000" />
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Pais</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">País</label>
                 <select name="imt_country" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
                   <option value="PT">Portugal</option>
                   <option value="BR">Brasil</option>
@@ -388,7 +401,7 @@ export default function FinancialPage() {
               <div className="flex items-end pb-2">
                 <label className="flex items-center gap-2 text-sm text-slate-700">
                   <input type="checkbox" name="imt_hpp" className="rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
-                  HPP (habitacao propria)
+                  HPP (habitação própria)
                 </label>
               </div>
             </div>
@@ -424,8 +437,8 @@ export default function FinancialPage() {
           <p className="text-xs text-slate-500 mb-4">MAO = ARV x Factor - Custo Obra</p>
           <form onSubmit={handleMAO} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field name="mao_arv" label="ARV — Valor pos-obra (EUR)" placeholder="500000" />
-              <Field name="mao_reno" label="Custo total de obra (EUR)" placeholder="100000" />
+              <Field name="mao_arv" label="ARV — Valor pós-obra (€)" placeholder="500000" />
+              <Field name="mao_reno" label="Custo total de obra (€)" placeholder="100000" />
             </div>
             <button
               type="submit"
@@ -452,13 +465,13 @@ export default function FinancialPage() {
           <div className="simulator-layout">
             {/* Form */}
             <div className="bg-white rounded-xl border border-slate-200 p-6">
-              <h2 className="text-lg font-semibold mb-4">Parametros</h2>
+              <h2 className="text-lg font-semibold mb-4">Parâmetros</h2>
               <form onSubmit={handleSimulate} className="space-y-5">
                 {/* Compra */}
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Compra</p>
                   <div className="grid grid-cols-2 gap-3">
-                    <Field name="purchase_price" label="Preco de compra (EUR)" placeholder="295000" />
+                    <Field name="purchase_price" label="Preço compra (€)" placeholder="295000" />
                     <Field name="municipality" label="Concelho" placeholder="Lisboa" type="text" />
                   </div>
                 </div>
@@ -467,15 +480,15 @@ export default function FinancialPage() {
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Obra</p>
                   <div className="grid grid-cols-3 gap-3">
-                    <Field name="renovation_cost" label="Orcamento obra (EUR)" placeholder="98400" />
-                    <Field name="renovation_duration_months" label="Meses de obra" placeholder="3" />
-                    <Field name="renovation_contingency_pct" label="Contingencia %" placeholder="0" />
+                    <Field name="renovation_cost" label="Orçamento (€)" placeholder="98400" />
+                    <Field name="renovation_duration_months" label="Duração (meses)" placeholder="3" />
+                    <Field name="renovation_contingency_pct" label="Contingência %" placeholder="0" />
                   </div>
                 </div>
 
                 {/* Estrutura e IMT */}
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Estrutura da Operacao</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Estrutura da Operação</p>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="form-field">
                       <label className="block text-sm font-medium text-slate-700 mb-1">Entidade</label>
@@ -488,12 +501,12 @@ export default function FinancialPage() {
                     <div className="form-field">
                       <label className="block text-sm font-medium text-slate-700 mb-1">Regime IMT</label>
                       <select name="imt_resale_regime" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
-                        <option value="none">Sem beneficio</option>
+                        <option value="none">Sem benefício</option>
                         <option value="reembolso">Reembolso</option>
-                        <option value="isencao">Isencao</option>
+                        <option value="isencao">Isenção</option>
                       </select>
                     </div>
-                    <Field name="comissao_compra_pct" label="Comissao compra %" placeholder="0" />
+                    <Field name="comissao_compra_pct" label="Comissão compra %" placeholder="0" />
                   </div>
                 </div>
 
@@ -538,7 +551,7 @@ export default function FinancialPage() {
                       />
                       {financingMode === "cash" && (
                         <div className="hidden group-hover:block absolute z-10 bottom-full left-0 mb-1 bg-white border border-slate-200 rounded-lg shadow-lg p-2 text-xs text-slate-500 w-48">
-                          Disponivel no modo Financiado
+                          Disponível no modo Financiado
                         </div>
                       )}
                     </div>
@@ -558,7 +571,7 @@ export default function FinancialPage() {
                       />
                       {financingMode === "cash" && (
                         <div className="hidden group-hover:block absolute z-10 bottom-full left-0 mb-1 bg-white border border-slate-200 rounded-lg shadow-lg p-2 text-xs text-slate-500 w-48">
-                          Disponivel no modo Financiado
+                          Disponível no modo Financiado
                         </div>
                       )}
                     </div>
@@ -599,12 +612,12 @@ export default function FinancialPage() {
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Venda</p>
                   <div className="grid grid-cols-2 gap-3">
-                    <Field name="estimated_sale_price" label="Preco venda / ARV (EUR)" placeholder="500000" />
-                    <Field name="holding_months" label="Meses ate venda" placeholder="6" />
+                    <Field name="estimated_sale_price" label="Preço venda / ARV (€)" placeholder="500000" />
+                    <Field name="holding_months" label="Meses até venda" placeholder="6" />
                   </div>
                   <div className="grid grid-cols-3 gap-3 mt-3">
-                    <Field name="comissao_venda_pct" label="Comissao venda %" placeholder="6.15" />
-                    <Field name="monthly_condominio" label="Condominio/mes (EUR)" placeholder="50" />
+                    <Field name="comissao_venda_pct" label="Comissão venda %" placeholder="6.15" />
+                    <Field name="monthly_condominio" label="Condomínio/mês (€)" placeholder="50" />
                     <Field name="annual_insurance" label="Seguro anual (EUR)" placeholder="300" />
                   </div>
                 </div>
@@ -614,14 +627,14 @@ export default function FinancialPage() {
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Outros</p>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="form-field">
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Tipo imovel</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Tipo imóvel</label>
                       <select name="property_type" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
                         <option value="secondary">Investimento</option>
                         <option value="primary">HPP</option>
                       </select>
                     </div>
                     <div className="form-field">
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Pais</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">País</label>
                       <select name="country" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
                         <option value="PT">Portugal</option>
                         <option value="BR">Brasil</option>
@@ -714,23 +727,23 @@ export default function FinancialPage() {
                       label="Margem bruta"
                       value={`${margemBruta.toFixed(1)}%`}
                       color={margemBruta >= 0 ? "#0F766E" : "#DC2626"}
-                      tooltip={`Lucro sem juros / Custo total projecto = ${formatEUR(lucroSemJuros)} / ${formatEUR(custoTotalProjecto)}. Mede a qualidade do deal independente de quem financia. Igual em Cash e Financiado.`}
+                      tooltip={`Lucro sem juros / Custo total projecto = ${formatEUR(lucroSemJuros)} / ${formatEUR(custoTotalProjecto)}. Mede a qualidade do deal independente de quem financia.`}
                     />
                     <KpiCard
-                      label="Margem liquida"
+                      label="Margem líquida"
                       value={`${margemLiquida.toFixed(1)}%`}
                       color={margemLiquida >= 0 ? "#0F766E" : "#DC2626"}
-                      tooltip={`Lucro liq. sem juros / Custo total projecto = ${formatEUR(lucroLiqSemJuros)} / ${formatEUR(custoTotalProjecto)}. Retorno real pos-impostos. Igual em Cash e Financiado.`}
+                      tooltip={`Lucro líq. sem juros / Custo total projecto = ${formatEUR(lucroLiqSemJuros)} / ${formatEUR(custoTotalProjecto)}. Retorno real pós-impostos.`}
                     />
                     <KpiCard
                       label="TIR anual"
                       value={`${(result.tir_anual_pct ?? result.roi_pct ?? 0).toFixed(1)}%`}
-                      tooltip={`Taxa Interna de Retorno anualizada. Pesa cada fluxo pelo mes exacto: CPCV, escritura, obra faseada, venda, reembolso IMT. Padrao da industria.`}
+                      tooltip={`Taxa Interna de Retorno anualizada. Pesa cada fluxo pelo mês exacto: CPCV, escritura, obra faseada, venda, reembolso IMT. Padrão da indústria.`}
                     />
                     <KpiCard
                       label="ROI anualizado"
                       value={`${roiAnualizado.toFixed(1)}%`}
-                      tooltip={`(1 + ROI equity)^(12/${holdingMonths}m) - 1 = (1 + ${(roiEquity * 100).toFixed(1)}%)^${(12/holdingMonths).toFixed(1)} - 1. Converte o ROI equity para base anual para comparar deals com duracoes diferentes.`}
+                      tooltip={`(1 + ROI equity)^(12/${holdingMonths}m) - 1 = (1 + ${(roiEquity * 100).toFixed(1)}%)^${(12/holdingMonths).toFixed(1)} - 1. Converte o ROI equity para base anual para comparar deals com durações diferentes.`}
                     />
                   </div>
 
@@ -740,27 +753,27 @@ export default function FinancialPage() {
                       label="Lucro bruto"
                       value={formatEUR(result.net_profit)}
                       color={result.net_profit >= 0 ? "#0F766E" : "#DC2626"}
-                      tooltip="Retorno total (venda + reembolsos) menos capital investido. Antes de impostos."
+                      tooltip="Retorno total (venda + reembolsos) menos capital investido."
                     />
                     {totalTax > 0 && (
                       <KpiCard
-                        label="Lucro pos-impostos"
+                        label="Lucro pós-impostos"
                         value={formatEUR(lucroPosImpostos)}
                         color={lucroPosImpostos >= 0 ? "#0F766E" : "#DC2626"}
-                        tooltip={`Lucro bruto ${formatEUR(result.net_profit)} - impostos ${formatEUR(totalTax)} = ${formatEUR(lucroPosImpostos)}`}
+                        tooltip={`Lucro ${formatEUR(result.net_profit)} - impostos ${formatEUR(totalTax)} = ${formatEUR(lucroPosImpostos)}`}
                       />
                     )}
                     <KpiCard
                       label="ROI equity"
                       value={caixaInvestido > 0 ? `${(result.net_profit / caixaInvestido * 100).toFixed(1)}%` : "N/A"}
                       tooltip={caixaInvestido > 0
-                        ? `Lucro ${formatEUR(result.net_profit)} / Caixa investido ${formatEUR(caixaInvestido)} = ${(result.net_profit / caixaInvestido * 100).toFixed(1)}%. ${(result.loan_amount ?? 0) > 0 ? "Com financiamento sobe porque menos capital proprio e usado." : "Num deal cash, ROI equity = margem bruta."}`
-                        : "Capital investido invalido. Verificar parametros."}
+                        ? `Lucro ${formatEUR(result.net_profit)} / Caixa investido ${formatEUR(caixaInvestido)} = ${(result.net_profit / caixaInvestido * 100).toFixed(1)}%. ${(result.loan_amount ?? 0) > 0 ? "Com financiamento sobe porque menos capital próprio é usado." : "Num deal cash, ROI equity = margem bruta."}`
+                        : "Capital investido inválido. Verificar parâmetros."}
                     />
                     <KpiCard
                       label="Caixa investido"
                       value={formatEUR(caixaInvestido)}
-                      tooltip={`Investimento total ${formatEUR(result.total_investment)} - Emprestimo ${formatEUR(result.loan_amount ?? 0)} = ${formatEUR(caixaInvestido)}. O dinheiro que saiu do teu bolso.`}
+                      tooltip={`Investimento total ${formatEUR(result.total_investment)} - Empréstimo ${formatEUR(result.loan_amount ?? 0)} = ${formatEUR(caixaInvestido)}. O dinheiro que saiu do teu bolso.`}
                       color={caixaInvestido > 0 ? undefined : "#DC2626"}
                     />
                   </div>
@@ -788,38 +801,38 @@ export default function FinancialPage() {
                     return (
                     <>
                       {/* Modo Financiado — custo total, subtrair emprestimo 1x no final */}
-                      <DetailRow label="Preco de compra" value={formatEUR(lastPayload?.purchase_price)} />
+                      <DetailRow label="Preço de compra" value={formatEUR(lastPayload?.purchase_price)} />
                       {(result.renovation_total ?? 0) > 0 && (
                         <DetailRow label="Obra" value={formatEUR(result.renovation_total)} />
                       )}
-                      <DetailRow label="Custos 1a escritura" value={formatEUR(totalEscritura1)} />
+                      <DetailRow label="Custos 1ª escritura" value={formatEUR(totalEscritura1)} />
                       {result.entity_structure === "pf_jp" && (result.total_acquisition_cost_2 ?? 0) > 0 && (
-                        <DetailRow label="Custos 2a escritura" value={formatEUR(result.total_acquisition_cost_2)} />
+                        <DetailRow label="Custos 2ª escritura" value={formatEUR(result.total_acquisition_cost_2)} />
                       )}
                       <DetailRow label="Custos hipoteca" value={formatEUR(result.bank_fees)} />
                       {holdingDetail && (
                         <>
-                          <DetailRow label={`Manutencao (${holdingDetail.meses}m × ${formatEUR(holdingDetail.total_mensal)}/m)`} value={formatEUR(result.total_holding_cost)} />
+                          <DetailRow label={`Manutenção (${holdingDetail.meses}m × ${formatEUR(holdingDetail.total_mensal)}/m)`} value={formatEUR(result.total_holding_cost)} />
                           <p className="text-xs text-slate-400 -mt-1 ml-1">
                             Cond. {formatEUR(holdingDetail.condominio_mensal)} + Seguro {formatEUR(holdingDetail.seguro_mensal)} + IMI {formatEUR(holdingDetail.imi_mensal)} = {formatEUR(holdingDetail.total_mensal)}/m
                           </p>
                         </>
                       )}
-                      <DetailRow label={`Prestacoes pagas (${result.holding_months}m × ${formatEUR(result.monthly_payment)}/m)`} value={formatEUR((result.monthly_payment ?? 0) * (result.holding_months ?? 0))} />
+                      <DetailRow label={`Prestações pagas (${result.holding_months}m × ${formatEUR(result.monthly_payment)}/m)`} value={formatEUR((result.monthly_payment ?? 0) * (result.holding_months ?? 0))} />
                       <div className="border-t border-slate-300 pt-2 space-y-1">
                         <DetailRow label="Custo total do projecto" value={formatEUR(result.total_investment)} bold />
                       </div>
                       {/* Decomposicao do financiamento */}
                       <div className="bg-blue-50 rounded-lg p-3 space-y-1">
                         <p className="text-xs font-semibold text-blue-700 uppercase mb-1">Financiamento</p>
-                        <DetailRow label={`Emprestimo compra (${loanPctPurchase}%)`} value={formatEUR(loanCompra)} color="#2563EB" />
+                        <DetailRow label={`Empréstimo compra (${loanPctPurchase}%)`} value={formatEUR(loanCompra)} color="#2563EB" />
                         {loanObra > 0 && (
-                          <DetailRow label={`Emprestimo obra (${loanPctReno}%)`} value={formatEUR(loanObra)} color="#2563EB" />
+                          <DetailRow label={`Empréstimo obra (${loanPctReno}%)`} value={formatEUR(loanObra)} color="#2563EB" />
                         )}
-                        <DetailRow label="Emprestimo total" value={formatEUR(result.loan_amount)} bold color="#2563EB" />
+                        <DetailRow label="Empréstimo total" value={formatEUR(result.loan_amount)} bold color="#2563EB" />
                       </div>
                       <div className="bg-teal-50 rounded-lg p-3 space-y-1">
-                        <p className="text-xs font-semibold text-teal-700 uppercase mb-1">Capital proprio (do teu bolso)</p>
+                        <p className="text-xs font-semibold text-teal-700 uppercase mb-1">Capital próprio (do teu bolso)</p>
                         <DetailRow label="Equity compra" value={formatEUR(equityCompra)} />
                         <DetailRow label="Equity obra" value={formatEUR(equityObra)} />
                         <DetailRow label="Custos (escrituras + hipoteca + manut. + PMT)" value={formatEUR(caixaInvestido - equityCompra - equityObra)} />
@@ -832,17 +845,17 @@ export default function FinancialPage() {
                   })() : (
                     <>
                       {/* Modo Cash — breakdown simples */}
-                      <DetailRow label="Preco de compra (equity)" value={formatEUR(lastPayload?.purchase_price)} />
-                      <DetailRow label="Custos 1a escritura" value={formatEUR(totalEscritura1)} />
+                      <DetailRow label="Preço de compra (equity)" value={formatEUR(lastPayload?.purchase_price)} />
+                      <DetailRow label="Custos 1ª escritura" value={formatEUR(totalEscritura1)} />
                       {result.entity_structure === "pf_jp" && (result.total_acquisition_cost_2 ?? 0) > 0 && (
-                        <DetailRow label="Custos 2a escritura" value={formatEUR(result.total_acquisition_cost_2)} />
+                        <DetailRow label="Custos 2ª escritura" value={formatEUR(result.total_acquisition_cost_2)} />
                       )}
                       {(result.renovation_total ?? 0) > 0 && (
                         <DetailRow label="Obra" value={formatEUR(result.renovation_total)} />
                       )}
                       {holdingDetail && (
                         <>
-                          <DetailRow label={`Manutencao (${holdingDetail.meses}m × ${formatEUR(holdingDetail.total_mensal)}/m)`} value={formatEUR(result.total_holding_cost)} />
+                          <DetailRow label={`Manutenção (${holdingDetail.meses}m × ${formatEUR(holdingDetail.total_mensal)}/m)`} value={formatEUR(result.total_holding_cost)} />
                           <p className="text-xs text-slate-400 -mt-1 ml-1">
                             Cond. {formatEUR(holdingDetail.condominio_mensal)} + Seguro {formatEUR(holdingDetail.seguro_mensal)} + IMI {formatEUR(holdingDetail.imi_mensal)} = {formatEUR(holdingDetail.total_mensal)}/m
                           </p>
@@ -855,32 +868,32 @@ export default function FinancialPage() {
                   )}
                 </div>
 
-                {/* 1a Escritura */}
+                {/* 1ª Escritura */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-teal-700">
-                      1a Escritura {result.entity_structure === "pf_jp" ? "(Vendedor → PF)" : result.entity_structure === "jp_only" ? "(Vendedor → JP)" : "(Vendedor → PF)"}
+                      1ª Escritura {result.entity_structure === "pf_jp" ? "(Vendedor → PF)" : result.entity_structure === "jp_only" ? "(Vendedor → JP)" : "(Vendedor → PF)"}
                     </h3>
                     <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                       {result.entity_structure === "pf_jp" ? "PF → JP" : result.entity_structure === "jp_only" ? "JP only" : "PF only"}
                     </span>
                   </div>
                   <DetailRow label="IMT (tabela OE2026)" value={formatEUR(result.imt)} />
-                  <DetailRow label="Imposto de Selo (0.8%)" value={formatEUR(result.imposto_selo)} />
+                  <DetailRow label="Imposto de Selo (0,8%)" value={formatEUR(result.imposto_selo)} />
                   <DetailRow label="Escritura + Registo" value={formatEUR(result.notario_registo)} />
                   {result.comissao_compra != null && result.comissao_compra > 0 && (
-                    <DetailRow label="Comissao compra" value={formatEUR(result.comissao_compra)} />
+                    <DetailRow label="Comissão compra" value={formatEUR(result.comissao_compra)} />
                   )}
                   <div className="border-t border-slate-300 pt-2">
-                    <DetailRow label="Total 1a escritura" value={formatEUR(totalEscritura1)} bold />
+                    <DetailRow label="Total 1ª escritura" value={formatEUR(totalEscritura1)} bold />
                   </div>
                 </div>
 
-                {/* 2a Escritura (PF→JP) */}
+                {/* 2ª Escritura (PF→JP) */}
                 {result.entity_structure === "pf_jp" && result.total_acquisition_cost_2 != null && (
                   <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-purple-700">2a Escritura (PF → JP)</h3>
+                      <h3 className="text-sm font-semibold text-purple-700">2ª Escritura (PF → JP)</h3>
                       <span className={`text-xs px-2 py-0.5 rounded ${
                         result.imt_resale_regime === "isencao" ? "bg-green-100 text-green-700" :
                         result.imt_resale_regime === "reembolso" ? "bg-amber-100 text-amber-700" :
@@ -892,16 +905,16 @@ export default function FinancialPage() {
                       </span>
                     </div>
                     <DetailRow
-                      label={`IMT 2a transmissao${result.imt_resale_regime === "isencao" ? " (isento)" : ""}`}
+                      label={`IMT 2ª transmissão${result.imt_resale_regime === "isencao" ? " (isento)" : ""}`}
                       value={formatEUR(result.imt_2)}
                     />
-                    <DetailRow label="Imposto de Selo 2a" value={formatEUR(result.is_2)} />
-                    <DetailRow label="Escritura 2a" value={formatEUR(result.escritura_2)} />
+                    <DetailRow label="Imposto de Selo 2ª" value={formatEUR(result.is_2)} />
+                    <DetailRow label="Escritura 2ª" value={formatEUR(result.escritura_2)} />
                     <div className="border-t border-slate-300 pt-2">
-                      <DetailRow label="Total 2a escritura" value={formatEUR(result.total_acquisition_cost_2)} bold />
+                      <DetailRow label="Total 2ª escritura" value={formatEUR(result.total_acquisition_cost_2)} bold />
                     </div>
                     {result.imt_resale_regime === "reembolso" && (
-                      <p className="text-xs text-amber-600">O IMT de {formatEUR(result.imt_2_original)} sera reembolsado 12 meses apos a 2a escritura</p>
+                      <p className="text-xs text-amber-600">O IMT de {formatEUR(result.imt_2_original)} será reembolsado 12 meses após a 2ª escritura</p>
                     )}
                   </div>
                 )}
@@ -909,9 +922,9 @@ export default function FinancialPage() {
                 {result.loan_amount != null && result.loan_amount > 0 && (
                   <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
                     <h3 className="text-sm font-semibold text-teal-700">Financiamento</h3>
-                    <DetailRow label="Emprestimo" value={formatEUR(result.loan_amount)} />
+                    <DetailRow label="Empréstimo" value={formatEUR(result.loan_amount)} />
                     <DetailRow label="PMT mensal" value={formatEUR(result.monthly_payment)} />
-                    <DetailRow label={`Payoff mes ${result.holding_months ?? 0}`} value={formatEUR(result.payoff_at_sale)} />
+                    <DetailRow label={`Payoff mês ${result.holding_months ?? 0}`} value={formatEUR(result.payoff_at_sale)} />
                     <DetailRow label="Custos hipoteca" value={formatEUR(result.bank_fees)} />
                     {result.cash_on_cash_return_pct != null && (
                       <DetailRow label="Cash-on-cash return" value={`${result.cash_on_cash_return_pct.toFixed(1)}%`} />
@@ -944,7 +957,7 @@ export default function FinancialPage() {
                     <h3 className="text-sm font-semibold text-amber-700">Fiscalidade</h3>
                     {result.entity_structure !== "pf_only" && result.total_corporate_tax != null ? (
                       <>
-                        {result.irc_taxable_income != null && <DetailRow label="Base tributavel (JP)" value={formatEUR(result.irc_taxable_income)} />}
+                        {result.irc_taxable_income != null && <DetailRow label="Base tributável (JP)" value={formatEUR(result.irc_taxable_income)} />}
                         {result.irc_estimated != null && <DetailRow label="IRC (21%)" value={formatEUR(result.irc_estimated)} />}
                         {result.derrama_estimated != null && <DetailRow label="Derrama (1.5%)" value={formatEUR(result.derrama_estimated)} />}
                         <div className="border-t border-slate-300 pt-2">
@@ -960,7 +973,7 @@ export default function FinancialPage() {
                     <div className="border-t border-teal-200 pt-3 mt-2">
                       <DetailRow label="Lucro bruto" value={formatEUR(result.net_profit)} />
                       <DetailRow label="Impostos estimados" value={`-${formatEUR(totalTax)}`} color="#DC2626" />
-                      <DetailRow label="Lucro liquido (pos-impostos)" value={formatEUR(lucroPosImpostos)} bold color={lucroPosImpostos >= 0 ? "#0F766E" : "#DC2626"} />
+                      <DetailRow label="Lucro líquido (pós-impostos)" value={formatEUR(lucroPosImpostos)} bold color={lucroPosImpostos >= 0 ? "#0F766E" : "#DC2626"} />
                     </div>
                   </div>
                 )}
@@ -971,7 +984,7 @@ export default function FinancialPage() {
                     onClick={() => setShowSaveModal(true)}
                     className="w-full bg-teal-700 text-white py-2.5 rounded-lg font-medium hover:bg-teal-800 transition-colors text-sm"
                   >
-                    Salvar cenario com condicoes de pagamento
+                    Salvar cenário com condições de pagamento
                   </button>
                 )}
                 {modelId && (
@@ -990,7 +1003,7 @@ export default function FinancialPage() {
           {/* Scenarios */}
           {scenarios && scenarios.length > 0 && (
             <div className="bg-white rounded-xl border border-slate-200 p-6">
-              <h2 className="text-lg font-semibold mb-4">Cenarios</h2>
+              <h2 className="text-lg font-semibold mb-4">Cenários</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {scenarios.map((sc) => {
                   const colors: Record<string, string> = {
@@ -1036,7 +1049,7 @@ export default function FinancialPage() {
 
               {/* Summary KPIs */}
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <KpiCard label="Pico de caixa necessario" value={formatEUR(cashFlow.pico_caixa_necessario)} />
+                <KpiCard label="Pico de caixa necessário" value={formatEUR(cashFlow.pico_caixa_necessario)} />
                 <KpiCard label="Saldo final" value={formatEUR(cashFlow.saldo_final)} color={cashFlow.saldo_final >= 0 ? "#0F766E" : "#DC2626"} />
               </div>
 
@@ -1094,6 +1107,66 @@ export default function FinancialPage() {
               </div>
             </div>
           )}
+
+          {/* === Projecao Salva === */}
+          {savedProjection && (
+            <div className="bg-white rounded-xl border-2 border-teal-300 p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-teal-700">Projecao Financeira Salva</h2>
+                <span className="text-xs text-slate-400">ID: {savedProjection.model_id?.slice(0, 8)}...</span>
+              </div>
+              <div className="bg-teal-50 rounded-lg p-4 space-y-2">
+                <p className="text-xs font-semibold text-teal-700 uppercase">Timeline do deal</p>
+                <div className="space-y-1 text-sm">
+                  {savedProjection.tranches?.filter((t: any) => t.tipo !== "escritura").map((t: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="w-24 text-xs text-teal-600 font-mono">{t.data || ""}</span>
+                      <span className="w-2 h-2 rounded-full bg-teal-500" />
+                      <span className="text-slate-700">{t.descricao} — <strong>{formatEUR(t.valor)}</strong> ({t.pct}%)</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <span className="w-24 text-xs text-blue-600 font-mono">{savedProjection.escritura_date}</span>
+                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                    <span className="text-slate-700">Escritura — <strong>{formatEUR(savedProjection.tranches?.find((t: any) => t.tipo === "escritura")?.valor)}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <span className="w-24 text-xs font-mono">+obra+hold</span>
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    <span>Obra + Holding ({result?.holding_months ?? 9} meses)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-24 text-xs text-green-600 font-mono">venda</span>
+                    <span className="w-2 h-2 rounded-full bg-green-500" />
+                    <span className="text-slate-700">Venda — <strong>{formatEUR(result?.caixa_closing)}</strong> liquido</span>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="bg-slate-50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-slate-500">TIR anual</p>
+                  <p className="text-lg font-bold">{(savedProjection.tir_anual_pct ?? 0).toFixed(1)}%</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-slate-500">Lucro bruto</p>
+                  <p className="text-lg font-bold text-teal-700">{formatEUR(savedProjection.net_profit)}</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-slate-500">Investimento</p>
+                  <p className="text-lg font-bold">{formatEUR(savedProjection.total_investment)}</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-slate-500">Badge</p>
+                  <p className="text-lg font-bold" style={{ color: savedProjection.go_nogo === "go" ? "#16A34A" : savedProjection.go_nogo === "marginal" ? "#D97706" : "#DC2626" }}>
+                    {(savedProjection.go_nogo ?? "").toUpperCase()}
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-400">
+                Projecao com {savedProjection.cash_flow?.flows?.length ?? 0} periodos persistida no Supabase.
+              </p>
+            </div>
+          )}
         </>
       )}
       {/* === Modal de save com condicoes de pagamento === */}
@@ -1101,7 +1174,7 @@ export default function FinancialPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">Salvar cenario com condicoes de pagamento</h2>
+              <h2 className="text-lg font-bold text-slate-900">Salvar cenário com condições de pagamento</h2>
               <button onClick={() => setShowSaveModal(false)} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
             </div>
 
@@ -1121,9 +1194,9 @@ export default function FinancialPage() {
               </div>
             </div>
 
-            {/* Seccao 2: Condicoes de pagamento */}
+            {/* Seccao 2: Condições de pagamento */}
             <div className="space-y-3">
-              <p className="text-xs font-semibold text-slate-500 uppercase">Condicoes de pagamento</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase">Condições de pagamento</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Data CPCV</label>

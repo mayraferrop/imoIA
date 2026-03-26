@@ -3,8 +3,8 @@ import "./globals.css";
 import { Sidebar } from "@/components/layout/sidebar";
 
 export const metadata: Metadata = {
-  title: "ImoIA — Gestao de Investimento Imobiliario",
-  description: "Plataforma de gestao de investimento imobiliario fix and flip",
+  title: "ImoIA — Gestão de Investimento Imobiliário",
+  description: "Plataforma de gestão de investimento imobiliário fix and flip",
 };
 
 export default function RootLayout({

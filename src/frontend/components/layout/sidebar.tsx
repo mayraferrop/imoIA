@@ -25,7 +25,7 @@ export function Sidebar() {
       <div className="sidebar-header p-6 border-b border-slate-200">
         <h1 className="text-xl font-bold text-teal-700">ImoIA</h1>
         <p className="sidebar-subtitle text-xs text-slate-500 mt-1">
-          Gestao de Investimento Imobiliario
+          Gestão de Investimento Imobiliário
         </p>
       </div>
 
