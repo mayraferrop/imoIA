@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 from uuid import uuid4
 
 from loguru import logger
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from datetime import datetime
 
@@ -425,29 +425,25 @@ class FinancialService:
             }
 
     def delete_model(self, model_id: str) -> bool:
-        """Exclui modelo financeiro e dados associados."""
+        """Exclui modelo financeiro e dados associados (ordem: filhos primeiro)."""
         with get_session() as session:
             model = session.get(FinancialModel, model_id)
             if not model:
                 return False
 
-            # Excluir projecções associadas
+            # 1. Excluir projecções (filho)
             session.execute(
-                select(CashflowProjection)
+                delete(CashflowProjection)
                 .where(CashflowProjection.financial_model_id == model_id)
             )
-            for proj in session.execute(
-                select(CashflowProjection).where(CashflowProjection.financial_model_id == model_id)
-            ).scalars().all():
-                session.delete(proj)
 
-            # Excluir condições de pagamento
-            for cond in session.execute(
-                select(PaymentCondition).where(PaymentCondition.financial_model_id == model_id)
-            ).scalars().all():
-                session.delete(cond)
+            # 2. Excluir condições de pagamento (filho)
+            session.execute(
+                delete(PaymentCondition)
+                .where(PaymentCondition.financial_model_id == model_id)
+            )
 
-            # Excluir modelo
+            # 3. Excluir modelo (pai)
             session.delete(model)
             logger.info(f"Modelo financeiro excluido: {model_id}")
             return True
