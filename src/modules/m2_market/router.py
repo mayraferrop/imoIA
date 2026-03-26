@@ -18,18 +18,25 @@ from fastapi import APIRouter, HTTPException, Query
 from loguru import logger
 
 from src.modules.m2_market.schemas import (
+    AgencySearchResponse,
+    AgentSearchResponse,
     AlertCreateRequest,
     AlertResponse,
     ARVEstimateResponse,
+    CasafariValuationRequest,
+    CasafariValuationResponse,
     ComparableSearchRequest,
     ComparableSearchResponse,
     EnrichmentResponse,
+    LocationSearchRequest,
+    LocationSearchResponse,
     MarketOverviewResponse,
     ValuationRequest,
     ValuationResponse,
     ZoneStatsRequest,
     ZoneStatsResponse,
 )
+from src.modules.m2_market.casafari_client import CasafariClient
 from src.modules.m2_market.service import MarketService
 
 router = APIRouter()
@@ -269,6 +276,173 @@ async def get_ine_housing_prices(
         )
     except ImportError:
         raise HTTPException(status_code=503, detail="INEClient nao disponivel")
+
+
+# ---------------------------------------------------------------------------
+# Casafari AVM Nativo
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/valuate/casafari",
+    summary="Avaliacao nativa CASAFARI (comparables-prices)",
+)
+async def valuate_casafari_native(data: CasafariValuationRequest) -> Dict[str, Any]:
+    """AVM nativo da CASAFARI usando comparaveis vendidos na zona.
+
+    Requer coordenadas (latitude/longitude). Retorna estimativa de preco
+    e lista de comparaveis usados no calculo.
+    """
+    client = CasafariClient()
+    if not client.is_configured:
+        raise HTTPException(status_code=503, detail="CASAFARI nao configurada")
+
+    casafari_types = None
+    if data.property_types:
+        casafari_types = []
+        for pt in data.property_types:
+            casafari_types.extend(CasafariClient.map_property_type(pt))
+
+    casafari_condition = CasafariClient.map_condition(data.condition) if data.condition else None
+
+    result = client.get_comparables_prices(
+        operation=data.operation,
+        latitude=data.latitude,
+        longitude=data.longitude,
+        address=data.address,
+        distance_km=data.distance_km,
+        comparables_count=data.comparables_count,
+        comparables_types=casafari_types,
+        condition=casafari_condition,
+        bedrooms=data.bedrooms,
+        bathrooms=data.bathrooms,
+        total_area=data.total_area,
+        plot_area=data.plot_area,
+        construction_year=data.construction_year,
+        min_price=data.min_price,
+        max_price=data.max_price,
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=502,
+            detail="CASAFARI nao retornou dados — verifique limites da API",
+        )
+    return result
+
+
+# ---------------------------------------------------------------------------
+# References CASAFARI
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/references/locations",
+    summary="Pesquisar localizacoes CASAFARI",
+)
+async def search_locations(data: LocationSearchRequest) -> Dict[str, Any]:
+    """Pesquisa localizacoes por nome ou codigo postal."""
+    client = CasafariClient()
+    if not client.is_configured:
+        raise HTTPException(status_code=503, detail="CASAFARI nao configurada")
+
+    if data.name:
+        loc_id = client.resolve_location(data.name)
+        # Retornar resultado completo da API
+        result = client._request(
+            "POST", "/v1/references/locations", json_body={"name": data.name}
+        )
+        return result or {"locations": []}
+    elif data.zip_codes:
+        result = client._request(
+            "POST",
+            "/v1/references/locations",
+            json_body={"zip_codes": data.zip_codes},
+        )
+        return result or {"locations": []}
+    else:
+        raise HTTPException(status_code=400, detail="Fornecer name ou zip_codes")
+
+
+@router.get(
+    "/references/agencies",
+    summary="Pesquisar agencias imobiliarias",
+)
+async def search_agencies(
+    name: str = Query(..., description="Nome da agencia"),
+) -> Dict[str, Any]:
+    """Pesquisa agencias imobiliarias por nome."""
+    client = CasafariClient()
+    if not client.is_configured:
+        raise HTTPException(status_code=503, detail="CASAFARI nao configurada")
+    return client.search_agencies(name) or {"agencies": []}
+
+
+@router.get(
+    "/references/agents",
+    summary="Pesquisar agentes imobiliarios",
+)
+async def search_agents(
+    name: str = Query(..., description="Nome do agente"),
+) -> Dict[str, Any]:
+    """Pesquisa agentes imobiliarios por nome."""
+    client = CasafariClient()
+    if not client.is_configured:
+        raise HTTPException(status_code=503, detail="CASAFARI nao configurada")
+    return client.search_agents(name) or {"agents": []}
+
+
+@router.get(
+    "/references/sources",
+    summary="Fontes de listagens por localizacao",
+)
+async def get_sources(
+    location_id: int = Query(..., description="ID da localizacao CASAFARI"),
+) -> Dict[str, Any]:
+    """Retorna fontes/dominios disponiveis para uma localizacao."""
+    client = CasafariClient()
+    if not client.is_configured:
+        raise HTTPException(status_code=503, detail="CASAFARI nao configurada")
+    return client.get_sources(location_id) or {"sources": []}
+
+
+@router.get(
+    "/references/types",
+    summary="Tipos de imoveis CASAFARI",
+)
+async def get_property_types() -> Dict[str, Any]:
+    """Retorna todos os tipos de imoveis disponiveis na CASAFARI."""
+    client = CasafariClient()
+    if not client.is_configured:
+        raise HTTPException(status_code=503, detail="CASAFARI nao configurada")
+    return client.get_property_types() or {"types": []}
+
+
+@router.get(
+    "/references/features",
+    summary="Features de imoveis CASAFARI",
+)
+async def get_features() -> Dict[str, Any]:
+    """Retorna todas as features disponiveis (floor, views, etc.)."""
+    client = CasafariClient()
+    if not client.is_configured:
+        raise HTTPException(status_code=503, detail="CASAFARI nao configurada")
+    return client.get_features() or {"features": []}
+
+
+@router.get(
+    "/references/conditions",
+    summary="Condicoes de imoveis CASAFARI",
+)
+async def get_conditions() -> Dict[str, Any]:
+    """Retorna todas as condicoes disponiveis."""
+    client = CasafariClient()
+    if not client.is_configured:
+        raise HTTPException(status_code=503, detail="CASAFARI nao configurada")
+    conditions = client.get_conditions()
+    if isinstance(conditions, list):
+        return {"conditions": conditions}
+    return conditions or {"conditions": []}
 
 
 # ---------------------------------------------------------------------------

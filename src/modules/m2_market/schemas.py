@@ -250,4 +250,70 @@ class MarketOverviewResponse(BaseModel):
     valuations_total: int = 0
     comparables_cached: int = 0
     casafari_configured: bool = False
+    casafari_search_access: bool = False
     ine_available: bool = True
+
+
+# ---------------------------------------------------------------------------
+# Casafari AVM Nativo
+# ---------------------------------------------------------------------------
+
+
+class CasafariValuationRequest(BaseModel):
+    """Dados para avaliacao nativa CASAFARI (comparables-prices)."""
+
+    operation: str = "sale"
+    latitude: float
+    longitude: float
+    address: Optional[str] = None
+    distance_km: float = Field(default=5.0, ge=0.05, le=50.0)
+    comparables_count: int = Field(default=20, ge=1, le=50)
+    property_types: Optional[List[str]] = None
+    condition: Optional[str] = None
+    bedrooms: Optional[int] = None
+    bathrooms: Optional[int] = None
+    total_area: Optional[int] = None
+    plot_area: Optional[int] = None
+    construction_year: Optional[int] = None
+    min_price: Optional[int] = None
+    max_price: Optional[int] = None
+
+
+class CasafariValuationResponse(BaseModel):
+    """Resultado do AVM nativo CASAFARI."""
+
+    estimated_price: Optional[float] = None
+    estimated_price_per_sqm: Optional[float] = None
+    comparables_count: int = 0
+    comparables: List[Dict[str, Any]] = Field(default_factory=list)
+    source: str = "casafari_native"
+
+
+# ---------------------------------------------------------------------------
+# References
+# ---------------------------------------------------------------------------
+
+
+class AgencySearchResponse(BaseModel):
+    """Resultado de pesquisa de agencias."""
+
+    agencies: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class AgentSearchResponse(BaseModel):
+    """Resultado de pesquisa de agentes."""
+
+    agents: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class LocationSearchRequest(BaseModel):
+    """Dados para pesquisa de localizacao CASAFARI."""
+
+    name: Optional[str] = None
+    zip_codes: Optional[List[str]] = None
+
+
+class LocationSearchResponse(BaseModel):
+    """Resultado de pesquisa de localizacao."""
+
+    locations: List[Dict[str, Any]] = Field(default_factory=list)

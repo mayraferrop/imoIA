@@ -356,6 +356,50 @@ class MarketService:
     # Avaliacao (AVM)
     # ------------------------------------------------------------------
 
+    def _try_casafari_native_valuation(
+        self,
+        property_type: Optional[str],
+        latitude: Optional[float],
+        longitude: Optional[float],
+        address: Optional[str],
+        condition: Optional[str],
+        bedrooms: Optional[int],
+        bathrooms: Optional[int],
+        gross_area_m2: Optional[float],
+    ) -> Optional[Dict[str, Any]]:
+        """Tenta AVM nativo da CASAFARI (POST /v1/valuation/comparables-prices).
+
+        Requer coordenadas. Retorna None se nao disponivel.
+        """
+        if not self.casafari_available:
+            return None
+        if latitude is None or longitude is None:
+            return None
+
+        casafari_types = CasafariClient.map_property_type(property_type)
+        casafari_condition = CasafariClient.map_condition(condition) if condition else None
+
+        data = self._casafari.get_comparables_prices(
+            operation="sale",
+            latitude=latitude,
+            longitude=longitude,
+            address=address,
+            distance_km=5.0,
+            comparables_count=30,
+            comparables_types=casafari_types or None,
+            condition=casafari_condition,
+            bedrooms=bedrooms,
+            bathrooms=bathrooms,
+            total_area=int(gross_area_m2) if gross_area_m2 else None,
+        )
+
+        if data:
+            logger.info(
+                f"M2: AVM nativo CASAFARI retornou dados "
+                f"(lat={latitude}, lon={longitude})"
+            )
+        return data
+
     def valuate_property(
         self,
         municipality: Optional[str] = None,
@@ -378,11 +422,13 @@ class MarketService:
         """Avalia um imovel combinando CASAFARI + INE.
 
         Metodo 'hybrid':
-        1. Busca comparaveis CASAFARI
-        2. Calcula mediana dos precos/m2
-        3. Aplica area do imovel → valor estimado
-        4. Complementa com INE para benchmarks
-        5. Calcula confianca baseada em numero de comparaveis
+        1. Tenta AVM nativo CASAFARI (se tem coordenadas)
+        2. Fallback: busca comparaveis e calcula mediana
+        3. Complementa com INE para benchmarks
+        4. Calcula confianca baseada na fonte e numero de comparaveis
+
+        Metodo 'casafari_native': usa apenas AVM nativo.
+        Metodo 'comparables': usa apenas comparaveis (comportamento antigo).
 
         Returns:
             Dict com resultado da avaliacao.
@@ -393,57 +439,103 @@ class MarketService:
 
             area = gross_area_m2 or useful_area_m2 or 80.0
 
-            # Buscar comparaveis
-            comp_result = self.find_comparables(
-                municipality=municipality,
-                district=district,
-                parish=parish,
-                property_type=property_type,
-                bedrooms=bedrooms,
-                area_m2=area,
-                deal_id=deal_id,
-                tenant_id=tenant_id,
-            )
-
-            stats = comp_result.get("stats", {})
-            comp_count = stats.get("count", 0)
-
-            # Valor estimado via comparaveis
             estimated_value = None
             estimated_price_m2 = None
             confidence = 0.0
+            comp_count = 0
+            stats: Dict[str, Any] = {}
+            casafari_native_data = None
+            used_method = method
 
-            if stats.get("median_price_m2"):
-                estimated_price_m2 = stats["median_price_m2"]
-                estimated_value = round(estimated_price_m2 * area, 2)
+            # --- Tentar AVM nativo CASAFARI (se tem coordenadas) ---
+            if method in ("hybrid", "casafari_native"):
+                casafari_native_data = self._try_casafari_native_valuation(
+                    property_type=property_type,
+                    latitude=latitude,
+                    longitude=longitude,
+                    address=address,
+                    condition=condition,
+                    bedrooms=bedrooms,
+                    bathrooms=bathrooms,
+                    gross_area_m2=gross_area_m2,
+                )
 
-                # Confianca: baseada em numero de comparaveis
-                if comp_count >= 15:
-                    confidence = 85.0
-                elif comp_count >= 10:
-                    confidence = 75.0
-                elif comp_count >= 5:
-                    confidence = 60.0
-                elif comp_count >= 3:
-                    confidence = 45.0
-                else:
-                    confidence = 25.0
+                if casafari_native_data:
+                    # Extrair dados do AVM nativo
+                    native_price = casafari_native_data.get("estimated_price")
+                    native_price_m2 = casafari_native_data.get("estimated_price_per_sqm")
+                    native_comps = casafari_native_data.get("comparables", [])
+                    comp_count = len(native_comps)
 
-            # Complementar com INE
+                    if native_price:
+                        estimated_value = float(native_price)
+                        estimated_price_m2 = float(native_price_m2) if native_price_m2 else (
+                            round(estimated_value / area, 2) if area > 0 else None
+                        )
+                        # Confianca mais alta com AVM nativo (dados verificados)
+                        if comp_count >= 10:
+                            confidence = 90.0
+                        elif comp_count >= 5:
+                            confidence = 80.0
+                        elif comp_count >= 3:
+                            confidence = 65.0
+                        else:
+                            confidence = 45.0
+                        used_method = "casafari_native"
+
+            # --- Fallback: comparaveis manuais ---
+            if estimated_value is None and method in ("hybrid", "comparables"):
+                comp_result = self.find_comparables(
+                    municipality=municipality,
+                    district=district,
+                    parish=parish,
+                    property_type=property_type,
+                    bedrooms=bedrooms,
+                    area_m2=area,
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                )
+
+                stats = comp_result.get("stats", {})
+                comp_count = stats.get("count", 0)
+
+                if stats.get("median_price_m2"):
+                    estimated_price_m2 = stats["median_price_m2"]
+                    estimated_value = round(estimated_price_m2 * area, 2)
+
+                    if comp_count >= 15:
+                        confidence = 85.0
+                    elif comp_count >= 10:
+                        confidence = 75.0
+                    elif comp_count >= 5:
+                        confidence = 60.0
+                    elif comp_count >= 3:
+                        confidence = 45.0
+                    else:
+                        confidence = 25.0
+                    used_method = "comparables"
+
+            # --- Complementar com INE ---
             ine_price_m2 = None
             if self._ine and municipality:
                 ine_data = self._ine.get_median_price(municipality)
                 if ine_data:
                     ine_price_m2 = ine_data.get("price_m2")
 
-            # Se nao temos comparaveis, usar INE como fallback
+            # Se nao temos nada, usar INE como ultimo fallback
             if estimated_value is None and ine_price_m2:
                 estimated_price_m2 = ine_price_m2
                 estimated_value = round(ine_price_m2 * area, 2)
-                confidence = 20.0  # Baixa confianca so com INE
+                confidence = 20.0
+                used_method = "ine"
 
-            # Intervalo (±15% se confianca alta, ±25% se baixa)
-            margin = 0.15 if confidence >= 60 else 0.25
+            # Intervalo (±10% nativo, ±15% comparaveis, ±25% INE)
+            if used_method == "casafari_native":
+                margin = 0.10
+            elif confidence >= 60:
+                margin = 0.15
+            else:
+                margin = 0.25
             value_low = round(estimated_value * (1 - margin), 2) if estimated_value else None
             value_high = round(estimated_value * (1 + margin), 2) if estimated_value else None
 
@@ -474,9 +566,9 @@ class MarketService:
                 median_price_per_m2_zone=stats.get("median_price_m2") or ine_price_m2,
                 comparables_count=comp_count,
                 comparables_avg_price_m2=stats.get("avg_price_m2"),
-                source="casafari" if self.casafari_available else "ine",
-                method=method,
-                model_version="m2_v1",
+                source="casafari" if used_method != "ine" else "ine",
+                method=used_method,
+                model_version="m2_v2",
                 expires_at=datetime.now(tz=timezone.utc) + timedelta(days=_CACHE_VALUATION_DAYS),
             )
             session.add(valuation)

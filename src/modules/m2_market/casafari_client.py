@@ -1,15 +1,18 @@
 """Cliente para a CASAFARI API v1.
 
-Autenticacao: JWT Bearer via POST /login (username/password).
-Refresh automatico do token via GET /refresh-token.
+Base URL: https://api.casafari.com/v1
+Autenticacao: Token API (preferido) ou JWT Bearer via POST /login.
 
 Endpoints principais:
-- POST /api/v1/references/locations — resolver nomes para location_id
-- POST /api/v1/listing-alerts/search — pesquisa ad-hoc de listagens
-- POST /api/v1/listing-alerts/feeds — criar feeds de alertas
-- GET  /api/v1/listing-alerts/feeds/{id} — obter alertas de um feed
-- GET  /api/v1/properties/search/{property_id} — detalhe completo
-- GET  /api/v1/references/types, conditions, features — referencias
+- POST /v1/references/locations — resolver nomes para location_id
+- POST /v1/listing-alerts/search — pesquisa ad-hoc de listagens
+- POST /v1/listing-alerts/feeds — criar/gerir feeds de alertas
+- GET  /v1/properties/search/{property_id} — detalhe completo
+- POST /v1/valuation/comparables-prices — AVM nativo CASAFARI
+- POST /v1/comparables/search — comparaveis dedicados
+- GET  /v1/references/types, conditions, features — referencias
+- GET  /v1/references/agents, agencies, sources — referencias
+- POST /v1/references/zipcode-boundary — boundaries de codigo postal
 """
 
 from __future__ import annotations
@@ -93,7 +96,7 @@ class CasafariClient:
 
         data = self._request(
             "POST",
-            "/api/v1/listing-alerts/search",
+            "/v1/listing-alerts/search",
             params={"limit": 1},
             json_body={"operation": "sale", "location_ids": [1600]},  # Lisboa
         )
@@ -273,7 +276,7 @@ class CasafariClient:
         if key in _location_cache and (time.time() - _location_cache_ts) < _LOCATION_CACHE_TTL:
             return _location_cache[key]
 
-        data = self._request("POST", "/api/v1/references/locations", json_body={"name": name})
+        data = self._request("POST", "/v1/references/locations", json_body={"name": name})
         if not data:
             return None
 
@@ -320,7 +323,7 @@ class CasafariClient:
         """
         data = self._request(
             "GET",
-            "/api/v1/references/locations/by-coordinates",
+            "/v1/references/locations/by-coordinates",
             params={"latitude": latitude, "longitude": longitude},
         )
         return data
@@ -331,18 +334,74 @@ class CasafariClient:
 
     def get_property_types(self) -> Optional[List[Dict[str, Any]]]:
         """Retorna lista de tipos de imovel CASAFARI."""
-        return self._request("GET", "/api/v1/references/types")
+        return self._request("GET", "/v1/references/types")
 
     def get_conditions(self) -> Optional[List[str]]:
         """Retorna lista de condicoes possiveis."""
-        data = self._request("GET", "/api/v1/references/conditions")
+        data = self._request("GET", "/v1/references/conditions")
         if data and "conditions" in data:
             return data["conditions"]
         return data
 
     def get_features(self) -> Optional[List[Dict[str, Any]]]:
         """Retorna lista de features possiveis."""
-        return self._request("GET", "/api/v1/references/features")
+        return self._request("GET", "/v1/references/features")
+
+    def get_sources(self, location_id: int) -> Optional[Dict[str, Any]]:
+        """Retorna fontes/dominios disponiveis para uma localizacao.
+
+        Args:
+            location_id: ID da localizacao CASAFARI.
+
+        Returns:
+            Dict com lista de sources.
+        """
+        return self._request(
+            "GET", "/v1/references/sources", params={"locationId": location_id}
+        )
+
+    def search_agencies(self, name: str) -> Optional[Dict[str, Any]]:
+        """Pesquisa agencias imobiliarias por nome.
+
+        Args:
+            name: Nome da agencia (ex: 'RE/MAX', 'Century 21').
+
+        Returns:
+            Dict com lista de agencias encontradas.
+        """
+        return self._request(
+            "GET", "/v1/references/agencies", params={"name": name}
+        )
+
+    def search_agents(self, name: str) -> Optional[Dict[str, Any]]:
+        """Pesquisa agentes imobiliarios por nome.
+
+        Args:
+            name: Nome do agente.
+
+        Returns:
+            Dict com lista de agentes encontrados.
+        """
+        return self._request(
+            "GET", "/v1/references/agents", params={"name": name}
+        )
+
+    def get_zipcode_boundary(
+        self, zip_code: str
+    ) -> Optional[Dict[str, Any]]:
+        """Obtem boundary (poligono) de um codigo postal.
+
+        Args:
+            zip_code: Codigo postal (ex: '1000-001').
+
+        Returns:
+            Dict com geometria do boundary.
+        """
+        return self._request(
+            "POST",
+            "/v1/references/zipcode-boundary",
+            json_body={"zip_code": zip_code},
+        )
 
     # ------------------------------------------------------------------
     # Listing Alerts: Pesquisa ad-hoc
@@ -351,40 +410,87 @@ class CasafariClient:
     def search_listings(
         self,
         location_ids: Optional[List[int]] = None,
+        custom_locations: Optional[List[List[Dict[str, float]]]] = None,
         property_types: Optional[List[str]] = None,
         operation: str = "sale",
         price_from: Optional[float] = None,
         price_to: Optional[float] = None,
+        price_per_sqm_from: Optional[int] = None,
+        price_per_sqm_to: Optional[int] = None,
         bedrooms_from: Optional[int] = None,
         bedrooms_to: Optional[int] = None,
+        bathrooms_from: Optional[int] = None,
+        bathrooms_to: Optional[int] = None,
         total_area_from: Optional[float] = None,
         total_area_to: Optional[float] = None,
+        plot_area_from: Optional[int] = None,
+        plot_area_to: Optional[int] = None,
+        construction_year_from: Optional[int] = None,
+        construction_year_to: Optional[int] = None,
         conditions: Optional[List[str]] = None,
         statuses: Optional[List[str]] = None,
         alert_subtypes: Optional[List[str]] = None,
         alert_date_from: Optional[str] = None,
+        alert_date_to: Optional[str] = None,
+        created_at_from: Optional[str] = None,
+        created_at_to: Optional[str] = None,
+        floors: Optional[List[str]] = None,
+        views: Optional[List[str]] = None,
+        directions: Optional[List[str]] = None,
+        characteristics: Optional[List[str]] = None,
+        private: Optional[bool] = None,
+        auction: Optional[bool] = None,
+        bank: Optional[bool] = None,
+        new_development: Optional[bool] = None,
+        with_agencies: Optional[List[str]] = None,
+        without_agencies: Optional[List[str]] = None,
+        listing_agents: Optional[List[str]] = None,
+        exclusive: Optional[bool] = None,
+        ref_numbers: Optional[List[str]] = None,
+        has_phone: Optional[bool] = None,
+        has_email: Optional[bool] = None,
+        has_agency_name: Optional[bool] = None,
+        property_ids: Optional[List[int]] = None,
         limit: int = 20,
         offset: int = 0,
         order_by: str = "-alert_date",
     ) -> Optional[Dict[str, Any]]:
-        """Pesquisa ad-hoc de listagens via POST /api/v1/listing-alerts/search.
+        """Pesquisa ad-hoc de listagens via POST /v1/listing-alerts/search.
 
-        Este e o endpoint principal para buscar comparaveis.
+        Este e o endpoint principal para buscar comparaveis e alertas.
+        Suporta todos os filtros da API CASAFARI v1.
 
         Args:
-            location_ids: Lista de location_id CASAFARI.
-            property_types: Lista de tipos CASAFARI (apartment, house, etc.).
+            location_ids: IDs de localizacao (max 100).
+            custom_locations: Poligonos de coordenadas (max 4).
+            property_types: Tipos CASAFARI (apartment, house, etc.).
             operation: 'sale' ou 'rent'.
             price_from/price_to: Intervalo de preco.
-            bedrooms_from/bedrooms_to: Intervalo de quartos.
-            total_area_from/total_area_to: Intervalo de area.
-            conditions: Lista de condicoes (used, new, very-good, ruin).
-            statuses: Lista de estados (active, reserved, sold, delisted).
-            alert_subtypes: Tipos de alerta (new, price_up, price_down, reserved, delisted, sold).
-            alert_date_from: Data minima do alerta (YYYY-MM-DD).
+            price_per_sqm_from/to: Intervalo de preco/m2.
+            bedrooms_from/to: Intervalo de quartos.
+            bathrooms_from/to: Intervalo de casas de banho.
+            total_area_from/to: Intervalo de area total.
+            plot_area_from/to: Intervalo de area de terreno.
+            construction_year_from/to: Intervalo de ano de construcao.
+            conditions: Condicoes (used, new, very-good, ruin, other).
+            statuses: Estados (active, reserved, hold, sold, rented).
+            alert_subtypes: Tipos (new, price_up, price_down, reserved, delisted, sold).
+            alert_date_from/to: Intervalo de data do alerta (YYYY-MM-DD).
+            created_at_from/to: Intervalo de data de criacao (YYYY-MM-DDTHH:mm:ss).
+            floors: Andares (no_floor, ground, middle, top).
+            views: Vistas (water, landscape, city, golf, park).
+            directions: Orientacao (north, south, east, west).
+            characteristics: Caracteristicas (balcony, elevator, garage, etc.).
+            private/auction/bank/new_development: Filtros booleanos.
+            with_agencies/without_agencies: Filtrar por agencias.
+            listing_agents: Filtrar por agentes.
+            exclusive: Apenas exclusivos.
+            ref_numbers: Filtrar por referencia.
+            has_phone/has_email/has_agency_name: Filtros de contacto.
+            property_ids: IDs de propriedades especificas (max 100).
             limit: Resultados por pagina (max 100).
             offset: Offset para paginacao.
-            order_by: Ordenacao.
+            order_by: Ordenacao (-alert_date, alert_date, -created_at, etc.).
 
         Returns:
             Dict com 'count', 'next', 'results' (lista de alertas/listagens).
@@ -395,20 +501,38 @@ class CasafariClient:
         # A API CASAFARI rejeita (400) campos com listas vazias ou None.
         if location_ids:
             body["location_ids"] = location_ids
+        if custom_locations:
+            body["custom_locations"] = custom_locations
         if property_types:
             body["types"] = property_types
         if price_from is not None:
             body["price_from"] = int(price_from)
         if price_to is not None:
             body["price_to"] = int(price_to)
+        if price_per_sqm_from is not None:
+            body["price_per_sqm_from"] = price_per_sqm_from
+        if price_per_sqm_to is not None:
+            body["price_per_sqm_to"] = price_per_sqm_to
         if bedrooms_from is not None:
             body["bedrooms_from"] = bedrooms_from
         if bedrooms_to is not None:
             body["bedrooms_to"] = bedrooms_to
+        if bathrooms_from is not None:
+            body["bathrooms_from"] = bathrooms_from
+        if bathrooms_to is not None:
+            body["bathrooms_to"] = bathrooms_to
         if total_area_from is not None:
             body["total_area_from"] = int(total_area_from)
         if total_area_to is not None:
             body["total_area_to"] = int(total_area_to)
+        if plot_area_from is not None:
+            body["plot_area_from"] = plot_area_from
+        if plot_area_to is not None:
+            body["plot_area_to"] = plot_area_to
+        if construction_year_from is not None:
+            body["construction_year_from"] = construction_year_from
+        if construction_year_to is not None:
+            body["construction_year_to"] = construction_year_to
         if conditions:
             body["conditions"] = conditions
         if statuses:
@@ -417,6 +541,46 @@ class CasafariClient:
             body["alert_subtypes"] = alert_subtypes
         if alert_date_from:
             body["alert_date_from"] = alert_date_from
+        if alert_date_to:
+            body["alert_date_to"] = alert_date_to
+        if created_at_from:
+            body["created_at_from"] = created_at_from
+        if created_at_to:
+            body["created_at_to"] = created_at_to
+        if floors:
+            body["floors"] = floors
+        if views:
+            body["views"] = views
+        if directions:
+            body["directions"] = directions
+        if characteristics:
+            body["characteristics"] = characteristics
+        if private is not None:
+            body["private"] = private
+        if auction is not None:
+            body["auction"] = auction
+        if bank is not None:
+            body["bank"] = bank
+        if new_development is not None:
+            body["new_development"] = new_development
+        if with_agencies:
+            body["with_agencies"] = with_agencies
+        if without_agencies:
+            body["without_agencies"] = without_agencies
+        if listing_agents:
+            body["listing_agents"] = listing_agents
+        if exclusive is not None:
+            body["exclusive"] = exclusive
+        if ref_numbers:
+            body["ref_numbers"] = ref_numbers
+        if has_phone is not None:
+            body["has_phone"] = has_phone
+        if has_email is not None:
+            body["has_email"] = has_email
+        if has_agency_name is not None:
+            body["has_agency_name"] = has_agency_name
+        if property_ids:
+            body["property_ids"] = property_ids
 
         params: Dict[str, Any] = {
             "limit": min(limit, 100),
@@ -426,7 +590,7 @@ class CasafariClient:
 
         data = self._request(
             "POST",
-            "/api/v1/listing-alerts/search",
+            "/v1/listing-alerts/search",
             params=params,
             json_body=body,
         )
@@ -438,7 +602,7 @@ class CasafariClient:
 
     def list_feeds(self) -> Optional[List[Dict[str, Any]]]:
         """Lista todos os feeds de alertas do utilizador."""
-        return self._request("GET", "/api/v1/listing-alerts/feeds")
+        return self._request("GET", "/v1/listing-alerts/feeds")
 
     def create_feed(
         self,
@@ -455,7 +619,7 @@ class CasafariClient:
             Dict com id, name, filter do feed criado.
         """
         body = {"name": name, "filter": filter_config}
-        return self._request("POST", "/api/v1/listing-alerts/feeds", json_body=body)
+        return self._request("POST", "/v1/listing-alerts/feeds", json_body=body)
 
     def get_feed_alerts(
         self,
@@ -492,18 +656,60 @@ class CasafariClient:
         if created_at_from:
             params["created_at_from"] = created_at_from
 
-        return self._request("GET", f"/api/v1/listing-alerts/feeds/{feed_id}", params=params)
+        return self._request("GET", f"/v1/listing-alerts/feeds/{feed_id}", params=params)
+
+    def update_feed(
+        self,
+        feed_id: int,
+        name: Optional[str] = None,
+        filter_config: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Atualiza um feed de alertas existente.
+
+        Args:
+            feed_id: ID do feed.
+            name: Novo nome (opcional).
+            filter_config: Novos filtros (opcional).
+
+        Returns:
+            Dict com feed atualizado ou None.
+        """
+        body: Dict[str, Any] = {}
+        if name:
+            body["name"] = name
+        if filter_config:
+            body["filter"] = filter_config
+        return self._request(
+            "PUT", f"/v1/listing-alerts/feeds/{feed_id}/update", json_body=body
+        )
 
     def delete_feed(self, feed_id: int) -> bool:
         """Remove um feed de alertas."""
-        data = self._request("DELETE", f"/api/v1/listing-alerts/feeds/{feed_id}")
+        data = self._request("DELETE", f"/v1/listing-alerts/feeds/{feed_id}")
         if data and data.get("success"):
             return True
         return data is not None
 
     # ------------------------------------------------------------------
-    # Properties: Detalhe completo
+    # Properties: Detalhe completo e matching
     # ------------------------------------------------------------------
+
+    def match_properties_by_listings(
+        self, listing_ids: List[int]
+    ) -> Optional[Dict[str, Any]]:
+        """Mapeia listing IDs para property IDs.
+
+        Args:
+            listing_ids: Lista de listing_id.
+
+        Returns:
+            Dict com mapeamento listing_id → property_id.
+        """
+        return self._request(
+            "POST",
+            "/v1/properties/match-by-listings",
+            json_body={"listing_ids": listing_ids},
+        )
 
     def get_property_detail(self, property_id: int) -> Optional[Dict[str, Any]]:
         """Obtem detalhe completo de uma propriedade CASAFARI.
@@ -523,7 +729,178 @@ class CasafariClient:
         Returns:
             Dict completo da propriedade ou None.
         """
-        return self._request("GET", f"/api/v1/properties/search/{property_id}")
+        return self._request("GET", f"/v1/properties/search/{property_id}")
+
+    # ------------------------------------------------------------------
+    # Valuation: AVM nativo CASAFARI
+    # ------------------------------------------------------------------
+
+    def get_comparables_prices(
+        self,
+        operation: str = "sale",
+        latitude: Optional[float] = None,
+        longitude: Optional[float] = None,
+        address: Optional[str] = None,
+        distance_km: float = 5.0,
+        comparables_count: int = 20,
+        comparables_types: Optional[List[str]] = None,
+        condition: Optional[str] = None,
+        bedrooms: Optional[int] = None,
+        bathrooms: Optional[int] = None,
+        total_area: Optional[int] = None,
+        plot_area: Optional[int] = None,
+        construction_year: Optional[int] = None,
+        floors: Optional[List[str]] = None,
+        views: Optional[List[str]] = None,
+        directions: Optional[List[str]] = None,
+        characteristics: Optional[Dict[str, List[str]]] = None,
+        min_price: Optional[int] = None,
+        max_price: Optional[int] = None,
+        sold_or_rented_after: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """AVM nativo CASAFARI via POST /v1/valuation/comparables-prices.
+
+        Estima preco com base em comparaveis vendidos/arrendados na zona.
+
+        Args:
+            operation: 'sale' ou 'rent'.
+            latitude/longitude: Coordenadas do imovel alvo.
+            address: Morada do imovel alvo.
+            distance_km: Raio de pesquisa (0.05-50 km, default 5).
+            comparables_count: Numero de comparaveis (1-50).
+            comparables_types: Tipos de imovel para comparar.
+            condition: Condicao (used, new, very-good, ruin, other).
+            bedrooms/bathrooms: Filtros.
+            total_area/plot_area: Area em m2.
+            construction_year: Ano de construcao.
+            floors/views/directions: Filtros de caracteristicas.
+            characteristics: Dict com must_have, nice_to_have, exclude.
+            min_price/max_price: Intervalo de preco.
+            sold_or_rented_after: Data minima (YYYY-MM-DD), default 9 meses.
+
+        Returns:
+            Dict com estimativa de preco e comparaveis usados.
+        """
+        body: Dict[str, Any] = {
+            "operation": operation,
+            "comparables_count": min(comparables_count, 50),
+        }
+
+        # Localização via circle boundary
+        if latitude is not None and longitude is not None:
+            body["location_boundary"] = {
+                "circle": {
+                    "target_point": {
+                        "coordinates": {
+                            "latitude": latitude,
+                            "longitude": longitude,
+                        },
+                    },
+                    "distance": distance_km,
+                },
+            }
+            if address:
+                body["location_boundary"]["circle"]["target_point"]["address"] = address
+
+        if comparables_types:
+            body["comparables_types"] = comparables_types
+        if condition:
+            body["condition"] = condition
+        if bedrooms is not None:
+            body["bedrooms"] = bedrooms
+        if bathrooms is not None:
+            body["bathrooms"] = bathrooms
+        if total_area is not None:
+            body["total_area"] = total_area
+        if plot_area is not None:
+            body["plot_area"] = plot_area
+        if construction_year is not None:
+            body["construction_year"] = construction_year
+        if floors:
+            body["floors"] = floors
+        if views:
+            body["views"] = views
+        if directions:
+            body["directions"] = directions
+        if characteristics:
+            body["characteristics"] = characteristics
+        if min_price is not None:
+            body["min_price"] = min_price
+        if max_price is not None:
+            body["max_price"] = max_price
+        if sold_or_rented_after:
+            body["sold_or_rented_after"] = sold_or_rented_after
+
+        return self._request(
+            "POST",
+            "/v1/valuation/comparables-prices",
+            json_body=body,
+            timeout=60.0,
+        )
+
+    # ------------------------------------------------------------------
+    # Comparables: Pesquisa dedicada
+    # ------------------------------------------------------------------
+
+    def search_comparables(
+        self,
+        operation: str = "sale",
+        location_ids: Optional[List[int]] = None,
+        property_types: Optional[List[str]] = None,
+        conditions: Optional[List[str]] = None,
+        price_from: Optional[int] = None,
+        price_to: Optional[int] = None,
+        bedrooms_from: Optional[int] = None,
+        bedrooms_to: Optional[int] = None,
+        total_area_from: Optional[int] = None,
+        total_area_to: Optional[int] = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> Optional[Dict[str, Any]]:
+        """Pesquisa de comparaveis via POST /v1/comparables/search.
+
+        Endpoint dedicado para comparaveis (separado de listing-alerts).
+
+        Args:
+            operation: 'sale' ou 'rent'.
+            location_ids: IDs de localizacao CASAFARI.
+            property_types: Tipos de imovel.
+            conditions: Condicoes.
+            price_from/price_to: Intervalo de preco.
+            bedrooms_from/bedrooms_to: Intervalo de quartos.
+            total_area_from/total_area_to: Intervalo de area.
+            limit/offset: Paginacao.
+
+        Returns:
+            Dict com resultados de comparaveis.
+        """
+        body: Dict[str, Any] = {"operation": operation}
+
+        if location_ids:
+            body["location_ids"] = location_ids
+        if property_types:
+            body["types"] = property_types
+        if conditions:
+            body["conditions"] = conditions
+        if price_from is not None:
+            body["price_from"] = price_from
+        if price_to is not None:
+            body["price_to"] = price_to
+        if bedrooms_from is not None:
+            body["bedrooms_from"] = bedrooms_from
+        if bedrooms_to is not None:
+            body["bedrooms_to"] = bedrooms_to
+        if total_area_from is not None:
+            body["total_area_from"] = total_area_from
+        if total_area_to is not None:
+            body["total_area_to"] = total_area_to
+
+        return self._request(
+            "POST",
+            "/v1/comparables/search",
+            params={"limit": min(limit, 100), "offset": offset},
+            json_body=body,
+        )
 
     # ------------------------------------------------------------------
     # Helpers de mapeamento
