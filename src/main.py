@@ -25,6 +25,120 @@ from src.shared.document_router import router as document_router
 from src.database.db import init_db
 
 
+async def _migrate_from_supabase(payload: dict):
+    """Endpoint temporario para migrar dados do Supabase para SQLite."""
+    from uuid import uuid4
+    from src.database.db import get_session
+    from src.database.models_v2 import (
+        Property, Tenant, FinancialModel, PaymentCondition,
+        CashflowProjection,
+    )
+    from src.database.models import Opportunity
+
+    stats = {"tenants": 0, "properties": 0, "models": 0, "conditions": 0, "projections": 0, "opportunities": 0, "skipped": 0}
+
+    with get_session() as session:
+        # Tenant
+        for t in payload.get("tenants", []):
+            existing = session.get(Tenant, t["id"])
+            if existing:
+                stats["skipped"] += 1
+                continue
+            session.add(Tenant(id=t["id"], name=t.get("name", "ImoIA"), slug=t.get("slug", "default"), country=t.get("country", "PT")))
+            stats["tenants"] += 1
+        session.flush()
+
+        # Properties
+        for p in payload.get("properties", []):
+            existing = session.get(Property, p["id"])
+            if existing:
+                stats["skipped"] += 1
+                continue
+            obj = Property(id=p["id"], tenant_id=p.get("tenant_id"))
+            for k in ["source", "country", "district", "municipality", "parish", "address", "postal_code",
+                       "property_type", "typology", "gross_area_m2", "net_area_m2", "bedrooms", "bathrooms",
+                       "asking_price", "condition", "status", "notes", "tags", "is_off_market",
+                       "contact_name", "contact_phone", "contact_email", "url", "portal"]:
+                if k in p and p[k] is not None:
+                    setattr(obj, k, p[k])
+            session.add(obj)
+            stats["properties"] += 1
+        session.flush()
+
+        # Financial Models
+        for m in payload.get("financial_models", []):
+            existing = session.get(FinancialModel, m["id"])
+            if existing:
+                stats["skipped"] += 1
+                continue
+            obj = FinancialModel(id=m["id"])
+            for k, v in m.items():
+                if k not in ("id", "created_at", "updated_at") and hasattr(FinancialModel, k) and v is not None:
+                    try:
+                        setattr(obj, k, v)
+                    except Exception:
+                        pass
+            session.add(obj)
+            stats["models"] += 1
+        session.flush()
+
+        # Payment Conditions
+        for c in payload.get("payment_conditions", []):
+            existing = session.get(PaymentCondition, c["id"])
+            if existing:
+                stats["skipped"] += 1
+                continue
+            obj = PaymentCondition(id=c["id"])
+            for k, v in c.items():
+                if k not in ("id", "created_at", "updated_at") and hasattr(PaymentCondition, k) and v is not None:
+                    try:
+                        setattr(obj, k, v)
+                    except Exception:
+                        pass
+            session.add(obj)
+            stats["conditions"] += 1
+        session.flush()
+
+        # Cashflow Projections
+        for p in payload.get("cashflow_projections", []):
+            existing = session.get(CashflowProjection, p["id"])
+            if existing:
+                stats["skipped"] += 1
+                continue
+            obj = CashflowProjection(id=p["id"])
+            for k, v in p.items():
+                if k not in ("id", "created_at", "updated_at") and hasattr(CashflowProjection, k) and v is not None:
+                    try:
+                        setattr(obj, k, v)
+                    except Exception:
+                        pass
+            session.add(obj)
+            stats["projections"] += 1
+        session.flush()
+
+        # Opportunities
+        for o in payload.get("opportunities", []):
+            try:
+                existing = session.get(Opportunity, o.get("id"))
+                if existing:
+                    stats["skipped"] += 1
+                    continue
+                obj = Opportunity(id=o.get("id"))
+                for k, v in o.items():
+                    if k not in ("id", "created_at", "updated_at") and hasattr(Opportunity, k) and v is not None:
+                        try:
+                            setattr(obj, k, v)
+                        except Exception:
+                            pass
+                session.add(obj)
+                stats["opportunities"] += 1
+            except Exception:
+                stats["skipped"] += 1
+        session.flush()
+
+    return stats
+
+
 def create_app() -> FastAPI:
     """Cria e configura a aplicacao FastAPI."""
     app = FastAPI(
@@ -61,6 +175,10 @@ def create_app() -> FastAPI:
         except Exception as e:
             logger.warning(f"Aviso ao inicializar BD (tabelas podem ja existir): {e}")
         logger.info("ImoIA API iniciada")
+
+    @app.post("/api/v1/admin/migrate", tags=["Admin"])
+    async def migrate_endpoint(payload: dict):
+        return await _migrate_from_supabase(payload)
 
     app.include_router(health_router, tags=["Sistema"])
     app.include_router(
