@@ -226,7 +226,7 @@ async def get_cash_flow(model_id: str) -> Dict[str, Any]:
         return calculator.calc_cash_flow(inp, res)
 
 
-@router.post("/scenarios/save", summary="Salvar cenario com condicoes de pagamento")
+@router.post("/save-scenario", summary="Salvar cenario com condicoes de pagamento")
 async def save_scenario(request: ScenarioSaveRequest) -> Dict[str, Any]:
     """Salva cenario financeiro completo com condicoes de pagamento.
 

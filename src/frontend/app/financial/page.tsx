@@ -260,7 +260,7 @@ export default function FinancialPage() {
     };
 
     try {
-      const res = await fetch(`${API_BASE}/api/v1/financial/scenarios/save`, {
+      const res = await fetch(`${API_BASE}/api/v1/financial/save-scenario`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
