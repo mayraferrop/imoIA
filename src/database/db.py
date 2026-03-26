@@ -92,11 +92,34 @@ def _sync_sequences(engine) -> None:
         logger.warning(f"Aviso ao sincronizar sequences: {e}")
 
 
+def _apply_migrations(engine) -> None:
+    """Aplica migracoes incrementais (ALTER TABLE) para colunas em falta."""
+    if "sqlite" in str(engine.url):
+        return
+    migrations = [
+        ("financial_models", "tir_anual_pct", "ALTER TABLE financial_models ADD COLUMN tir_anual_pct FLOAT DEFAULT 0"),
+        ("financial_models", "loan_pct_purchase", "ALTER TABLE financial_models ADD COLUMN loan_pct_purchase FLOAT DEFAULT 0"),
+        ("financial_models", "loan_pct_renovation", "ALTER TABLE financial_models ADD COLUMN loan_pct_renovation FLOAT DEFAULT 0"),
+    ]
+    try:
+        with engine.connect() as conn:
+            for table, col, sql in migrations:
+                try:
+                    conn.execute(text(sql))
+                    logger.info(f"Migracao aplicada: {table}.{col}")
+                except Exception:
+                    pass  # Coluna ja existe
+            conn.commit()
+    except Exception as e:
+        logger.debug(f"Migracoes ignoradas: {e}")
+
+
 def init_db() -> None:
     """Inicializa a base de dados — cria todas as tabelas."""
     engine = _get_engine()
     try:
         Base.metadata.create_all(bind=engine)
+        _apply_migrations(engine)
         _sync_sequences(engine)
         logger.info("Base de dados inicializada com sucesso")
     except Exception as e:
