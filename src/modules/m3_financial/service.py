@@ -281,20 +281,9 @@ class FinancialService:
             ).scalar_one_or_none()
             tenant_id = tenant.id if tenant else None
 
-            # 2. Criar Property se necessario
+            # 2. Verificar Property
             if not property_id:
-                prop = Property(
-                    tenant_id=tenant_id,
-                    property_type="apartamento",
-                    asking_price=request_data.get("purchase_price"),
-                    municipality=request_data.get("municipality", "Simulacao"),
-                    source="manual",
-                    status="lead",
-                    notes="Criado pelo simulador M3 com condicoes de pagamento",
-                )
-                session.add(prop)
-                session.flush()
-                property_id = prop.id
+                raise ValueError("Seleccione um imóvel para vincular o cenário.")
 
             # 3. Calcular modelo financeiro
             # Converter tranches para cpcv_parcelas

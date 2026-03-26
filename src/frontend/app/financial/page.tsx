@@ -266,6 +266,10 @@ export default function FinancialPage() {
 
   async function handleSaveScenario() {
     if (!lastPayload) return;
+    if (!selectedPropertyId) {
+      setSaveMsg("Seleccione um imóvel para vincular o cenário.");
+      return;
+    }
     if (!cpcvDate || !escrituraDate) {
       setSaveMsg("Preencha as datas do CPCV e escritura.");
       return;
@@ -1421,15 +1425,18 @@ export default function FinancialPage() {
                   <select
                     value={selectedPropertyId}
                     onChange={(e) => setSelectedPropertyId(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500"
+                    className={`w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500 ${!selectedPropertyId ? "border-red-300" : "border-slate-300"}`}
                   >
-                    <option value="">Nenhum — cenario avulso</option>
-                    {existingProperties.map((p: any) => (
+                    <option value="">-- Seleccionar imóvel --</option>
+                    {existingProperties
+                      .filter((p: any) => p.municipality !== "Simulacao" && p.municipality !== "Test")
+                      .map((p: any) => (
                       <option key={p.id} value={p.id}>
                         {p.municipality || "?"}{p.parish ? ` — ${p.parish}` : ""} | {p.property_type || ""} | {formatEUR(p.asking_price)}
                       </option>
                     ))}
                   </select>
+                  {!selectedPropertyId && <p className="text-xs text-red-500 mt-0.5">Obrigatório</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nome do cenario</label>
