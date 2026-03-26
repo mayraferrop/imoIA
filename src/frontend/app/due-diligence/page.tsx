@@ -83,10 +83,10 @@ const CATEGORY_LABELS: Record<string, string> = {
   registos: "Registos",
   fiscal: "Fiscal",
   licenciamento: "Licenciamento",
-  condominio: "Condominio",
-  servicos: "Servicos",
+  condominio: "Condomínio",
+  servicos: "Serviços",
   urbano: "Urbanismo",
-  tecnico: "Tecnico",
+  tecnico: "Técnico",
   judicial: "Judicial",
   trabalhista: "Trabalhista",
 };
@@ -153,7 +153,7 @@ export default function DueDiligencePage() {
 
   /* --- Add red flag --- */
   async function handleAddRedFlag(itemId: string) {
-    const description = prompt("Descricao da red flag:");
+    const description = prompt("Descrição da red flag:");
     if (!description) return;
     const severity = prompt("Severidade (low, medium, high, critical):", "medium");
     await api(`/api/v1/due-diligence/items/${itemId}/red-flag`, {
@@ -455,8 +455,8 @@ export default function DueDiligencePage() {
                 Sem checklist de due diligence
               </h3>
               <p className="text-sm text-slate-400 mt-1 mb-6">
-                O checklist e gerado automaticamente quando o deal avanca para o estado
-                &ldquo;Due Diligence&rdquo;. Pode tambem gerar manualmente.
+                O checklist é gerado automaticamente quando o deal avança para o estado
+                &ldquo;Due Diligence&rdquo;. Pode também gerar manualmente.
               </p>
               <button
                 onClick={handleGenerate}

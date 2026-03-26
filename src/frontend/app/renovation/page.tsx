@@ -107,19 +107,19 @@ const MILESTONE_STATUS_COLORS: Record<string, string> = {
 
 const EXPENSE_CATEGORIES = [
   { value: "material", label: "Material" },
-  { value: "mao_de_obra", label: "Mao de obra" },
+  { value: "mao_de_obra", label: "Mão de obra" },
   { value: "equipamento", label: "Equipamento" },
-  { value: "licenca", label: "Licenca" },
+  { value: "licenca", label: "Licença" },
   { value: "projecto", label: "Projecto" },
   { value: "outro", label: "Outro" },
 ];
 
 const PAYMENT_METHODS = [
-  { value: "transferencia", label: "Transferencia" },
-  { value: "cartao", label: "Cartao" },
+  { value: "transferencia", label: "Transferência" },
+  { value: "cartao", label: "Cartão" },
   { value: "mbway", label: "MBWay" },
   { value: "cheque", label: "Cheque" },
-  { value: "numerario", label: "Numerario" },
+  { value: "numerario", label: "Numerário" },
 ];
 
 /* ================================================================== */
@@ -243,9 +243,9 @@ export default function RenovationPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">M6 — Gestao de Obra</h1>
+        <h1 className="text-2xl font-bold text-slate-900">M6 — Gestão de Obra</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Orcamento, milestones, despesas e progresso
+          Orçamento, milestones, despesas e progresso
         </p>
       </div>
 
@@ -261,7 +261,7 @@ export default function RenovationPage() {
         <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
           <h3 className="text-lg font-semibold text-slate-600">Sem obras activas</h3>
           <p className="text-sm text-slate-400 mt-1">
-            Crie uma renovacao a partir do detalhe de um deal no M4.
+            Crie uma renovação a partir do detalhe de um deal no M4.
           </p>
         </div>
       )}
@@ -275,7 +275,7 @@ export default function RenovationPage() {
               <p className="text-xl font-bold text-slate-900 mt-1">{renovations.length}</p>
             </div>
             <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <p className="text-xs text-slate-500">Orcamento total</p>
+              <p className="text-xs text-slate-500">Orçamento total</p>
               <p className="text-xl font-bold text-slate-900 mt-1">{formatEUR(totalBudget)}</p>
             </div>
             <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -283,7 +283,7 @@ export default function RenovationPage() {
               <p className="text-xl font-bold text-slate-900 mt-1">{formatEUR(totalSpent)}</p>
             </div>
             <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <p className="text-xs text-slate-500">Progresso medio</p>
+              <p className="text-xs text-slate-500">Progresso médio</p>
               <p className="text-xl font-bold text-slate-900 mt-1">{avgProgress.toFixed(0)}%</p>
             </div>
           </div>
@@ -360,7 +360,7 @@ export default function RenovationPage() {
           {/* Detail KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <p className="text-xs text-slate-500">Orcamento</p>
+              <p className="text-xs text-slate-500">Orçamento</p>
               <p className="text-xl font-bold text-slate-900 mt-1">{formatEUR(budget)}</p>
             </div>
             <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -410,7 +410,7 @@ export default function RenovationPage() {
           {/* Scope */}
           {reno.scope_description && (
             <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <p className="text-xs text-slate-500 mb-1">Ambito</p>
+              <p className="text-xs text-slate-500 mb-1">Âmbito</p>
               <p className="text-sm text-slate-700">{reno.scope_description}</p>
             </div>
           )}
@@ -498,13 +498,13 @@ export default function RenovationPage() {
                 </p>
               </div>
               <div className="bg-white rounded-xl border border-slate-200 p-4">
-                <p className="text-xs text-slate-500">Dedutivel</p>
+                <p className="text-xs text-slate-500">Dedutível</p>
                 <p className="text-xl font-bold text-green-700 mt-1">
                   {formatEUR(expSummary.total_deductible ?? 0)}
                 </p>
               </div>
               <div className="bg-white rounded-xl border border-slate-200 p-4">
-                <p className="text-xs text-slate-500">Nao dedutivel</p>
+                <p className="text-xs text-slate-500">Não dedutível</p>
                 <p className="text-xl font-bold text-amber-600 mt-1">
                   {formatEUR(expSummary.total_non_deductible ?? 0)}
                 </p>
@@ -533,12 +533,12 @@ export default function RenovationPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Descricao
+                      Descrição
                     </label>
                     <input
                       name="exp_desc"
                       required
-                      placeholder="Material de construcao"
+                      placeholder="Material de construção"
                       className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
                     />
                   </div>
@@ -575,7 +575,7 @@ export default function RenovationPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Metodo pagamento
+                      Método pagamento
                     </label>
                     <select
                       name="exp_payment"
@@ -595,7 +595,7 @@ export default function RenovationPage() {
                         type="checkbox"
                         className="rounded border-slate-300 text-teal-700 focus:ring-teal-500"
                       />
-                      Factura valida com NIF
+                      Factura válida com NIF
                     </label>
                   </div>
                 </div>
@@ -616,7 +616,7 @@ export default function RenovationPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 text-slate-600">
                     <tr>
-                      <th className="text-left px-4 py-3 font-medium">Descricao</th>
+                      <th className="text-left px-4 py-3 font-medium">Descrição</th>
                       <th className="text-right px-4 py-3 font-medium">Valor</th>
                       <th className="text-left px-4 py-3 font-medium">Categoria</th>
                       <th className="text-left px-4 py-3 font-medium">Pagamento</th>
@@ -643,7 +643,7 @@ export default function RenovationPage() {
                           {exp.has_valid_invoice ? (
                             <span className="text-green-600 font-medium">Sim</span>
                           ) : (
-                            <span className="text-slate-400">Nao</span>
+                            <span className="text-slate-400">Não</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-slate-500 text-xs">

@@ -90,18 +90,18 @@ type DetailTab = "resumo" | "propostas" | "tasks" | "hist";
 /* ------------------------------------------------------------------ */
 const DEFAULT_STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
   triagem: { label: "Triagem", color: "#94A3B8", icon: "" },
-  analise: { label: "Analise", color: "#2563EB", icon: "" },
+  analise: { label: "Análise", color: "#2563EB", icon: "" },
   proposta: { label: "Proposta", color: "#7C3AED", icon: "" },
-  negociacao: { label: "Negociacao", color: "#D97706", icon: "" },
+  negociacao: { label: "Negociação", color: "#D97706", icon: "" },
   cpcv: { label: "CPCV", color: "#14B8A6", icon: "" },
   escritura: { label: "Escritura", color: "#0F766E", icon: "" },
   obra: { label: "Obra", color: "#F59E0B", icon: "" },
   venda: { label: "Venda", color: "#16A34A", icon: "" },
-  concluido: { label: "Concluido", color: "#16A34A", icon: "" },
+  concluido: { label: "Concluído", color: "#16A34A", icon: "" },
   descartado: { label: "Descartado", color: "#DC2626", icon: "" },
   em_pausa: { label: "Em Pausa", color: "#94A3B8", icon: "" },
-  angariacao: { label: "Angariacao", color: "#2563EB", icon: "" },
-  preparacao: { label: "Preparacao", color: "#7C3AED", icon: "" },
+  angariacao: { label: "Angariação", color: "#2563EB", icon: "" },
+  preparacao: { label: "Preparação", color: "#7C3AED", icon: "" },
   marketing: { label: "Marketing", color: "#D97706", icon: "" },
   visitas: { label: "Visitas", color: "#14B8A6", icon: "" },
   fecho: { label: "Fecho", color: "#0F766E", icon: "" },
@@ -346,7 +346,7 @@ export default function PipelinePage() {
         setCreateMsg("Erro ao criar deal.");
       }
     } catch {
-      setCreateMsg("Erro de comunicacao.");
+      setCreateMsg("Erro de comunicação.");
     } finally {
       setCreateLoading(false);
     }
@@ -363,17 +363,17 @@ export default function PipelinePage() {
         body: JSON.stringify({ target_status: targetStatus, reason: reason || null }),
       });
       if (res.ok) {
-        setAdvanceMsg(`Avancado para ${targetStatus}`);
+        setAdvanceMsg(`Avançado para ${targetStatus}`);
         setPendingAction(null);
         setAdvanceReason("");
         fetchData();
         // Refresh detail
         setSelectedDealId((prev) => prev); // trigger re-fetch
       } else {
-        setAdvanceMsg("Erro ao avancar deal.");
+        setAdvanceMsg("Erro ao avançar deal.");
       }
     } catch {
-      setAdvanceMsg("Erro de comunicacao.");
+      setAdvanceMsg("Erro de comunicação.");
     } finally {
       setAdvanceLoading(false);
     }
@@ -406,7 +406,7 @@ export default function PipelinePage() {
         setProposalMsg("Erro ao criar proposta.");
       }
     } catch {
-      setProposalMsg("Erro de comunicacao.");
+      setProposalMsg("Erro de comunicação.");
     }
   }
 
@@ -425,8 +425,8 @@ export default function PipelinePage() {
       {/* Stats KPIs */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <StatCard label="Deals activos" value={String(stats.active_deals ?? 0)} />
-          <StatCard label="Concluidos" value={String(stats.completed_deals ?? 0)} />
+          <StatCard label="Deals ativos" value={String(stats.active_deals ?? 0)} />
+          <StatCard label="Concluídos" value={String(stats.completed_deals ?? 0)} />
           <StatCard label="Descartados" value={String(stats.discarded_deals ?? 0)} />
           <StatCard label="Valor investido" value={formatEUR(stats.total_invested)} />
           <StatCard label="Renda mensal" value={formatEUR(stats.total_monthly_rent)} />
@@ -438,7 +438,7 @@ export default function PipelinePage() {
         {([
           ["kanban", "Kanban"],
           ["create", "Criar Deal"],
-          ["mediation", "Mediacao"],
+          ["mediation", "Mediação"],
         ] as [PipelineTab, string][]).map(([key, label]) => (
           <button
             key={key}
@@ -462,7 +462,7 @@ export default function PipelinePage() {
               onChange={(e) => setStrategyFilter(e.target.value)}
               className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500"
             >
-              <option value="">Todas as estrategias</option>
+              <option value="">Todas as estratégias</option>
               {strategies.map((s) => (
                 <option key={s.key} value={s.key}>{s.icon ?? ""} {s.label}</option>
               ))}
@@ -514,7 +514,7 @@ export default function PipelinePage() {
                             }}
                           >
                             <p className="text-sm font-semibold text-slate-900">
-                              {(deal as any).strategy_icon ?? ""} {deal.title || deal.property?.municipality || (deal.properties as any)?.municipality || "Sem titulo"}
+                              {(deal as any).strategy_icon ?? ""} {deal.title || deal.property?.municipality || (deal.properties as any)?.municipality || "Sem título"}
                             </p>
                             <div className="flex items-center justify-between mt-1.5">
                               <span className="text-xs text-slate-500">{formatEUR(price)}</span>
@@ -581,7 +581,7 @@ export default function PipelinePage() {
                   ["resumo", "Resumo"],
                   ["propostas", "Propostas"],
                   ["tasks", "Tasks"],
-                  ["hist", "Historico"],
+                  ["hist", "Histórico"],
                 ] as [DetailTab, string][]).map(([key, label]) => (
                   <button
                     key={key}
@@ -600,12 +600,12 @@ export default function PipelinePage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2 text-sm">
-                      <p><span className="text-slate-500">Estrategia:</span> {(selectedDeal as any).strategy_icon ?? ""} {(selectedDeal as any).strategy_label ?? selectedDeal.strategy}</p>
+                      <p><span className="text-slate-500">Estratégia:</span> {(selectedDeal as any).strategy_icon ?? ""} {(selectedDeal as any).strategy_label ?? selectedDeal.strategy}</p>
                       <p><span className="text-slate-500">Estado:</span> {(selectedDeal as any).status_icon ?? ""} {(selectedDeal as any).status_label ?? selectedDeal.status}</p>
                       <p><span className="text-slate-500">Progresso:</span> {((selectedDeal as any).progress_pct ?? 0).toFixed(0)}%</p>
                       {selectedDeal.purchase_price && <p><span className="text-slate-500">Compra:</span> {formatEUR(selectedDeal.purchase_price)}</p>}
                       {selectedDeal.target_sale_price && <p><span className="text-slate-500">Venda alvo:</span> {formatEUR(selectedDeal.target_sale_price)}</p>}
-                      {selectedDeal.renovation_budget && <p><span className="text-slate-500">Orcamento obra:</span> {formatEUR(selectedDeal.renovation_budget)}</p>}
+                      {selectedDeal.renovation_budget && <p><span className="text-slate-500">Orçamento obra:</span> {formatEUR(selectedDeal.renovation_budget)}</p>}
                     </div>
                     <div className="space-y-2 text-sm">
                       {selectedDeal.contact_name && <p><span className="text-slate-500">Contacto:</span> {selectedDeal.contact_name}</p>}
@@ -627,7 +627,7 @@ export default function PipelinePage() {
 
                   {/* Actions */}
                   <div className="border-t border-slate-200 pt-4">
-                    <p className="text-sm font-semibold text-slate-700 mb-3">Proximas accoes</p>
+                    <p className="text-sm font-semibold text-slate-700 mb-3">Próximas ações</p>
 
                     {advanceMsg && (
                       <div className={`mb-3 px-3 py-2 rounded-lg text-sm ${advanceMsg.includes("Erro") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
@@ -685,7 +685,7 @@ export default function PipelinePage() {
                           </button>
                         ))}
                         {nextActions.length === 0 && (
-                          <p className="text-xs text-slate-400">Sem accoes disponiveis</p>
+                          <p className="text-xs text-slate-400">Sem ações disponíveis</p>
                         )}
                       </div>
                     )}
@@ -716,7 +716,7 @@ export default function PipelinePage() {
                             Sinal: {p.deposit_pct}% | {p.created_at?.slice(0, 10) ?? ""}
                           </p>
                           {p.conditions && (
-                            <p className="text-xs text-slate-400 mt-1">Condicoes: {p.conditions}</p>
+                            <p className="text-xs text-slate-400 mt-1">Condições: {p.conditions}</p>
                           )}
                         </div>
                       ))}
@@ -751,7 +751,7 @@ export default function PipelinePage() {
                           <input name="p_deposit" type="number" step="any" defaultValue="10" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">Condicoes</label>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Condições</label>
                           <input name="p_conditions" type="text" placeholder="Opcional" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
                         </div>
                       </div>
@@ -766,7 +766,7 @@ export default function PipelinePage() {
               {/* TASKS TAB */}
               {detailTab === "tasks" && (
                 <div>
-                  <p className="text-sm text-slate-400">Tarefas serao carregadas via API /api/v1/deals/tasks/upcoming quando disponivel.</p>
+                  <p className="text-sm text-slate-400">Tarefas serão carregadas via API /api/v1/deals/tasks/upcoming quando disponível.</p>
                 </div>
               )}
 
@@ -778,7 +778,7 @@ export default function PipelinePage() {
                       <div key={i} className="flex items-center gap-3 text-sm">
                         <div className="w-2 h-2 rounded-full bg-teal-400 flex-shrink-0" />
                         <div>
-                          <span className="font-semibold">{h.from_status ?? "inicio"}</span>
+                          <span className="font-semibold">{h.from_status ?? "início"}</span>
                           <span className="text-slate-400 mx-1">&rarr;</span>
                           <span className="font-semibold">{h.to_status}</span>
                           {h.reason && <span className="text-slate-500 ml-2">| {h.reason}</span>}
@@ -787,7 +787,7 @@ export default function PipelinePage() {
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-slate-400">Sem historico.</p>
+                    <p className="text-sm text-slate-400">Sem histórico.</p>
                   )}
                 </div>
               )}
@@ -797,7 +797,7 @@ export default function PipelinePage() {
           {/* Deal selector when no detail shown */}
           {!selectedDealId && dealsList.length > 0 && (
             <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <p className="text-sm text-slate-500 mb-2">Seleccionar deal para ver detalhes</p>
+              <p className="text-sm text-slate-500 mb-2">Selecionar deal para ver detalhes</p>
               <select
                 onChange={(e) => setSelectedDealId(e.target.value || null)}
                 className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500 w-full max-w-md"
@@ -830,7 +830,7 @@ export default function PipelinePage() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Propriedade</label>
               <select name="property_id" required className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
-                <option value="">Seleccionar...</option>
+                <option value="">Selecionar...</option>
                 {properties.map((p) => (
                   <option key={p.id} value={p.id}>{p.label}</option>
                 ))}
@@ -842,7 +842,7 @@ export default function PipelinePage() {
 
             {/* Strategy */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Estrategia</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Estratégia</label>
               <select name="strategy" required className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
                 {strategies.map((s) => (
                   <option key={s.key} value={s.key}>
@@ -854,18 +854,18 @@ export default function PipelinePage() {
 
             {/* Title */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Titulo do deal</label>
-              <input name="title" type="text" required placeholder="Ex: T2 Sacavem — Fix and Flip" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+              <label className="block text-sm font-medium text-slate-700 mb-1">Título do deal</label>
+              <input name="title" type="text" required placeholder="Ex: T2 Sacavém — Fix and Flip" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
             </div>
 
             {/* Numbers */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Preco compra (EUR)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Preço compra (EUR)</label>
                 <input name="purchase_price" type="number" step="any" placeholder="295000" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Preco venda alvo (EUR)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Preço venda alvo (EUR)</label>
                 <input name="target_sale_price" type="number" step="any" placeholder="500000" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
               </div>
               <div>
@@ -873,7 +873,7 @@ export default function PipelinePage() {
                 <input name="monthly_rent" type="number" step="any" placeholder="0" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Orcamento obra (EUR)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Orçamento obra (EUR)</label>
                 <input name="renovation_budget" type="number" step="any" placeholder="98400" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
               </div>
             </div>
@@ -895,17 +895,17 @@ export default function PipelinePage() {
           {/* Mediation stats */}
           {medStats && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <StatCard label="Angariacoes activas" value={String(medStats.active_mediations ?? 0)} />
+              <StatCard label="Angariações ativas" value={String(medStats.active_mediations ?? 0)} />
               <StatCard label="Valor em carteira" value={formatEUR(medStats.total_portfolio_value)} />
-              <StatCard label="Comissao potencial" value={formatEUR(medStats.potential_commission)} />
-              <StatCard label="Taxa conversao" value={medStats.conversion_rate_pct != null ? `${medStats.conversion_rate_pct}%` : "N/D"} />
+              <StatCard label="Comissão potencial" value={formatEUR(medStats.potential_commission)} />
+              <StatCard label="Taxa conversão" value={medStats.conversion_rate_pct != null ? `${medStats.conversion_rate_pct}%` : "N/D"} />
             </div>
           )}
 
           {/* Mediation kanban */}
           {medKanban && medKanban.columns && Object.keys(medKanban.columns).length > 0 ? (
             <div>
-              <h3 className="text-sm font-semibold text-slate-700 mb-3">Pipeline de mediacao venda</h3>
+              <h3 className="text-sm font-semibold text-slate-700 mb-3">Pipeline de mediação venda</h3>
               <div className="flex gap-4 overflow-x-auto pb-4">
                 {Object.entries(medKanban.columns).map(([state, deals]) => {
                   const cfg = (medKanban.status_config ?? {})[state] ?? { label: state, color: "#94A3B8", icon: "" };
@@ -946,7 +946,7 @@ export default function PipelinePage() {
               </div>
             </div>
           ) : (
-            <p className="text-sm text-slate-400">Sem deals de mediacao. Crie um na tab &quot;Criar Deal&quot;.</p>
+            <p className="text-sm text-slate-400">Sem deals de mediação. Crie um na tab &quot;Criar Deal&quot;.</p>
           )}
 
           {/* Commission calculator */}
@@ -979,10 +979,10 @@ function CommissionCalculator() {
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-6">
-      <h3 className="text-sm font-semibold text-slate-700 mb-4">Calculadora de Comissao</h3>
+      <h3 className="text-sm font-semibold text-slate-700 mb-4">Calculadora de Comissão</h3>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Preco de venda (EUR)</label>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Preço de venda (EUR)</label>
           <input
             type="number"
             value={price}
@@ -991,7 +991,7 @@ function CommissionCalculator() {
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Comissao %</label>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Comissão %</label>
           <input
             type="number"
             step="0.5"
@@ -1025,7 +1025,7 @@ function CommissionCalculator() {
       </div>
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-slate-50 rounded-lg p-3">
-          <p className="text-xs text-slate-500">Comissao bruta</p>
+          <p className="text-xs text-slate-500">Comissão bruta</p>
           <p className="text-lg font-bold text-slate-900">{formatEUR(gross)}</p>
         </div>
         <div className="bg-slate-50 rounded-lg p-3">

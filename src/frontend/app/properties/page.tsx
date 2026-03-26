@@ -68,9 +68,9 @@ const OPP_TYPE_LABELS: Record<string, string> = {
   abaixo_mercado: "Abaixo Mercado",
   venda_urgente: "Venda Urgente",
   off_market: "Off-Market",
-  reabilitacao: "Reabilitacao",
-  leilao: "Leilao",
-  predio_inteiro: "Predio Inteiro",
+  reabilitacao: "Reabilitação",
+  leilao: "Leilão",
+  predio_inteiro: "Prédio Inteiro",
   terreno_viabilidade: "Terreno c/ Viab.",
   yield_alto: "Yield Alto",
   outro: "Outro",
@@ -81,16 +81,16 @@ const CONDITION_LABELS: Record<string, string> = {
   renovado: "Renovado",
   usado: "Usado",
   para_renovar: "Para renovar",
-  ruina: "Ruina",
+  ruina: "Ruína",
 };
 
 const STATUS_LABELS: Record<string, string> = {
   lead: "Lead",
   oportunidade: "Oportunidade",
-  analise: "Analise",
+  analise: "Análise",
   active: "Activo",
   contacted: "Contactado",
-  negotiating: "Negociacao",
+  negotiating: "Negociação",
   cpcv_compra: "CPCV",
   arrendamento: "Arrendamento",
   marketing_activo: "Marketing",
@@ -228,7 +228,7 @@ export default function PropertiesPage() {
         if (data.status === "done") {
           const erros = data.errors?.length ? ` | ${data.errors.length} erro(s)` : "";
           setTriggerMsg(
-            `Pipeline concluido: ${data.groups_processed ?? 0} grupos, ${data.messages_fetched ?? 0} mensagens, ${data.opportunities_found ?? 0} oportunidades${erros}`
+            `Pipeline concluído: ${data.groups_processed ?? 0} grupos, ${data.messages_fetched ?? 0} mensagens, ${data.opportunities_found ?? 0} oportunidades${erros}`
           );
           fetchData();
           return;
@@ -262,13 +262,13 @@ export default function PropertiesPage() {
       }
       const data = await res.json();
       if (data.status === "already_running") {
-        setTriggerMsg("Pipeline ja esta a correr. A acompanhar...");
+        setTriggerMsg("Pipeline já está a correr. A acompanhar...");
       } else {
         setTriggerMsg("Pipeline iniciado. A acompanhar...");
       }
       await pollPipelineStatus();
     } catch {
-      setTriggerMsg("Erro de comunicacao com a API (offline?).");
+      setTriggerMsg("Erro de comunicação com a API (offline?).");
     } finally {
       setTriggerLoading(false);
     }
@@ -308,7 +308,7 @@ export default function PropertiesPage() {
         setCreateMsg("Erro ao criar propriedade.");
       }
     } catch {
-      setCreateMsg("Erro de comunicacao.");
+      setCreateMsg("Erro de comunicação.");
     } finally {
       setCreateLoading(false);
     }
@@ -332,7 +332,7 @@ export default function PropertiesPage() {
         setActionMsg("Erro ao alterar estado.");
       }
     } catch {
-      setActionMsg("Erro de comunicacao com a API.");
+      setActionMsg("Erro de comunicação com a API.");
     }
   }
 
@@ -414,13 +414,13 @@ export default function PropertiesPage() {
         <StatCard label="Grupos" value={String(totalGroups)} sub={`${activeGroups} activos`} />
         <StatCard label="Mensagens" value={totalMsgs.toLocaleString("pt-PT")} />
         <StatCard label="Oportunidades" value={String(totalOpps)} />
-        <StatCard label="Taxa conversao" value={`${conversion}%`} />
+        <StatCard label="Taxa conversão" value={`${conversion}%`} />
       </div>
 
       {/* Grade distribution from API stats (legacy data only) */}
       {gradeChartData.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h2 className="text-sm font-semibold text-slate-700 mb-4">Distribuicao por Deal Grade</h2>
+          <h2 className="text-sm font-semibold text-slate-700 mb-4">Distribuição por Deal Grade</h2>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={gradeChartData} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
               <XAxis dataKey="grade" tick={{ fontSize: 13, fontWeight: 700 }} />
@@ -451,24 +451,24 @@ export default function PropertiesPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Tipo de imovel</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tipo de imóvel</label>
                 <select
                   name="property_type"
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none bg-white"
                 >
-                  <option value="">Seleccionar</option>
+                  <option value="">Selecionar</option>
                   <option value="apartamento">Apartamento</option>
                   <option value="moradia">Moradia</option>
                   <option value="terreno">Terreno</option>
-                  <option value="predio">Predio</option>
-                  <option value="armazem">Armazem</option>
+                  <option value="predio">Prédio</option>
+                  <option value="armazem">Armazém</option>
                 </select>
               </div>
               <FormField name="typology" label="Tipologia" placeholder="T2" type="text" />
-              <FormField name="asking_price" label="Preco pedido (EUR)" placeholder="150000" type="number" />
+              <FormField name="asking_price" label="Preço pedido (EUR)" placeholder="150000" type="number" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField name="gross_area_m2" label="Area bruta (m2)" placeholder="80" type="number" />
+              <FormField name="gross_area_m2" label="Área bruta (m²)" placeholder="80" type="number" />
               <FormField name="bedrooms" label="Quartos" placeholder="2" type="number" />
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Estado</label>
@@ -476,7 +476,7 @@ export default function PropertiesPage() {
                   name="condition"
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none bg-white"
                 >
-                  <option value="">Seleccionar</option>
+                  <option value="">Selecionar</option>
                   <option value="usado">Usado</option>
                   <option value="renovado">Renovado</option>
                   <option value="novo">Novo</option>
@@ -573,7 +573,7 @@ export default function PropertiesPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Preco min</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Preço min</label>
             <input
               type="number"
               value={filterMinPrice}
@@ -583,7 +583,7 @@ export default function PropertiesPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Preco max</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Preço max</label>
             <input
               type="number"
               value={filterMaxPrice}
@@ -711,15 +711,15 @@ export default function PropertiesPage() {
                         <p className="font-medium text-slate-900">{p.municipality || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-slate-500">Preco pedido</p>
+                        <p className="text-xs text-slate-500">Preço pedido</p>
                         <p className="font-medium text-teal-700">{formatEUR(p.asking_price)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-slate-500">Preco/m2</p>
+                        <p className="text-xs text-slate-500">Preço/m²</p>
                         <p className="font-medium text-slate-900">{pricePerM2 ? formatEUR(pricePerM2) : "—"}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-slate-500">Area</p>
+                        <p className="text-xs text-slate-500">Área</p>
                         <p className="font-medium text-slate-900">{p.gross_area_m2 ? `${p.gross_area_m2} m2` : "—"}</p>
                       </div>
                       <div>
@@ -763,7 +763,7 @@ export default function PropertiesPage() {
                     {/* AI Analysis */}
                     {opp?.ai_reasoning && (
                       <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                        <p className="text-xs font-semibold text-blue-700 uppercase mb-1">Analise IA</p>
+                        <p className="text-xs font-semibold text-blue-700 uppercase mb-1">Análise IA</p>
                         <p className="text-sm text-blue-900 whitespace-pre-wrap">{opp.ai_reasoning}</p>
                       </div>
                     )}
@@ -771,7 +771,7 @@ export default function PropertiesPage() {
                     {/* Location extracted */}
                     {opp?.location_extracted && (
                       <div className="text-sm text-slate-600">
-                        <span className="font-medium">Localizacao extraida:</span> {opp.location_extracted}
+                        <span className="font-medium">Localização extraída:</span> {opp.location_extracted}
                       </div>
                     )}
 

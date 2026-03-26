@@ -68,12 +68,12 @@ interface MktStats {
 }
 
 const FONTS = ["Montserrat", "Inter", "Poppins", "Roboto", "Open Sans", "Lato", "Playfair Display", "Merriweather"];
-const TONES = ["profissional", "luxo", "casual", "tecnico"];
+const TONES = ["profissional", "luxo", "casual", "técnico"];
 const ALL_LANGS: Record<string, string> = {
-  "pt-PT": "Portugues (PT)",
-  "pt-BR": "Portugues (BR)",
+  "pt-PT": "Português (PT)",
+  "pt-BR": "Português (BR)",
   en: "English",
-  fr: "Francais",
+  fr: "Français",
   zh: "Zhongwen",
 };
 
@@ -240,7 +240,7 @@ export default function MarketingPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">M7 — Marketing Engine</h1>
-        <p className="text-sm text-slate-500 mt-1">Gestao de marca, publicacoes e conteudo</p>
+        <p className="text-sm text-slate-500 mt-1">Gestão de marca, publicações e conteúdo</p>
       </div>
 
       {/* Tabs */}
@@ -266,7 +266,7 @@ export default function MarketingPage() {
                 : "border-transparent text-slate-500 hover:text-slate-700"
             )}
           >
-            Publicacoes
+            Publicações
           </button>
         </div>
       )}
@@ -276,8 +276,8 @@ export default function MarketingPage() {
         <div className="space-y-6">
           {!hasBrandKit && !showBkForm && (
             <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
-              <h2 className="text-lg font-semibold text-slate-900">Configure a sua marca para comecar</h2>
-              <p className="text-sm text-slate-500 mt-1">O brand kit define cores, fontes e tom de voz para todo o conteudo gerado.</p>
+              <h2 className="text-lg font-semibold text-slate-900">Configure a sua marca para começar</h2>
+              <p className="text-sm text-slate-500 mt-1">O brand kit define cores, fontes e tom de voz para todo o conteúdo gerado.</p>
               <button
                 onClick={() => { populateBkForm(null); setShowBkForm(true); }}
                 className="mt-4 px-4 py-2 bg-teal-700 text-white text-sm font-medium rounded-lg hover:bg-teal-800"
@@ -349,7 +349,7 @@ export default function MarketingPage() {
                           </div>
                         ) : (
                           <div className="bg-slate-50 rounded-lg p-4 border border-dashed border-slate-300 text-xs text-slate-400">
-                            Nao configurado
+                            Não configurado
                           </div>
                         )}
                       </div>
@@ -406,8 +406,8 @@ export default function MarketingPage() {
                 <h3 className="text-sm font-semibold text-slate-700 mb-3">Cores</h3>
                 <div className="grid grid-cols-3 gap-4">
                   {[
-                    { label: "Primaria", value: bkPrimary, set: setBkPrimary },
-                    { label: "Secundaria", value: bkSecondary, set: setBkSecondary },
+                    { label: "Primária", value: bkPrimary, set: setBkPrimary },
+                    { label: "Secundária", value: bkSecondary, set: setBkSecondary },
                     { label: "Destaque", value: bkAccent, set: setBkAccent },
                   ].map((c) => (
                     <div key={c.label}>
@@ -473,7 +473,7 @@ export default function MarketingPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">Palavras proibidas (virgula)</label>
+                    <label className="block text-xs text-slate-500 mb-1">Palavras proibidas (vírgula)</label>
                     <input
                       type="text"
                       value={bkForbidden}
@@ -483,7 +483,7 @@ export default function MarketingPage() {
                   </div>
                 </div>
                 <div className="mt-3">
-                  <label className="block text-xs text-slate-500 mb-1">Descricao do tom</label>
+                  <label className="block text-xs text-slate-500 mb-1">Descrição do tom</label>
                   <textarea
                     value={bkVoiceDesc}
                     onChange={(e) => setBkVoiceDesc(e.target.value)}
@@ -541,7 +541,7 @@ export default function MarketingPage() {
                   onClick={saveBrandKit}
                   className="px-4 py-2 bg-teal-700 text-white text-sm font-medium rounded-lg hover:bg-teal-800"
                 >
-                  {hasBrandKit ? "Guardar Brand Kit" : "Guardar e comecar"}
+                  {hasBrandKit ? "Guardar Brand Kit" : "Guardar e começar"}
                 </button>
                 {hasBrandKit && (
                   <button
@@ -564,11 +564,11 @@ export default function MarketingPage() {
           {stats && (
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {[
-                { label: "Publicacoes", value: stats.active_listings ?? 0 },
+                { label: "Publicações", value: stats.active_listings ?? 0 },
                 { label: "Valor total", value: formatEUR(stats.total_value) },
                 { label: "Views", value: stats.total_views ?? 0 },
                 { label: "Contactos", value: stats.total_contacts ?? 0 },
-                { label: "DOM medio", value: `${(stats.avg_days_on_market ?? 0).toFixed(0)}d` },
+                { label: "DOM médio", value: `${(stats.avg_days_on_market ?? 0).toFixed(0)}d` },
               ].map((s) => (
                 <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-4">
                   <p className="text-xs text-slate-500">{s.label}</p>
@@ -581,13 +581,13 @@ export default function MarketingPage() {
           {/* Listings */}
           {listings.length === 0 ? (
             <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400">
-              <p>Sem publicacoes.</p>
-              <p className="text-sm mt-1">As publicacoes sao criadas automaticamente quando um deal avanca para &quot;Em Venda&quot;.</p>
+              <p>Sem publicações.</p>
+              <p className="text-sm mt-1">As publicações são criadas automaticamente quando um deal avança para &quot;Em Venda&quot;.</p>
             </div>
           ) : (
             <div className="space-y-3">
               {listings.map((listing) => {
-                const title = listing.title_pt || listing.notes || "Publicacao";
+                const title = listing.title_pt || listing.notes || "Publicação";
                 const status = listing.status ?? "?";
                 const statusColor = STATUS_COLORS[status] ?? "#94A3B8";
                 const isExpanded = expandedListing === listing.id;
@@ -748,7 +748,7 @@ export default function MarketingPage() {
               }}
               className="w-full px-5 py-3 flex items-center justify-between hover:bg-slate-50 text-sm font-medium text-slate-600"
             >
-              Criar publicacao manualmente
+              Criar publicação manualmente
               <svg
                 className={cn("w-4 h-4 text-slate-400 transition-transform", showCreate && "rotate-180")}
                 fill="none" viewBox="0 0 24 24" stroke="currentColor"
@@ -787,7 +787,7 @@ export default function MarketingPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs text-slate-500 mb-1">Preco (EUR)</label>
+                        <label className="block text-xs text-slate-500 mb-1">Preço (EUR)</label>
                         <input
                           type="number"
                           value={createPrice}
@@ -796,7 +796,7 @@ export default function MarketingPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-slate-500 mb-1">Titulo</label>
+                        <label className="block text-xs text-slate-500 mb-1">Título</label>
                         <input
                           type="text"
                           value={createTitle}

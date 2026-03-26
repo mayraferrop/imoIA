@@ -88,7 +88,7 @@ async function api<T = any>(path: string, opts?: RequestInit): Promise<T | null>
 }
 
 /* ------------------------------------------------------------------ */
-/*  Componentes reutilizaveis                                          */
+/*  Componentes reutilizáveis                                          */
 /* ------------------------------------------------------------------ */
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
@@ -191,8 +191,8 @@ function Badge({
 /* ------------------------------------------------------------------ */
 
 const TABS = [
-  { id: "comparables", label: "Comparaveis" },
-  { id: "valuation", label: "Avaliacao AVM" },
+  { id: "comparables", label: "Comparáveis" },
+  { id: "valuation", label: "Avaliação AVM" },
   { id: "alerts", label: "Alertas" },
   { id: "ine", label: "Dados INE" },
 ] as const;
@@ -358,8 +358,8 @@ export default function MarketPage() {
     { value: "apartamento", label: "Apartamento" },
     { value: "moradia", label: "Moradia" },
     { value: "terreno", label: "Terreno" },
-    { value: "predio", label: "Predio" },
-    { value: "armazem", label: "Armazem" },
+    { value: "predio", label: "Prédio" },
+    { value: "armazem", label: "Armazém" },
   ];
 
   return (
@@ -368,7 +368,7 @@ export default function MarketPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">M2 — Pesquisa de Mercado</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Comparaveis, avaliacoes AVM, alertas e dados INE
+          Comparáveis, avaliações AVM, alertas e dados INE
         </p>
       </div>
 
@@ -384,18 +384,18 @@ export default function MarketPage() {
           }`}
         >
           {overview.casafari_search_access
-            ? "CASAFARI API activa — pesquisa de comparaveis em tempo real."
+            ? "CASAFARI API activa — pesquisa de comparáveis em tempo real."
             : overview.casafari_configured
             ? "CASAFARI: login OK mas sem acesso a pesquisa (HTTP 402). A usar dados INE como alternativa."
-            : "CASAFARI nao configurada. Dados INE disponiveis."}
+            : "CASAFARI não configurada. Dados INE disponíveis."}
         </div>
       )}
 
       {/* KPIs */}
       {overview && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <StatCard label="Comparaveis em cache" value={overview.comparables_cached ?? 0} />
-          <StatCard label="Avaliacoes feitas" value={overview.valuations_total ?? 0} />
+          <StatCard label="Comparáveis em cache" value={overview.comparables_cached ?? 0} />
+          <StatCard label="Avaliações feitas" value={overview.valuations_total ?? 0} />
           <StatCard label="Alertas activos" value={overview.alerts_active ?? 0} />
           <StatCard label="Zonas monitorizadas" value={overview.zones_monitored ?? 0} />
           <StatCard
@@ -425,22 +425,22 @@ export default function MarketPage() {
       </div>
 
       {/* ============================================================ */}
-      {/*  TAB: Comparaveis                                             */}
+      {/*  TAB: Comparáveis                                             */}
       {/* ============================================================ */}
       {activeTab === "comparables" && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h2 className="text-lg font-semibold mb-4">Pesquisar comparaveis</h2>
+            <h2 className="text-lg font-semibold mb-4">Pesquisar comparáveis</h2>
             <form onSubmit={handleSearchComparables} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Field name="municipality" label="Municipio" placeholder="Lisboa" defaultValue="Lisboa" />
+                <Field name="municipality" label="Município" placeholder="Lisboa" defaultValue="Lisboa" />
                 <Select name="property_type" label="Tipo" options={propertyTypeOptions} defaultValue="apartamento" />
                 <Field name="bedrooms" label="Quartos" type="number" placeholder="2" defaultValue={2} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Field name="area_m2" label="Area m2" type="number" placeholder="80" defaultValue={80} />
+                <Field name="area_m2" label="Área m2" type="number" placeholder="80" defaultValue={80} />
                 <Field name="max_results" label="Max resultados" type="number" placeholder="20" defaultValue={20} />
-                <Field name="months_back" label="Meses atras" type="number" placeholder="12" defaultValue={12} />
+                <Field name="months_back" label="Meses atrás" type="number" placeholder="12" defaultValue={12} />
               </div>
               <button
                 type="submit"
@@ -469,13 +469,13 @@ export default function MarketPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 text-slate-600">
                     <tr>
-                      <th className="text-left px-4 py-3 font-medium">Municipio</th>
+                      <th className="text-left px-4 py-3 font-medium">Município</th>
                       <th className="text-left px-4 py-3 font-medium">Freguesia</th>
                       <th className="text-left px-4 py-3 font-medium">Tipo</th>
                       <th className="text-right px-4 py-3 font-medium">Quartos</th>
-                      <th className="text-right px-4 py-3 font-medium">Preco</th>
+                      <th className="text-right px-4 py-3 font-medium">Preço</th>
                       <th className="text-right px-4 py-3 font-medium">EUR/m2</th>
-                      <th className="text-right px-4 py-3 font-medium">Area m2</th>
+                      <th className="text-right px-4 py-3 font-medium">Área m2</th>
                       <th className="text-left px-4 py-3 font-medium">Estado</th>
                     </tr>
                   </thead>
@@ -505,20 +505,20 @@ export default function MarketPage() {
       )}
 
       {/* ============================================================ */}
-      {/*  TAB: Avaliacao AVM                                           */}
+      {/*  TAB: Avaliação AVM                                           */}
       {/* ============================================================ */}
       {activeTab === "valuation" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h2 className="text-lg font-semibold mb-4">Avaliacao AVM</h2>
+            <h2 className="text-lg font-semibold mb-4">Avaliação AVM</h2>
             <form onSubmit={handleValuate} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Field name="v_municipality" label="Municipio" placeholder="Lisboa" defaultValue="Lisboa" />
+                <Field name="v_municipality" label="Município" placeholder="Lisboa" defaultValue="Lisboa" />
                 <Select name="v_property_type" label="Tipo" options={propertyTypeOptions} defaultValue="apartamento" />
                 <Field name="v_bedrooms" label="Quartos" type="number" placeholder="2" defaultValue={2} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field name="v_area" label="Area m2" type="number" placeholder="80" defaultValue={80} />
+                <Field name="v_area" label="Área m2" type="number" placeholder="80" defaultValue={80} />
                 <Select
                   name="v_condition"
                   label="Estado"
@@ -558,13 +558,13 @@ export default function MarketPage() {
                   </p>
                 </div>
                 <div className="bg-slate-50 rounded-lg p-4">
-                  <p className="text-xs text-slate-500">Confianca</p>
+                  <p className="text-xs text-slate-500">Confiança</p>
                   <p className="text-xl font-bold text-slate-900 mt-1">
                     {valuation.confidence_score != null ? `${valuation.confidence_score.toFixed(0)}%` : "—"}
                   </p>
                 </div>
                 <div className="bg-slate-50 rounded-lg p-4">
-                  <p className="text-xs text-slate-500">Comparaveis usados</p>
+                  <p className="text-xs text-slate-500">Comparáveis usados</p>
                   <p className="text-xl font-bold text-slate-900 mt-1">
                     {valuation.comparables_count ?? "—"}
                   </p>
@@ -595,8 +595,8 @@ export default function MarketPage() {
                   name="al_type"
                   label="Tipo"
                   options={[
-                    { value: "new_listing", label: "Novo anuncio" },
-                    { value: "price_drop", label: "Descida de preco" },
+                    { value: "new_listing", label: "Novo anúncio" },
+                    { value: "price_drop", label: "Descida de preço" },
                     { value: "below_market", label: "Abaixo mercado" },
                   ]}
                   defaultValue="new_listing"
@@ -605,15 +605,15 @@ export default function MarketPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Field
                   name="al_districts"
-                  label="Distritos (separados por virgula)"
-                  placeholder="Lisboa, Porto, Setubal"
+                  label="Distritos (separados por vírgula)"
+                  placeholder="Lisboa, Porto, Setúbal"
                 />
                 <Field
                   name="al_property_types"
-                  label="Tipos imovel (separados por virgula)"
+                  label="Tipos imóvel (separados por vírgula)"
                   placeholder="apartamento, moradia"
                 />
-                <Field name="al_price_max" label="Preco maximo EUR" type="number" placeholder="0" defaultValue={0} />
+                <Field name="al_price_max" label="Preço máximo EUR" type="number" placeholder="0" defaultValue={0} />
               </div>
               <button
                 type="submit"
@@ -703,13 +703,13 @@ export default function MarketPage() {
       {activeTab === "ine" && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h2 className="text-lg font-semibold mb-1">Precos medianos INE</h2>
+            <h2 className="text-lg font-semibold mb-1">Preços medianos INE</h2>
             <p className="text-sm text-slate-500 mb-4">
-              Instituto Nacional de Estatistica — sem API key.
+              Instituto Nacional de Estatística — sem API key.
             </p>
             <form onSubmit={handleINE} className="flex gap-4 items-end">
               <div className="flex-1">
-                <Field name="ine_municipality" label="Municipio" placeholder="Lisboa" defaultValue="Lisboa" />
+                <Field name="ine_municipality" label="Município" placeholder="Lisboa" defaultValue="Lisboa" />
               </div>
               <button
                 type="submit"
@@ -725,7 +725,7 @@ export default function MarketPage() {
             <div className="bg-white rounded-xl border border-slate-200 p-6">
               <p className="text-xs text-slate-500">
                 Mediana {ineResult.municipality}
-                {ineResult.quarter && ` — Periodo: ${ineResult.quarter}`} | Fonte: INE
+                {ineResult.quarter && ` — Período: ${ineResult.quarter}`} | Fonte: INE
               </p>
               <p className="text-3xl font-bold text-slate-900 mt-2">
                 {ineResult.price_m2?.toLocaleString("pt-PT") ?? "—"} EUR/m2

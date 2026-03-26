@@ -76,7 +76,7 @@ const STATUS_LABELS: Record<string, [string, string]> = {
   deed_scheduled: ["Escritura Agendada", "#2563EB"],
   deed_done: ["Escritura Realizada", "#7C3AED"],
   registered: ["Registado", "#06B6D4"],
-  completed: ["Concluido", "#16A34A"],
+  completed: ["Concluído", "#16A34A"],
   cancelled: ["Cancelado", "#DC2626"],
 };
 
@@ -274,7 +274,7 @@ export default function ClosingPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">M9 — Fecho + P&L</h1>
-        <p className="text-sm text-slate-500 mt-1">Workflow de fecho e analise de rentabilidade real vs estimada</p>
+        <p className="text-sm text-slate-500 mt-1">Workflow de fecho e análise de rentabilidade real vs estimada</p>
       </div>
 
       {/* Tabs */}
@@ -284,7 +284,7 @@ export default function ClosingPage() {
             ["fecho", "Processos de Fecho"],
             ["pnl", "P&L Comparativo"],
             ["portfolio", "Portfolio"],
-            ["fiscal", "Relatorio Fiscal"],
+            ["fiscal", "Relatório Fiscal"],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -351,7 +351,7 @@ export default function ClosingPage() {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-xs text-slate-500 mb-1">Preco transaccao (EUR)</label>
+                        <label className="block text-xs text-slate-500 mb-1">Preço transacção (EUR)</label>
                         <input type="number" value={createPrice} onChange={(e) => setCreatePrice(Number(e.target.value))}
                           className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                       </div>
@@ -493,7 +493,7 @@ export default function ClosingPage() {
                       <div className="grid grid-cols-3 gap-4 pt-2 border-t border-slate-100">
                         {/* Advance status */}
                         <ClosingAction
-                          title="Avancar status"
+                          title="Avançar status"
                           closingId={closing.id}
                           status={closing.status}
                           onAdvance={advanceStatus}
@@ -533,7 +533,7 @@ export default function ClosingPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">Preco venda</label>
+                  <label className="block text-xs text-slate-500 mb-1">Preço venda</label>
                   <input type="number" value={pnlSalePrice} onChange={(e) => setPnlSalePrice(Number(e.target.value))}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                 </div>
@@ -549,7 +549,7 @@ export default function ClosingPage() {
 
               {!pnlData ? (
                 <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400">
-                  P&L nao calculado para este deal. Use o botao acima.
+                  P&L não calculado para este deal. Use o botão acima.
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -564,7 +564,7 @@ export default function ClosingPage() {
                       },
                       { label: "MOIC", value: `${(pnlData.moic ?? 0).toFixed(2)}x` },
                       {
-                        label: "Lucro Liquido",
+                        label: "Lucro Líquido",
                         value: formatEUR(pnlData.net_profit),
                         delta: pnlData.profit_variance != null ? `${pnlData.profit_variance > 0 ? "+" : ""}${formatEUR(pnlData.profit_variance)}` : undefined,
                         deltaPositive: (pnlData.profit_variance ?? 0) >= 0,
@@ -597,12 +597,12 @@ export default function ClosingPage() {
                       </thead>
                       <tbody>
                         {[
-                          { item: "Preco Compra", est: pnlData.purchase_price, real: pnlData.purchase_price },
+                          { item: "Preço Compra", est: pnlData.purchase_price, real: pnlData.purchase_price },
                           { item: "IMT + IS", est: (pnlData.imt_cost ?? 0) + (pnlData.is_cost ?? 0), real: (pnlData.imt_cost ?? 0) + (pnlData.is_cost ?? 0) },
-                          { item: "Obra (orcamento vs real)", est: pnlData.renovation_budget, real: pnlData.renovation_actual },
-                          { item: "Preco Venda", est: pnlData.sale_price, real: pnlData.sale_price },
-                          { item: "Comissao Venda", est: pnlData.sale_commission, real: pnlData.sale_commission },
-                          { item: "Lucro Liquido", est: pnlData.estimated_profit, real: pnlData.net_profit },
+                          { item: "Obra (orçamento vs real)", est: pnlData.renovation_budget, real: pnlData.renovation_actual },
+                          { item: "Preço Venda", est: pnlData.sale_price, real: pnlData.sale_price },
+                          { item: "Comissão Venda", est: pnlData.sale_commission, real: pnlData.sale_commission },
+                          { item: "Lucro Líquido", est: pnlData.estimated_profit, real: pnlData.net_profit },
                           { item: "ROI (%)", est: pnlData.estimated_roi_pct, real: pnlData.roi_annualized_pct },
                         ].map((row) => {
                           const estVal = row.est ?? 0;
@@ -653,7 +653,7 @@ export default function ClosingPage() {
               { label: "Deals Fechados", value: portfolio?.total_deals ?? 0 },
               { label: "Total Investido", value: formatEUR(portfolio?.total_invested) },
               { label: "Lucro Total", value: formatEUR(portfolio?.total_profit) },
-              { label: "ROI Medio", value: `${(portfolio?.avg_roi_pct ?? 0).toFixed(1)}%` },
+              { label: "ROI Médio", value: `${(portfolio?.avg_roi_pct ?? 0).toFixed(1)}%` },
             ].map((m) => (
               <div key={m.label} className="bg-white rounded-xl border border-slate-200 p-4">
                 <p className="text-xs text-slate-500">{m.label}</p>
@@ -768,8 +768,8 @@ export default function ClosingPage() {
           <div className="grid grid-cols-4 gap-4">
             {[
               { label: "Mais-Valias Totais", value: formatEUR(fiscalReport?.total_capital_gains) },
-              { label: "Despesas Dedutiveis", value: formatEUR(fiscalReport?.total_deductible_expenses) },
-              { label: "Base Tributavel (50%)", value: formatEUR(fiscalReport?.taxable_amount) },
+              { label: "Despesas Dedutíveis", value: formatEUR(fiscalReport?.total_deductible_expenses) },
+              { label: "Base Tributável (50%)", value: formatEUR(fiscalReport?.taxable_amount) },
               { label: "Imposto Estimado", value: formatEUR(fiscalReport?.estimated_tax) },
             ].map((m) => (
               <div key={m.label} className="bg-white rounded-xl border border-slate-200 p-4">
@@ -837,7 +837,7 @@ function ClosingAction({ title, closingId, status, onAdvance }: {
         onClick={() => onAdvance(closingId, target)}
         className="w-full px-3 py-1.5 bg-teal-700 text-white text-xs font-medium rounded-lg hover:bg-teal-800"
       >
-        Avancar
+        Avançar
       </button>
     </div>
   );
@@ -876,10 +876,10 @@ function PreferenceAction({ closingId, onNotify }: {
 
   return (
     <div className="space-y-2">
-      <label className="block text-xs text-slate-500">Direito de Preferencia</label>
+      <label className="block text-xs text-slate-500">Direito de Preferência</label>
       <input
         type="text"
-        placeholder="Entidades (virgula)"
+        placeholder="Entidades (vírgula)"
         value={entities}
         onChange={(e) => setEntities(e.target.value)}
         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"

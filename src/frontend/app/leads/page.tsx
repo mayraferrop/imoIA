@@ -57,7 +57,7 @@ const STAGE_LABELS: Record<string, string> = {
   visit: "Visita",
   visiting: "Visita",
   proposal: "Proposta",
-  negotiation: "Negociacao",
+  negotiation: "Negociação",
   closed_won: "Ganho",
   won: "Ganho",
   closed_lost: "Perdido",
@@ -299,7 +299,7 @@ export default function LeadsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">M8 — CRM de Leads</h1>
-        <p className="text-sm text-slate-500 mt-1">Gestao do pipeline de compradores e inquilinos</p>
+        <p className="text-sm text-slate-500 mt-1">Gestão do pipeline de compradores e inquilinos</p>
       </div>
 
       {/* Stats */}
@@ -307,9 +307,9 @@ export default function LeadsPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { label: "Total Leads", value: stats.total_leads ?? 0 },
-            { label: "Este Mes", value: stats.leads_this_month ?? 0 },
-            { label: "Score Medio", value: (stats.avg_score ?? 0).toFixed(0) },
-            { label: "Taxa Conversao", value: `${(stats.conversion_rate ?? 0).toFixed(0)}%` },
+            { label: "Este Mês", value: stats.leads_this_month ?? 0 },
+            { label: "Score Médio", value: (stats.avg_score ?? 0).toFixed(0) },
+            { label: "Taxa Conversão", value: `${(stats.conversion_rate ?? 0).toFixed(0)}%` },
           ].map((s) => (
             <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-4">
               <p className="text-xs text-slate-500">{s.label}</p>
@@ -375,7 +375,7 @@ export default function LeadsPage() {
 
         {/* Grade distribution */}
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">Distribuicao por Grade</h3>
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">Distribuição por Grade</h3>
           {Object.keys(gradesSummary).length > 0 && Object.values(gradesSummary).some((v) => v > 0) ? (
             <div className="flex items-end gap-3 h-40">
               {Object.entries(gradesSummary).map(([grade, count]) => {
@@ -588,7 +588,7 @@ export default function LeadsPage() {
                         <p className="text-slate-500">Phone: <span className="text-slate-900">{lead.phone || "—"}</span></p>
                         <p className="text-slate-500">Tipologia: <span className="text-slate-900">{lead.preferred_typology || "—"}</span></p>
                         {lead.preferred_locations && lead.preferred_locations.length > 0 && (
-                          <p className="text-slate-500">Localizacoes: <span className="text-slate-900">{lead.preferred_locations.join(", ")}</span></p>
+                          <p className="text-slate-500">Localizações: <span className="text-slate-900">{lead.preferred_locations.join(", ")}</span></p>
                         )}
                         {lead.notes && (
                           <p className="text-slate-500">Notas: <span className="text-slate-900">{lead.notes.slice(0, 200)}</span></p>
@@ -650,7 +650,7 @@ export default function LeadsPage() {
                           })}
                         </div>
                       ) : (
-                        <p className="text-xs text-slate-400">Sem interaccoes</p>
+                        <p className="text-xs text-slate-400">Sem interacções</p>
                       )}
                     </div>
                   </div>

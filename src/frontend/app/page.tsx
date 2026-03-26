@@ -196,9 +196,9 @@ export default function DashboardPage() {
     abaixo_mercado: "Abaixo Mercado",
     venda_urgente: "Venda Urgente",
     off_market: "Off-Market",
-    reabilitacao: "Reabilitacao",
-    leilao: "Leilao",
-    predio_inteiro: "Predio Inteiro",
+    reabilitacao: "Reabilitação",
+    leilao: "Leilão",
+    predio_inteiro: "Prédio Inteiro",
     terreno_viabilidade: "Terreno c/ Viab.",
     yield_alto: "Yield Alto",
     outro: "Outro",
@@ -231,10 +231,10 @@ export default function DashboardPage() {
   const STATUS_LABELS: Record<string, string> = {
     lead: "Lead",
     oportunidade: "Oportunidade",
-    analise: "Analise",
+    analise: "Análise",
     active: "Activo",
     contacted: "Contactado",
-    negotiating: "Negociacao",
+    negotiating: "Negociação",
     cpcv_compra: "CPCV",
     arrendamento: "Arrendamento",
     marketing_activo: "Marketing",
@@ -272,7 +272,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Visao geral do portfolio
+            Visão geral do portfólio
           </p>
         </div>
         <span
@@ -312,7 +312,7 @@ export default function DashboardPage() {
         {gradeData.length > 0 && (
           <div className="bg-white rounded-xl border border-slate-200 p-6">
             <h2 className="text-sm font-semibold text-slate-700 mb-4">
-              Distribuicao por Deal Grade
+              Distribuição por Deal Grade
             </h2>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={gradeData} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
