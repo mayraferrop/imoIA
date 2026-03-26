@@ -137,6 +137,10 @@ export default function FinancialPage() {
   const [maoResult, setMaoResult] = useState<MAOResult | null>(null);
   const [maoLoading, setMaoLoading] = useState(false);
 
+  // Criar imóvel rápido (dentro do modal de salvar cenário)
+  const [showNewProperty, setShowNewProperty] = useState(false);
+  const [newPropLoading, setNewPropLoading] = useState(false);
+
   // CashFlow Pro export
   const [cfpProjects, setCfpProjects] = useState<{id: string; name: string}[]>([]);
   const [cfpProjectId, setCfpProjectId] = useState<string>("");
@@ -238,6 +242,7 @@ export default function FinancialPage() {
       renovation_contingency_pct: numOrZero("renovation_contingency_pct"),
       monthly_condominio: num("monthly_condominio", 50),
       annual_insurance: num("annual_insurance", 300),
+      monthly_consumos: num("monthly_consumos", 80),
       roi_target_pct: num("roi_target_pct", 15),
       scenario_name: "simulacao",
     };
@@ -681,10 +686,11 @@ export default function FinancialPage() {
                     <Field name="estimated_sale_price" label="Preço venda / ARV (€)" placeholder="500000" />
                     <Field name="holding_months" label="Meses até venda" placeholder="6" />
                   </div>
-                  <div className="grid grid-cols-3 gap-3 mt-3">
+                  <div className="grid grid-cols-4 gap-3 mt-3">
                     <Field name="comissao_venda_pct" label="Com. venda %" placeholder="6.15" />
                     <Field name="monthly_condominio" label="Condomínio (€)" placeholder="50" />
                     <Field name="annual_insurance" label="Seguro anual (€)" placeholder="300" />
+                    <Field name="monthly_consumos" label="Consumos (€/mês)" placeholder="80" />
                   </div>
                 </div>
 
@@ -1423,22 +1429,87 @@ export default function FinancialPage() {
               <p className="text-xs font-semibold text-slate-500 uppercase">Identificacao</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Vincular a imovel</label>
-                  <select
-                    value={selectedPropertyId}
-                    onChange={(e) => setSelectedPropertyId(e.target.value)}
-                    className={`w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500 ${!selectedPropertyId ? "border-red-300" : "border-slate-300"}`}
-                  >
-                    <option value="">-- Seleccionar imóvel --</option>
-                    {existingProperties.map((p: any) => (
-                      <option key={p.id} value={p.id}>
-                        {p.municipality || "?"}{p.parish ? ` — ${p.parish}` : ""} | {p.property_type || ""} | {formatEUR(p.asking_price)}{p.financial_models?.length ? " (já tem cenário)" : ""}
-                      </option>
-                    ))}
-                  </select>
-                  {!selectedPropertyId && <p className="text-xs text-red-500 mt-0.5">Obrigatório</p>}
-                  {selectedPropertyId && existingProperties.find((p: any) => p.id === selectedPropertyId)?.financial_models?.length > 0 && (
-                    <p className="text-xs text-amber-600 mt-0.5">Este imóvel já tem cenário(s). O novo será adicionado, mantendo os existentes.</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-slate-700">Vincular a imóvel</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewProperty(!showNewProperty)}
+                      className="text-xs text-teal-600 hover:text-teal-800 font-medium"
+                    >
+                      {showNewProperty ? "Seleccionar existente" : "+ Criar novo imóvel"}
+                    </button>
+                  </div>
+
+                  {!showNewProperty ? (
+                    <>
+                      <select
+                        value={selectedPropertyId}
+                        onChange={(e) => setSelectedPropertyId(e.target.value)}
+                        className={`w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500 ${!selectedPropertyId ? "border-red-300" : "border-slate-300"}`}
+                      >
+                        <option value="">-- Seleccionar imóvel --</option>
+                        {existingProperties.map((p: any) => (
+                          <option key={p.id} value={p.id}>
+                            {p.municipality || "?"}{p.parish ? ` — ${p.parish}` : ""} | {p.property_type || ""} | {formatEUR(p.asking_price)}{p.financial_models?.length ? " (já tem cenário)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                      {!selectedPropertyId && <p className="text-xs text-red-500 mt-0.5">Obrigatório</p>}
+                      {selectedPropertyId && existingProperties.find((p: any) => p.id === selectedPropertyId)?.financial_models?.length > 0 && (
+                        <p className="text-xs text-amber-600 mt-0.5">Este imóvel já tem cenário(s). O novo será adicionado, mantendo os existentes.</p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="border border-teal-200 rounded-lg p-3 bg-teal-50 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <input id="new_prop_municipality" type="text" placeholder="Concelho (ex: Lisboa)" className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                        <input id="new_prop_parish" type="text" placeholder="Freguesia (opcional)" className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select id="new_prop_type" className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
+                          <option value="apartment">Apartamento</option>
+                          <option value="house">Moradia</option>
+                          <option value="building">Prédio</option>
+                          <option value="land">Terreno</option>
+                          <option value="commercial">Comercial</option>
+                        </select>
+                        <input id="new_prop_price" type="number" placeholder="Preço pedido (€)" className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                      </div>
+                      <button
+                        type="button"
+                        disabled={newPropLoading}
+                        onClick={async () => {
+                          const municipality = (document.getElementById("new_prop_municipality") as HTMLInputElement).value;
+                          if (!municipality) { alert("Preencha pelo menos o concelho."); return; }
+                          setNewPropLoading(true);
+                          try {
+                            const res = await fetch(`${API_BASE}/api/v1/properties/`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                municipality,
+                                parish: (document.getElementById("new_prop_parish") as HTMLInputElement).value || null,
+                                property_type: (document.getElementById("new_prop_type") as HTMLSelectElement).value,
+                                asking_price: parseFloat((document.getElementById("new_prop_price") as HTMLInputElement).value) || null,
+                              }),
+                            });
+                            if (res.ok) {
+                              const prop = await res.json();
+                              setExistingProperties((prev) => [prop, ...prev]);
+                              setSelectedPropertyId(prop.id);
+                              setShowNewProperty(false);
+                            } else {
+                              const err = await res.json().catch(() => null);
+                              alert(`Erro: ${err?.detail || "Falha ao criar imóvel"}`);
+                            }
+                          } catch { alert("Erro de comunicação."); }
+                          setNewPropLoading(false);
+                        }}
+                        className="w-full bg-teal-600 text-white py-1.5 rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 transition-colors"
+                      >
+                        {newPropLoading ? "A criar..." : "Criar imóvel e vincular"}
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div>

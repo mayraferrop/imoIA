@@ -84,6 +84,7 @@ IMI_RATE_DEFAULT = 0.0035
 VPT_ESTIMATE_PCT = 0.60
 CONDOMINIO_DEFAULT_MONTHLY = 50
 SEGURO_DEFAULT_ANNUAL = 300
+CONSUMOS_DEFAULT_MONTHLY = 80
 
 # ============================================================
 # BRASIL — Impostos

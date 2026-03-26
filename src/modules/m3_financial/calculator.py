@@ -29,6 +29,7 @@ from src.modules.m3_financial.tax_tables import (
     ITBI_DEFAULT_PCT,
     LTV_MAX_INVESTMENT,
     MAIS_VALIAS_INCLUSAO_PCT,
+    CONSUMOS_DEFAULT_MONTHLY,
     SEGURO_DEFAULT_ANNUAL,
     SPREAD_TYPICAL_REFERENCE,
     VPT_ESTIMATE_PCT,
@@ -70,6 +71,7 @@ class FinancialInput:
     additional_holding_months: int = 3
     monthly_condominio: float = CONDOMINIO_DEFAULT_MONTHLY
     annual_insurance: float = SEGURO_DEFAULT_ANNUAL
+    monthly_consumos: float = CONSUMOS_DEFAULT_MONTHLY
 
     # Comissao de compra
     comissao_compra_pct: float = 0
@@ -429,6 +431,7 @@ class FinancialCalculator:
         monthly_total = (
             inp.monthly_condominio
             + (inp.annual_insurance / 12)
+            + inp.monthly_consumos
             + monthly_imi
         )
 
@@ -437,6 +440,7 @@ class FinancialCalculator:
             "meses": res.holding_months,
             "condominio_mensal": inp.monthly_condominio,
             "seguro_mensal": round(inp.annual_insurance / 12, 2),
+            "consumos_mensal": inp.monthly_consumos,
             "imi_mensal": round(monthly_imi, 2),
             "total_mensal": round(monthly_total, 2),
         }
@@ -853,7 +857,7 @@ class FinancialCalculator:
         if inp.country == "PT":
             vpt_est = inp.purchase_price * VPT_ESTIMATE_PCT
             monthly_imi_cf = (vpt_est * IMI_RATE_DEFAULT) / 12
-        manut_mensal = inp.monthly_condominio + inp.annual_insurance / 12 + monthly_imi_cf
+        manut_mensal = inp.monthly_condominio + inp.annual_insurance / 12 + inp.monthly_consumos + monthly_imi_cf
 
         for m in range(1, res.holding_months + 1):
             obra_val = reno_per_month if m <= inp.renovation_duration_months else 0
@@ -885,6 +889,7 @@ class FinancialCalculator:
                 "payoff": round(saldo, 2),
                 "pmt": round(res.monthly_payment, 2),
                 "manut": round(manut_mensal, 2),
+                "consumos": round(inp.monthly_consumos, 2),
                 "fluxo": round(fluxo_mes, 2),
                 "acumulado": round(acum, 2),
             })

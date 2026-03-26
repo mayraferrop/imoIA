@@ -200,6 +200,9 @@ def _build_entries(
             juros = f.get("juros", 0)
             amort = f.get("amort", 0)
             manut_val = f.get("manut", 0)
+            consumos_val = f.get("consumos", 0)
+            # manut inclui consumos — subtrair para nao duplicar
+            manut_sem_consumos = manut_val - consumos_val
 
             if obra_val > 0:
                 entries.append(_make_entry(
@@ -237,15 +240,27 @@ def _build_entries(
                     notes=f"{project_name} | Saldo: {f.get('saldo_devedor', 0):,.0f}",
                 ))
 
-            if manut_val > 0:
+            if manut_sem_consumos > 0:
                 entries.append(_make_entry(
                     entry_type="expense",
-                    description=f"{label} — Manutenção",
-                    amount=manut_val,
+                    description=f"{label} — Condomínio e seguro",
+                    amount=round(manut_sem_consumos, 2),
                     cat_key="condominio",
                     entry_date_str=entry_date_str,
                     project_name=project_name,
                     external_ref=f"{ref_base}:manut",
+                ))
+
+            if consumos_val > 0:
+                consumos_key = "consumos_obra" if cat == "obra" else "consumos_holding"
+                entries.append(_make_entry(
+                    entry_type="expense",
+                    description=f"{label} — Contas de consumo",
+                    amount=consumos_val,
+                    cat_key=consumos_key,
+                    entry_date_str=entry_date_str,
+                    project_name=project_name,
+                    external_ref=f"{ref_base}:consumos",
                 ))
 
         elif cat == "venda":

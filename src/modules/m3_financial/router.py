@@ -227,6 +227,7 @@ async def get_cash_flow(model_id: str) -> Dict[str, Any]:
             ),
             monthly_condominio=model.monthly_condominio,
             annual_insurance=model.monthly_insurance * 12,
+            monthly_consumos=getattr(model, "monthly_consumos", 0) or 0,
             comissao_compra_pct=model.comissao_compra_pct,
         )
 

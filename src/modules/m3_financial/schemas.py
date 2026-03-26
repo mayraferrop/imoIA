@@ -48,6 +48,7 @@ class FinancialModelCreateRequest(BaseModel):
     additional_holding_months: int = Field(default=3, ge=0, le=24)
     monthly_condominio: float = Field(default=50, ge=0)
     annual_insurance: float = Field(default=300, ge=0)
+    monthly_consumos: float = Field(default=80, ge=0)
 
     # Comissao compra
     comissao_compra_pct: float = Field(default=0, ge=0, le=10)

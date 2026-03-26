@@ -274,6 +274,7 @@ class FinancialModel(Base):
     holding_months: Mapped[int] = mapped_column(Integer, default=0)
     monthly_condominio: Mapped[float] = mapped_column(Float, default=0)
     monthly_insurance: Mapped[float] = mapped_column(Float, default=0)
+    monthly_consumos: Mapped[float] = mapped_column(Float, default=0)
     monthly_imi_proportional: Mapped[float] = mapped_column(Float, default=0)
     other_monthly_costs: Mapped[float] = mapped_column(Float, default=0)
     total_holding_cost: Mapped[float] = mapped_column(Float, default=0)
