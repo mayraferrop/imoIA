@@ -157,6 +157,17 @@ export default function FinancialPage() {
     } catch { /* ignore */ }
   }
 
+  async function handleDeleteScenario(scenarioId: string) {
+    if (!confirm("Excluir este cenário? Esta acção não pode ser desfeita.")) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/financial/${scenarioId}`, { method: "DELETE" });
+      if (res.ok) {
+        setSavedScenarios((prev) => prev.filter((s: any) => s.id !== scenarioId));
+        if (selectedScenario?.model_id === scenarioId) setSelectedScenario(null);
+      }
+    } catch { /* ignore */ }
+  }
+
   async function handleSimulate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -1234,14 +1245,25 @@ export default function FinancialPage() {
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <p className="font-semibold text-slate-900">{sc.scenario_name || "base"}</p>
-                    <p className="text-xs text-slate-400">{sc.created_at?.slice(0, 10)}</p>
+                    <p className="text-xs text-slate-400">
+                      {sc.created_at ? new Date(sc.created_at).toLocaleString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                    </p>
                   </div>
-                  <span
-                    className="px-3 py-1 rounded-lg text-sm font-bold text-white"
-                    style={{ backgroundColor: sc.go_nogo === "go" ? "#16A34A" : sc.go_nogo === "marginal" ? "#D97706" : "#DC2626" }}
-                  >
-                    {(sc.go_nogo ?? "").toUpperCase()}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="px-3 py-1 rounded-lg text-sm font-bold text-white"
+                      style={{ backgroundColor: sc.go_nogo === "go" ? "#16A34A" : sc.go_nogo === "marginal" ? "#D97706" : "#DC2626" }}
+                    >
+                      {(sc.go_nogo ?? "").toUpperCase()}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteScenario(sc.id); }}
+                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Excluir cenário"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-sm">
                   <div>

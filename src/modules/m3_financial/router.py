@@ -85,6 +85,20 @@ async def list_by_property(property_id: str) -> list:
     return service.list_by_property(property_id)
 
 
+@router.delete("/{model_id}", summary="Excluir modelo financeiro")
+async def delete_financial_model(model_id: str) -> Dict[str, Any]:
+    """Exclui modelo financeiro e dados associados (condições, projecções)."""
+    try:
+        result = service.delete_model(model_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Modelo não encontrado")
+        return {"deleted": True, "model_id": model_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/simulate", summary="Simular modelo financeiro sem persistir")
 async def simulate_financial_model(
     request: FinancialModelCreateRequest,

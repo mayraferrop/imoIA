@@ -424,6 +424,34 @@ class FinancialService:
                 ],
             }
 
+    def delete_model(self, model_id: str) -> bool:
+        """Exclui modelo financeiro e dados associados."""
+        with get_session() as session:
+            model = session.get(FinancialModel, model_id)
+            if not model:
+                return False
+
+            # Excluir projecções associadas
+            session.execute(
+                select(CashflowProjection)
+                .where(CashflowProjection.financial_model_id == model_id)
+            )
+            for proj in session.execute(
+                select(CashflowProjection).where(CashflowProjection.financial_model_id == model_id)
+            ).scalars().all():
+                session.delete(proj)
+
+            # Excluir condições de pagamento
+            for cond in session.execute(
+                select(PaymentCondition).where(PaymentCondition.financial_model_id == model_id)
+            ).scalars().all():
+                session.delete(cond)
+
+            # Excluir modelo
+            session.delete(model)
+            logger.info(f"Modelo financeiro excluido: {model_id}")
+            return True
+
     @staticmethod
     def _result_to_dict(result: FinancialResult) -> Dict[str, Any]:
         """Converte FinancialResult para dicionario serializavel."""
