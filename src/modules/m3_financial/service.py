@@ -275,11 +275,20 @@ class FinancialService:
         tranches_data = request_data.pop("tranches", [])
 
         with get_session() as session:
-            # 1. Garantir tenant
+            # 1. Garantir tenant (criar se nao existir)
             tenant = session.execute(
                 select(Tenant).where(Tenant.slug == "default")
             ).scalar_one_or_none()
-            tenant_id = tenant.id if tenant else None
+            if not tenant:
+                tenant = Tenant(
+                    id=str(uuid4()),
+                    name="ImoIA",
+                    slug="default",
+                    country="PT",
+                )
+                session.add(tenant)
+                session.flush()
+            tenant_id = tenant.id
 
             # 2. Verificar Property
             if not property_id:
