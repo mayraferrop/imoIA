@@ -139,6 +139,122 @@ async def _migrate_from_supabase(payload: dict):
     return stats
 
 
+def _sync_from_supabase():
+    """Puxa dados do Supabase REST API para o SQLite local (cold start)."""
+    import json
+    import os
+    import urllib.request
+    from src.database.db import get_session
+    from src.database.models_v2 import (
+        Property, Tenant, FinancialModel, PaymentCondition, CashflowProjection,
+    )
+    from src.database.models import Opportunity
+
+    supa_url = os.getenv("SUPABASE_URL", "")
+    supa_key = os.getenv("SUPABASE_ANON_KEY", "")
+    if not supa_url or not supa_key:
+        logger.info("SUPABASE_URL/KEY nao configurados — sync ignorado")
+        return
+
+    def fetch(table, limit=1000, offset=0):
+        url = f"{supa_url}/rest/v1/{table}?select=*&limit={limit}&offset={offset}&order=created_at.desc"
+        req = urllib.request.Request(url, headers={"apikey": supa_key, "Authorization": f"Bearer {supa_key}"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read())
+
+    with get_session() as session:
+        # Verificar se ja tem dados (nao re-sincronizar)
+        existing = session.execute(
+            __import__("sqlalchemy").select(Property).limit(1)
+        ).first()
+        if existing:
+            logger.info("SQLite ja tem dados — sync ignorado")
+            return
+
+        logger.info("A sincronizar dados do Supabase...")
+
+        # Tenants
+        for t in fetch("tenants"):
+            session.merge(Tenant(id=t["id"], name=t.get("name", "ImoIA"), slug=t.get("slug", "default"), country=t.get("country", "PT")))
+        session.flush()
+
+        # Properties (em batches)
+        for off in range(0, 500, 100):
+            batch = fetch("properties", 100, off)
+            for p in batch:
+                obj = Property(id=p["id"], tenant_id=p.get("tenant_id"))
+                for k in ["source", "country", "district", "municipality", "parish", "address",
+                           "postal_code", "property_type", "typology", "gross_area_m2", "net_area_m2",
+                           "bedrooms", "bathrooms", "asking_price", "condition", "status", "notes",
+                           "tags", "is_off_market", "contact_name", "contact_phone", "contact_email", "url", "portal"]:
+                    if k in p and p[k] is not None:
+                        setattr(obj, k, p[k])
+                session.merge(obj)
+            if len(batch) < 100:
+                break
+        session.flush()
+
+        # Financial Models
+        for m in fetch("financial_models"):
+            obj = FinancialModel(id=m["id"])
+            for k, v in m.items():
+                if k not in ("id", "created_at", "updated_at") and hasattr(FinancialModel, k) and v is not None:
+                    try:
+                        setattr(obj, k, v)
+                    except Exception:
+                        pass
+            session.merge(obj)
+        session.flush()
+
+        # Payment Conditions
+        for c in fetch("payment_conditions"):
+            try:
+                obj = PaymentCondition(id=c["id"])
+                for k, v in c.items():
+                    if k not in ("id", "created_at", "updated_at") and hasattr(PaymentCondition, k) and v is not None:
+                        try:
+                            setattr(obj, k, v)
+                        except Exception:
+                            pass
+                session.merge(obj)
+            except Exception as e:
+                logger.debug(f"PaymentCondition skip: {e}")
+        session.flush()
+
+        # Cashflow Projections
+        for p in fetch("cashflow_projections"):
+            obj = CashflowProjection(id=p["id"])
+            for k, v in p.items():
+                if k not in ("id", "created_at", "updated_at") and hasattr(CashflowProjection, k) and v is not None:
+                    try:
+                        setattr(obj, k, v)
+                    except Exception:
+                        pass
+            session.merge(obj)
+        session.flush()
+
+        # Opportunities (em batches)
+        for off in range(0, 5000, 1000):
+            batch = fetch("opportunities", 1000, off)
+            for o in batch:
+                try:
+                    obj = Opportunity(id=o.get("id"))
+                    for k, v in o.items():
+                        if k not in ("id", "created_at", "updated_at") and hasattr(Opportunity, k) and v is not None:
+                            try:
+                                setattr(obj, k, v)
+                            except Exception:
+                                pass
+                    session.merge(obj)
+                except Exception:
+                    pass
+            if len(batch) < 1000:
+                break
+        session.flush()
+
+    logger.info("Sync Supabase completo")
+
+
 def create_app() -> FastAPI:
     """Cria e configura a aplicacao FastAPI."""
     app = FastAPI(
@@ -165,7 +281,7 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     def on_startup() -> None:
-        """Inicializa a BD ao arrancar (cria tabelas se necessario)."""
+        """Inicializa a BD ao arrancar e sincroniza dados do Supabase."""
         try:
             init_db()
             import src.database.models_v2  # noqa: F401
@@ -174,6 +290,13 @@ def create_app() -> FastAPI:
             Base.metadata.create_all(bind=_get_engine())
         except Exception as e:
             logger.warning(f"Aviso ao inicializar BD (tabelas podem ja existir): {e}")
+
+        # Sincronizar dados do Supabase para SQLite (cold start)
+        try:
+            _sync_from_supabase()
+        except Exception as e:
+            logger.warning(f"Sync Supabase falhou (continuando sem dados): {e}")
+
         logger.info("ImoIA API iniciada")
 
     @app.post("/api/v1/admin/migrate", tags=["Admin"])
