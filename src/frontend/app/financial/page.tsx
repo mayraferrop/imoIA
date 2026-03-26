@@ -476,21 +476,21 @@ export default function FinancialPage() {
                 {/* Estrutura e IMT */}
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Estrutura da Operacao</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Em nome de quem?</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="form-field">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Entidade</label>
                       <select name="entity_structure" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
-                        <option value="pf_jp">PF → JP (compra em nome pessoal, vende via empresa)</option>
-                        <option value="pf_only">PF only (pessoa fisica do inicio ao fim)</option>
-                        <option value="jp_only">JP only (empresa do inicio ao fim)</option>
+                        <option value="pf_jp">PF → JP</option>
+                        <option value="pf_only">PF only</option>
+                        <option value="jp_only">JP only</option>
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Regime IMT revenda</label>
+                    <div className="form-field">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Regime IMT</label>
                       <select name="imt_resale_regime" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
-                        <option value="none">Sem beneficio (paga IMT 2x)</option>
-                        <option value="reembolso">Reembolso (paga e recupera em 12 meses)</option>
-                        <option value="isencao">Isencao (nao paga 2a escritura)</option>
+                        <option value="none">Sem beneficio</option>
+                        <option value="reembolso">Reembolso</option>
+                        <option value="isencao">Isencao</option>
                       </select>
                     </div>
                     <Field name="comissao_compra_pct" label="Comissao compra %" placeholder="0" />
@@ -522,7 +522,7 @@ export default function FinancialPage() {
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="relative group">
+                    <div className="form-field relative group">
                       <label className={`block text-sm font-medium mb-1 ${financingMode === "cash" ? "text-slate-400" : "text-slate-700"}`}>% financiado compra</label>
                       <input
                         name="loan_pct_purchase"
@@ -542,7 +542,7 @@ export default function FinancialPage() {
                         </div>
                       )}
                     </div>
-                    <div className="relative group">
+                    <div className="form-field relative group">
                       <label className={`block text-sm font-medium mb-1 ${financingMode === "cash" ? "text-slate-400" : "text-slate-700"}`}>% financiado obra</label>
                       <input
                         name="loan_pct_renovation"
@@ -562,7 +562,7 @@ export default function FinancialPage() {
                         </div>
                       )}
                     </div>
-                    <div className="relative group">
+                    <div className="form-field relative group">
                       <label className={`block text-sm font-medium mb-1 ${financingMode === "cash" ? "text-slate-400" : "text-slate-700"}`}>TAN % (a.a.)</label>
                       <input
                         name="interest_rate_pct"
@@ -577,7 +577,7 @@ export default function FinancialPage() {
                         }`}
                       />
                     </div>
-                    <div className="relative group">
+                    <div className="form-field relative group">
                       <label className={`block text-sm font-medium mb-1 ${financingMode === "cash" ? "text-slate-400" : "text-slate-700"}`}>Prazo (anos)</label>
                       <input
                         name="loan_term_years"
@@ -600,9 +600,11 @@ export default function FinancialPage() {
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Venda</p>
                   <div className="grid grid-cols-2 gap-3">
                     <Field name="estimated_sale_price" label="Preco venda / ARV (EUR)" placeholder="500000" />
-                    <Field name="holding_months" label="Meses ate venda (apos obra)" placeholder="6" />
-                    <Field name="comissao_venda_pct" label="Comissao venda + IVA %" placeholder="6.15" />
-                    <Field name="monthly_condominio" label="Condominio mensal (EUR)" placeholder="50" />
+                    <Field name="holding_months" label="Meses ate venda" placeholder="6" />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 mt-3">
+                    <Field name="comissao_venda_pct" label="Comissao venda %" placeholder="6.15" />
+                    <Field name="monthly_condominio" label="Condominio/mes (EUR)" placeholder="50" />
                     <Field name="annual_insurance" label="Seguro anual (EUR)" placeholder="300" />
                   </div>
                 </div>
@@ -610,15 +612,15 @@ export default function FinancialPage() {
                 {/* Outros */}
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Outros</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="form-field">
                       <label className="block text-sm font-medium text-slate-700 mb-1">Tipo imovel</label>
                       <select name="property_type" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
-                        <option value="secondary">Secundario / investimento</option>
+                        <option value="secondary">Investimento</option>
                         <option value="primary">HPP</option>
                       </select>
                     </div>
-                    <div>
+                    <div className="form-field">
                       <label className="block text-sm font-medium text-slate-700 mb-1">Pais</label>
                       <select name="country" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
                         <option value="PT">Portugal</option>
@@ -1275,7 +1277,7 @@ function Field({
   type?: string;
 }) {
   return (
-    <div>
+    <div className="form-field">
       <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
       <input
         name={name}
