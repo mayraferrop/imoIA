@@ -1,7 +1,7 @@
 """Exportacao de fluxo de caixa M3 para o Cash Flow Pro (Supabase).
 
 Envia os lancamentos do modelo financeiro como entries no Cash Flow Pro
-via RPC import_cash_flow_entries. Usa anon key + autenticacao do utilizador.
+via edge function import_external_entries. Usa anon key + auth do utilizador.
 
 Logica de datas:
   - CPCV: data da assinatura (cpcv_date do Deal, ou input manual)
@@ -11,6 +11,7 @@ Logica de datas:
   - Venda: fim da obra + holding months (ou sale_date do Deal)
 
 Deduplicacao via external_ref (formato: imoia:{model_id}:{periodo}).
+Categorias mapeadas para o plano de contas CashFlow Pro.
 """
 
 from __future__ import annotations
@@ -18,9 +19,87 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
+import httpx
 from loguru import logger
 
 from src.config import get_settings
+
+# Mapeamento imoIA -> CashFlow Pro (plano de contas)
+CATEGORY_MAP: Dict[str, Dict[str, str]] = {
+    # Aquisicao
+    "sinal":       {"cat": "Custo do Imóvel Vendido (COGS)", "sub": "Aquisição do Imóvel",      "budget": "Custos dos Produtos / Serviços"},
+    "equity":      {"cat": "Custo do Imóvel Vendido (COGS)", "sub": "Aquisição do Imóvel",      "budget": "Custos dos Produtos / Serviços"},
+    "imt":         {"cat": "Custo do Imóvel Vendido (COGS)", "sub": "IMT, IS, Notário",         "budget": "Impostos pagos"},
+    "is":          {"cat": "Custo do Imóvel Vendido (COGS)", "sub": "IMT, IS, Notário",         "budget": "Impostos pagos"},
+    "notario":     {"cat": "Custo do Imóvel Vendido (COGS)", "sub": "IMT, IS, Notário",         "budget": "Custos dos Produtos / Serviços"},
+    # Obra
+    "obra":        {"cat": "Custo do Imóvel Vendido (COGS)", "sub": "Reformas / Reabilitação",  "budget": "Custos dos Produtos / Serviços"},
+    "consumos_obra": {"cat": "Custo do Imóvel Vendido (COGS)", "sub": "Contas de Consumo",      "budget": "Custos dos Produtos / Serviços"},
+    # Manutencao
+    "condominio":  {"cat": "Despesas Operacionais",          "sub": "Seguros e Condomínios",    "budget": "Custos dos Produtos / Serviços"},
+    "seguro":      {"cat": "Despesas Operacionais",          "sub": "Seguros e Condomínios",    "budget": "Custos dos Produtos / Serviços"},
+    "consumos_holding": {"cat": "Custo do Imóvel Vendido (COGS)", "sub": "Contas de Consumo",   "budget": "Custos dos Produtos / Serviços"},
+    # Financiamento
+    "juros":       {"cat": "Custo do Imóvel Vendido (COGS)", "sub": "Juros Capitalizados",      "budget": "Custos dos Produtos / Serviços"},
+    "amortizacao": {"cat": "Contas a pagar (C/P)",           "sub": "Empréstimos Bancários — Curto Prazo", "budget": "Amortização de empréstimos"},
+    "payoff":      {"cat": "Contas a pagar (C/P)",           "sub": "Empréstimos Bancários — Curto Prazo", "budget": "Amortização de empréstimos"},
+    "penalizacao": {"cat": "Custo do Imóvel Vendido (COGS)", "sub": "Encargos Bancários e Taxas", "budget": "Custos dos Produtos / Serviços"},
+    # Venda
+    "receita":     {"cat": "Receita de Revenda de Imóveis",  "sub": "Receita de Venda de Imóveis", "budget": "Receitas Operacionais"},
+    "comissao":    {"cat": "Custo do Imóvel Vendido (COGS)", "sub": "Comissão de Compra/Venda", "budget": "Custos dos Produtos / Serviços"},
+    # Reembolso
+    "reembolso_imt": {"cat": "Receita de Revenda de Imóveis", "sub": "Reembolso de IMT de Revenda", "budget": "Outras Receitas não operacionais"},
+}
+
+# Mapeamento de nomes de componentes do calculator para chaves do CATEGORY_MAP
+_COMP_NAME_MAP: Dict[str, str] = {
+    "Equity restante": "equity",
+    "IMT": "imt",
+    "Imposto de Selo": "is",
+    "Notario e Registo": "notario",
+    "Comissao compra": "comissao",
+    "Custos hipoteca": "penalizacao",
+    "IMT 2a transmissao": "imt",
+    "IMT 2a transmissao (devolvido)": "reembolso_imt",
+}
+
+
+def _cat(key: str) -> Dict[str, str]:
+    """Retorna main_category, subcategory e budget_category para uma chave."""
+    m = CATEGORY_MAP.get(key, CATEGORY_MAP["sinal"])
+    return {
+        "main_category": m["cat"],
+        "subcategory": m["sub"],
+        "budget_category": m["budget"],
+    }
+
+
+def _make_entry(
+    entry_type: str,
+    description: str,
+    amount: float,
+    cat_key: str,
+    entry_date_str: str,
+    project_name: str,
+    external_ref: str,
+    notes: str = "",
+) -> Dict[str, Any]:
+    """Cria um entry para o CashFlow Pro com categorias mapeadas."""
+    cats = _cat(cat_key)
+    return {
+        "entry_type": entry_type,
+        "description": description,
+        "amount": amount,
+        "currency": "EUR",
+        "main_category": cats["main_category"],
+        "subcategory": cats["subcategory"],
+        "budget_category": cats["budget_category"],
+        "entry_date": entry_date_str,
+        "due_date": entry_date_str,
+        "payment_status": "previsão",
+        "notes": notes or project_name,
+        "external_ref": external_ref,
+    }
 
 
 def _calc_dates(
@@ -31,23 +110,14 @@ def _calc_dates(
     renovation_duration_months: int,
     holding_months: int,
 ) -> Dict[str, date]:
-    """Calcula todas as datas do cronograma a partir da data do CPCV.
-
-    Returns:
-        Dict com chaves: cpcv, escritura, obra_inicio, meses (lista), venda.
-    """
-    # Escritura: 60 dias apos CPCV (ou data real do Deal)
+    """Calcula todas as datas do cronograma a partir da data do CPCV."""
     esc = escritura_date or (cpcv_date + timedelta(days=60))
-
-    # Inicio obra: dia seguinte a escritura (ou data real)
     obra_ini = obra_start_date or (esc + timedelta(days=1))
 
-    # Meses de obra + holding
     meses: List[date] = []
     for m in range(holding_months):
         meses.append(obra_ini + timedelta(days=30 * m))
 
-    # Venda: fim do ultimo mes (ou data real)
     venda = sale_date or (obra_ini + timedelta(days=30 * holding_months))
 
     return {
@@ -68,9 +138,10 @@ def _build_entries(
     """Converte flows do M3 em entries para o Cash Flow Pro.
 
     Cada componente vira um lancamento separado (IMT, IS, Notario, etc.).
+    Juros e amortizacao sao lancamentos separados.
     """
     entries: List[Dict[str, Any]] = []
-    mes_idx = 0  # indice para os meses
+    mes_idx = 0
 
     for f in flows:
         label = f.get("label", "")
@@ -78,12 +149,14 @@ def _build_entries(
         ref_base = f"imoia:{model_id}:{label.lower().replace(' ', '_')}"
 
         # Determinar data deste periodo
-        if label == "CPCV":
+        if label == "CPCV" or label.startswith("CPCV "):
             entry_date = dates["cpcv"]
         elif "Escritura" in label:
             entry_date = dates["escritura"]
         elif label == "VENDA":
             entry_date = dates["venda"]
+        elif label == "Reembolso IMT":
+            entry_date = dates["venda"] + timedelta(days=365)
         elif label.startswith("Mes"):
             if mes_idx < len(dates["meses"]):
                 entry_date = dates["meses"][mes_idx]
@@ -99,136 +172,177 @@ def _build_entries(
             componentes = f.get("componentes", [])
             if componentes:
                 for j, comp in enumerate(componentes):
-                    entries.append({
-                        "entry_type": "expense",
-                        "description": f"{label} — {comp['nome']}",
-                        "amount": comp["valor"],
-                        "currency": "EUR",
-                        "main_category": "Aquisição",
-                        "subcategory": comp["nome"],
-                        "entry_date": entry_date_str,
-                        "due_date": entry_date_str,
-                        "payment_status": "previsão",
-                        "notes": project_name,
-                        "external_ref": f"{ref_base}:{j}",
-                    })
+                    nome = comp["nome"]
+                    cat_key = _COMP_NAME_MAP.get(nome, "sinal")
+                    entries.append(_make_entry(
+                        entry_type="expense",
+                        description=f"{label} — {nome}",
+                        amount=comp["valor"],
+                        cat_key=cat_key,
+                        entry_date_str=entry_date_str,
+                        project_name=project_name,
+                        external_ref=f"{ref_base}:{j}",
+                    ))
             else:
-                entries.append({
-                    "entry_type": "expense",
-                    "description": f"{label} — Sinal",
-                    "amount": f.get("aquisicao", 0),
-                    "currency": "EUR",
-                    "main_category": "Aquisição",
-                    "subcategory": "Sinal CPCV",
-                    "entry_date": entry_date_str,
-                    "due_date": entry_date_str,
-                    "payment_status": "previsão",
-                    "notes": project_name,
-                    "external_ref": ref_base,
-                })
+                # CPCV sem componentes = sinal
+                entries.append(_make_entry(
+                    entry_type="expense",
+                    description=f"{label} — Sinal",
+                    amount=f.get("aquisicao", 0),
+                    cat_key="sinal",
+                    entry_date_str=entry_date_str,
+                    project_name=project_name,
+                    external_ref=ref_base,
+                ))
 
         elif cat in ("obra", "holding"):
             obra_val = f.get("obra", 0)
-            pmt_val = f.get("pmt", 0)
+            juros = f.get("juros", 0)
+            amort = f.get("amort", 0)
             manut_val = f.get("manut", 0)
 
             if obra_val > 0:
-                entries.append({
-                    "entry_type": "expense",
-                    "description": f"{label} — Obra (renovacao)",
-                    "amount": obra_val,
-                    "currency": "EUR",
-                    "main_category": "Obra",
-                    "subcategory": "Renovação",
-                    "entry_date": entry_date_str,
-                    "due_date": entry_date_str,
-                    "payment_status": "previsão",
-                    "notes": project_name,
-                    "external_ref": f"{ref_base}:obra",
-                })
+                entries.append(_make_entry(
+                    entry_type="expense",
+                    description=f"{label} — Obra (renovação)",
+                    amount=obra_val,
+                    cat_key="obra",
+                    entry_date_str=entry_date_str,
+                    project_name=project_name,
+                    external_ref=f"{ref_base}:obra",
+                ))
 
-            if pmt_val > 0:
-                juros = f.get("juros", 0)
-                amort = f.get("amort", 0)
-                entries.append({
-                    "entry_type": "expense",
-                    "description": f"{label} — Prestacao (juros {juros:.0f} + amort {amort:.0f})",
-                    "amount": pmt_val,
-                    "currency": "EUR",
-                    "main_category": "Financiamento",
-                    "subcategory": "Prestação hipoteca",
-                    "entry_date": entry_date_str,
-                    "due_date": entry_date_str,
-                    "payment_status": "previsão",
-                    "notes": f"{project_name} | Saldo: {f.get('saldo_devedor', 0):,.0f}",
-                    "external_ref": f"{ref_base}:pmt",
-                })
+            # Juros e amortizacao separados (em vez de PMT unico)
+            if juros > 0:
+                entries.append(_make_entry(
+                    entry_type="expense",
+                    description=f"{label} — Juros hipoteca",
+                    amount=juros,
+                    cat_key="juros",
+                    entry_date_str=entry_date_str,
+                    project_name=project_name,
+                    external_ref=f"{ref_base}:juros",
+                    notes=f"{project_name} | Saldo: {f.get('saldo_devedor', 0):,.0f}",
+                ))
+
+            if amort > 0:
+                entries.append(_make_entry(
+                    entry_type="expense",
+                    description=f"{label} — Amortização hipoteca",
+                    amount=amort,
+                    cat_key="amortizacao",
+                    entry_date_str=entry_date_str,
+                    project_name=project_name,
+                    external_ref=f"{ref_base}:amort",
+                    notes=f"{project_name} | Saldo: {f.get('saldo_devedor', 0):,.0f}",
+                ))
 
             if manut_val > 0:
-                entries.append({
-                    "entry_type": "expense",
-                    "description": f"{label} — Manutencao",
-                    "amount": manut_val,
-                    "currency": "EUR",
-                    "main_category": "Manutenção",
-                    "subcategory": "Condomínio e seguro",
-                    "entry_date": entry_date_str,
-                    "due_date": entry_date_str,
-                    "payment_status": "previsão",
-                    "notes": project_name,
-                    "external_ref": f"{ref_base}:manut",
-                })
+                entries.append(_make_entry(
+                    entry_type="expense",
+                    description=f"{label} — Manutenção",
+                    amount=manut_val,
+                    cat_key="condominio",
+                    entry_date_str=entry_date_str,
+                    project_name=project_name,
+                    external_ref=f"{ref_base}:manut",
+                ))
 
         elif cat == "venda":
             venda_liq = f.get("venda_liquida", 0)
             comissao = f.get("comissao_venda", 0)
             payoff = f.get("payoff", 0)
 
-            entries.append({
-                "entry_type": "income",
-                "description": f"Venda — Receita liquida",
-                "amount": venda_liq,
-                "currency": "EUR",
-                "main_category": "Venda",
-                "subcategory": "Receita venda",
-                "entry_date": entry_date_str,
-                "due_date": entry_date_str,
-                "payment_status": "previsão",
-                "notes": f"{project_name} | Bruto: {f.get('venda_bruta', 0):,.0f}",
-                "external_ref": f"{ref_base}:receita",
-            })
+            entries.append(_make_entry(
+                entry_type="income",
+                description="Venda — Receita líquida",
+                amount=venda_liq,
+                cat_key="receita",
+                entry_date_str=entry_date_str,
+                project_name=project_name,
+                external_ref=f"{ref_base}:receita",
+                notes=f"{project_name} | Bruto: {f.get('venda_bruta', 0):,.0f}",
+            ))
 
             if comissao > 0:
-                entries.append({
-                    "entry_type": "expense",
-                    "description": f"Venda — Comissao mediacao + IVA",
-                    "amount": comissao,
-                    "currency": "EUR",
-                    "main_category": "Venda",
-                    "subcategory": "Comissão mediação",
-                    "entry_date": entry_date_str,
-                    "due_date": entry_date_str,
-                    "payment_status": "previsão",
-                    "notes": project_name,
-                    "external_ref": f"{ref_base}:comissao",
-                })
+                entries.append(_make_entry(
+                    entry_type="expense",
+                    description="Venda — Comissão mediação + IVA",
+                    amount=comissao,
+                    cat_key="comissao",
+                    entry_date_str=entry_date_str,
+                    project_name=project_name,
+                    external_ref=f"{ref_base}:comissao",
+                ))
 
             if payoff < 0:
-                entries.append({
-                    "entry_type": "expense",
-                    "description": f"Venda — Liquidacao emprestimo",
-                    "amount": abs(payoff),
-                    "currency": "EUR",
-                    "main_category": "Financiamento",
-                    "subcategory": "Payoff hipoteca",
-                    "entry_date": entry_date_str,
-                    "due_date": entry_date_str,
-                    "payment_status": "previsão",
-                    "notes": project_name,
-                    "external_ref": f"{ref_base}:payoff",
-                })
+                entries.append(_make_entry(
+                    entry_type="expense",
+                    description="Venda — Liquidação empréstimo",
+                    amount=abs(payoff),
+                    cat_key="payoff",
+                    entry_date_str=entry_date_str,
+                    project_name=project_name,
+                    external_ref=f"{ref_base}:payoff",
+                ))
+
+        elif cat == "reembolso":
+            componentes = f.get("componentes", [])
+            for j, comp in enumerate(componentes):
+                entries.append(_make_entry(
+                    entry_type="income",
+                    description=f"Reembolso IMT — {comp['nome']}",
+                    amount=comp["valor"],
+                    cat_key="reembolso_imt",
+                    entry_date_str=entry_date_str,
+                    project_name=project_name,
+                    external_ref=f"{ref_base}:{j}",
+                ))
 
     return entries
+
+
+def _get_cfp_jwt(settings: Any) -> str:
+    """Autentica no Supabase e retorna o JWT."""
+    auth_url = f"{settings.cashflow_supabase_url}/auth/v1/token?grant_type=password"
+    auth_resp = httpx.post(
+        auth_url,
+        headers={
+            "apikey": settings.cashflow_supabase_key,
+            "Content-Type": "application/json",
+        },
+        json={
+            "email": settings.cashflow_user_email,
+            "password": settings.cashflow_user_password,
+        },
+        timeout=15,
+    )
+    if auth_resp.status_code != 200:
+        raise ValueError(f"Falha na autenticacao Cash Flow Pro: {auth_resp.text}")
+    return auth_resp.json()["access_token"]
+
+
+def list_cfp_projects() -> List[Dict[str, str]]:
+    """Lista projectos do CashFlow Pro para o dropdown."""
+    settings = get_settings()
+    if not settings.cashflow_supabase_url or not settings.cashflow_company_id:
+        return []
+
+    jwt_token = _get_cfp_jwt(settings)
+    url = (
+        f"{settings.cashflow_supabase_url}/functions/v1/"
+        f"make-server-36aa765f/integrations/projects"
+        f"?company_id={settings.cashflow_company_id}"
+    )
+    resp = httpx.get(
+        url,
+        headers={"Authorization": f"Bearer {jwt_token}"},
+        timeout=15,
+    )
+    if resp.status_code != 200:
+        logger.warning(f"Falha ao listar projectos CFP: {resp.text}")
+        return []
+    return resp.json()
 
 
 def get_deal_dates(deal_id: str) -> Optional[Dict[str, Any]]:
@@ -255,6 +369,7 @@ def export_to_cashflow_pro(
     flows: List[Dict[str, Any]],
     model_id: str,
     project_name: str = "Simulacao",
+    project_id: Optional[str] = None,
     cpcv_date: Optional[date] = None,
     deal_id: Optional[str] = None,
     escritura_date: Optional[date] = None,
@@ -263,15 +378,13 @@ def export_to_cashflow_pro(
     renovation_duration_months: int = 3,
     holding_months: int = 9,
 ) -> Dict[str, Any]:
-    """Exporta fluxo de caixa M3 para o Cash Flow Pro via RPC.
-
-    Datas podem ser passadas directamente (editadas pelo utilizador no modal)
-    ou buscadas do Deal. Prioridade: parametro directo > deal > calculado.
+    """Exporta fluxo de caixa M3 para o Cash Flow Pro via edge function.
 
     Args:
         flows: Lista de periodos do calc_cash_flow().
         model_id: ID do modelo financeiro.
         project_name: Nome do projecto para as descricoes.
+        project_id: ID do projecto no CashFlow Pro (seleccionado pelo utilizador).
         cpcv_date: Data de assinatura do CPCV.
         deal_id: ID do deal (fallback para datas nao fornecidas).
         escritura_date: Data da escritura (editavel).
@@ -281,7 +394,7 @@ def export_to_cashflow_pro(
         holding_months: Total de meses (obra + holding).
 
     Returns:
-        Dict com inserted_count, skipped_count, entries_preview.
+        Dict com inserted_count, updated_count, skipped_count, errors.
     """
     settings = get_settings()
 
@@ -291,11 +404,6 @@ def export_to_cashflow_pro(
         raise ValueError("CASHFLOW_COMPANY_ID nao configurado no .env")
     if not settings.cashflow_user_email or not settings.cashflow_user_password:
         raise ValueError("CASHFLOW_USER_EMAIL e CASHFLOW_USER_PASSWORD nao configurados no .env")
-
-    try:
-        from supabase import create_client
-    except ImportError:
-        raise ValueError("Pacote 'supabase' nao instalado. Execute: pip install supabase")
 
     # Resolver datas: parametro directo > deal > calculado
     deal_dates = None
@@ -330,7 +438,7 @@ def export_to_cashflow_pro(
     # Montar entries
     entries = _build_entries(flows, model_id, project_name, dates)
     if not entries:
-        return {"inserted_count": 0, "skipped_count": 0, "total_entries": 0}
+        return {"inserted_count": 0, "updated_count": 0, "skipped_count": 0, "total_entries": 0}
 
     logger.info(
         f"A exportar {len(entries)} lancamentos para Cash Flow Pro "
@@ -338,29 +446,42 @@ def export_to_cashflow_pro(
         f"Venda: {dates['venda']})"
     )
 
-    # Conectar ao Supabase
-    supabase = create_client(settings.cashflow_supabase_url, settings.cashflow_supabase_key)
-    supabase.auth.sign_in_with_password({
-        "email": settings.cashflow_user_email,
-        "password": settings.cashflow_user_password,
-    })
+    # Autenticar e chamar edge function
+    jwt_token = _get_cfp_jwt(settings)
 
-    # Chamar RPC
-    result = supabase.rpc("import_cash_flow_entries", {
-        "p_company_id": settings.cashflow_company_id,
-        "p_entries": entries,
-    }).execute()
+    import_url = f"{settings.cashflow_supabase_url}/functions/v1/make-server-36aa765f/integrations/import"
+    payload: Dict[str, Any] = {
+        "company_id": settings.cashflow_company_id,
+        "source": "imoia",
+        "entries": entries,
+    }
+    if project_id:
+        payload["project_id"] = project_id
 
-    data = result.data if result.data else {}
-    inserted = data.get("inserted_count", 0)
-    skipped = data.get("skipped_count", 0)
+    import_resp = httpx.post(
+        import_url,
+        headers={
+            "Authorization": f"Bearer {jwt_token}",
+            "Content-Type": "application/json",
+        },
+        json=payload,
+        timeout=30,
+    )
+    if import_resp.status_code != 200:
+        raise ValueError(f"Erro na importacao Cash Flow Pro: {import_resp.text}")
 
-    logger.info(f"Cash Flow Pro: {inserted} inseridos, {skipped} ignorados")
+    data = import_resp.json()
+    inserted = data.get("inserted", 0)
+    updated = data.get("updated", 0)
+    skipped = data.get("skipped", 0)
+
+    logger.info(f"Cash Flow Pro: {inserted} inseridos, {updated} actualizados, {skipped} ignorados")
 
     return {
         "inserted_count": inserted,
+        "updated_count": updated,
         "skipped_count": skipped,
-        "skipped_refs": data.get("skipped_refs", []),
+        "errors": data.get("errors", []),
         "total_entries": len(entries),
         "dates": {
             "cpcv": cpcv_date.isoformat(),

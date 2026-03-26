@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatEUR, formatPercent, GRADE_COLORS } from "@/lib/utils";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://jurzdyncaxkgvcatyfdu.supabase.co";
@@ -136,6 +136,19 @@ export default function FinancialPage() {
   // MAO
   const [maoResult, setMaoResult] = useState<MAOResult | null>(null);
   const [maoLoading, setMaoLoading] = useState(false);
+
+  // CashFlow Pro export
+  const [cfpProjects, setCfpProjects] = useState<{id: string; name: string}[]>([]);
+  const [cfpProjectId, setCfpProjectId] = useState<string>("");
+  const [cfpExporting, setCfpExporting] = useState(false);
+  const [showCfpModal, setShowCfpModal] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/v1/financial/cashflow-pro/projects`)
+      .then(r => r.ok ? r.json() : [])
+      .then(setCfpProjects)
+      .catch(() => {});
+  }, []);
 
   async function fetchSavedScenarios() {
     setScenariosLoading(true);
@@ -1324,18 +1337,7 @@ export default function FinancialPage() {
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-teal-700">Detalhe do cenário</h3>
                 <button
-                  onClick={async () => {
-                    try {
-                      const res = await fetch(`${API_BASE}/api/v1/financial/${selectedScenario.model_id}/export-cashflow`, { method: "POST" });
-                      if (res.ok) {
-                        const data = await res.json();
-                        alert(`Exportado para CashFlow Pro! ${data.inserted_count ?? 0} lançamentos criados.`);
-                      } else {
-                        const err = await res.json().catch(() => null);
-                        alert(`Erro: ${err?.detail || "Falha na exportação"}`);
-                      }
-                    } catch { alert("Erro de comunicação."); }
-                  }}
+                  onClick={() => setShowCfpModal(true)}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                 >
                   Exportar para CashFlow Pro
@@ -1582,6 +1584,61 @@ export default function FinancialPage() {
             {saveMsg && (
               <p className={`text-sm ${saveMsg.includes("Erro") ? "text-red-600" : "text-green-600"}`}>{saveMsg}</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal CashFlow Pro — seleccao de projecto */}
+      {showCfpModal && selectedScenario && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900">Exportar para CashFlow Pro</h2>
+              <button onClick={() => setShowCfpModal(false)} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Projecto CashFlow Pro</label>
+              <select
+                value={cfpProjectId}
+                onChange={(e) => setCfpProjectId(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">-- Sem projecto (geral) --</option>
+                {cfpProjects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-400 mt-1">Seleccione o projecto onde os lançamentos serão criados.</p>
+            </div>
+
+            <button
+              onClick={async () => {
+                setCfpExporting(true);
+                try {
+                  const res = await fetch(`${API_BASE}/api/v1/financial/${selectedScenario.model_id}/export-cashflow`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ project_id: cfpProjectId || null }),
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    const ins = data.inserted_count ?? 0;
+                    const upd = data.updated_count ?? 0;
+                    alert(`Exportado para CashFlow Pro!\n${ins} lançamentos criados, ${upd} actualizados.`);
+                    setShowCfpModal(false);
+                  } else {
+                    const err = await res.json().catch(() => null);
+                    alert(`Erro: ${err?.detail || "Falha na exportação"}`);
+                  }
+                } catch { alert("Erro de comunicação."); }
+                setCfpExporting(false);
+              }}
+              disabled={cfpExporting}
+              className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {cfpExporting ? "A exportar..." : "Exportar lançamentos"}
+            </button>
           </div>
         </div>
       )}

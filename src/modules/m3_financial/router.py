@@ -14,9 +14,9 @@ GET  /api/v1/financial/{model_id}/cash-flow    — Fluxo de caixa mensal
 from __future__ import annotations
 
 import dataclasses
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body, HTTPException
 
 from src.modules.m3_financial.calculator import (
     FinancialCalculator,
@@ -65,6 +65,16 @@ async def create_scenarios(
         return service.create_scenarios(property_id, request.model_dump())
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/cashflow-pro/projects", summary="Listar projectos CashFlow Pro")
+async def list_cashflow_pro_projects() -> List[Dict[str, str]]:
+    """Lista projectos do CashFlow Pro para o dropdown de exportacao."""
+    try:
+        from src.modules.m3_financial.cashflow_export import list_cfp_projects
+        return list_cfp_projects()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao listar projectos: {str(e)}")
 
 
 @router.get("/{model_id}", summary="Obter modelo financeiro")
@@ -241,7 +251,10 @@ async def get_cash_flow(model_id: str) -> Dict[str, Any]:
 
 
 @router.post("/{model_id}/export-cashflow", summary="Exportar para CashFlow Pro")
-async def export_to_cashflow_pro(model_id: str) -> Dict[str, Any]:
+async def export_to_cashflow_pro(
+    model_id: str,
+    project_id: Optional[str] = Body(None, embed=True),
+) -> Dict[str, Any]:
     """Exporta fluxo de caixa para o Cash Flow Pro externo."""
     try:
         from src.modules.m3_financial.cashflow_export import export_to_cashflow_pro as do_export
@@ -274,6 +287,7 @@ async def export_to_cashflow_pro(model_id: str) -> Dict[str, Any]:
             flows=cash_flow.get("flows", []),
             model_id=model_id,
             project_name=model_data.get("scenario_name", "ImoIA"),
+            project_id=project_id,
             cpcv_date=cpcv_date,
             escritura_date=escritura_date,
             renovation_duration_months=fin_input.renovation_duration_months,
