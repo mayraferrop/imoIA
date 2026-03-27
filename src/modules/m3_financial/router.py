@@ -281,20 +281,21 @@ async def export_to_cashflow_pro(
     try:
         from src.modules.m3_financial.cashflow_export import export_to_cashflow_pro as do_export
 
-        # Buscar modelo e recalcular cash flow
-        model_data = service.get_model(model_id)
+        # Buscar modelo via Supabase REST e recalcular cash flow
+        from src.database.supabase_rest import get_model as supa_get_model, get_projections as supa_get_proj
+        model_data = supa_get_model(model_id)
         if not model_data:
             raise HTTPException(status_code=404, detail="Modelo nao encontrado")
 
         # Reconstruir input e calcular cash flow
         valid_fields = {f.name for f in dataclasses.fields(FinancialInput)}
-        filtered = {k: v for k, v in model_data.items() if k in valid_fields}
+        filtered = {k: v for k, v in model_data.items() if k in valid_fields and v is not None}
         fin_input = FinancialInput(**filtered)
         result = calculator.calculate(fin_input)
         cash_flow = calculator.calc_cash_flow(fin_input, result)
 
         # Buscar datas das payment conditions
-        projections = service.get_projections(model_id)
+        projections = supa_get_proj(model_id)
         cpcv_date = None
         escritura_date = None
         if projections and projections.get("payment_condition"):
