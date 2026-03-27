@@ -99,6 +99,7 @@ def _make_entry(
         "payment_status": "previsão",
         "notes": notes or project_name,
         "external_ref": external_ref,
+        "source": "imoIA",
     }
 
 

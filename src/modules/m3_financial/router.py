@@ -287,11 +287,20 @@ async def export_to_cashflow_pro(
         if not model_data:
             raise HTTPException(status_code=404, detail="Modelo nao encontrado")
 
-        # Reconstruir input e calcular cash flow
+        # Reconstruir input — forcar loan_term_months se nao veio do modelo
         valid_fields = {f.name for f in dataclasses.fields(FinancialInput)}
         filtered = {k: v for k, v in model_data.items() if k in valid_fields and v is not None}
+        # loan_term_months nao e salvo no FinancialResult, usar default se 0
+        if filtered.get("loan_term_months", 0) == 0 and model_data.get("financing_type") == "mortgage":
+            filtered["loan_term_months"] = 240
         fin_input = FinancialInput(**filtered)
+        from src.modules.m3_financial.calculator import FinancialResult
         result = calculator.calculate(fin_input)
+        # Sobrepor monthly_payment do modelo armazenado (mais preciso que recalcular)
+        if model_data.get("monthly_payment", 0) > 0:
+            result.monthly_payment = model_data["monthly_payment"]
+            result.interest_rate_pct = model_data.get("interest_rate_pct", 0)
+            result.loan_amount = model_data.get("loan_amount", 0)
         cash_flow = calculator.calc_cash_flow(fin_input, result)
 
         # Buscar datas das payment conditions
