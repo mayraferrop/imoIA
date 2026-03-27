@@ -22,6 +22,7 @@ from src.modules.m7_marketing.router import router as marketing_router
 from src.modules.m8_leads.router import router as leads_router
 from src.modules.m9_closing.router import router as closing_router
 from src.shared.document_router import router as document_router
+from src.modules.m1_ingestor.strategy_router import router as strategy_router
 from src.database.db import init_db
 
 
@@ -348,6 +349,11 @@ def create_app() -> FastAPI:
         document_router,
         prefix="/api/v1/documents",
         tags=["Documentos"],
+    )
+    app.include_router(
+        strategy_router,
+        prefix="/api/v1/strategies",
+        tags=["Estratégias de Investimento"],
     )
 
     return app

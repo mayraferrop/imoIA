@@ -49,11 +49,15 @@ def _get_whatsapp_client() -> WhatsAppClient:
     return WhatsAppClient()
 
 
-def _get_classifier() -> Any:
-    """Retorna o classificador de oportunidades."""
+def _get_classifier(tenant_id: str | None = None) -> Any:
+    """Retorna o classificador de oportunidades.
+
+    Args:
+        tenant_id: ID do tenant para carregar estratégia personalizada.
+    """
     try:
         from src.modules.m1_ingestor.classifier import OpportunityClassifier
-        return OpportunityClassifier()
+        return OpportunityClassifier(tenant_id=tenant_id)
     except (ImportError, AttributeError):
         logger.warning("OpportunityClassifier não disponível — a usar mock")
         return _MockClassifier()
@@ -837,8 +841,20 @@ def run_pipeline() -> PipelineResult:
         f"{len(inactive_with_unread)} inativos com unread"
     )
 
+    # Obter tenant_id para estratégia personalizada
+    _tenant_id = None
+    try:
+        from sqlalchemy import select as sa_select
+        from src.database.models_v2 import Tenant
+        with get_session() as _s:
+            _t = _s.execute(sa_select(Tenant).limit(1)).scalar_one_or_none()
+            if _t:
+                _tenant_id = _t.id
+    except Exception:
+        pass
+
     # Obter servicos
-    classifier = _get_classifier()
+    classifier = _get_classifier(tenant_id=_tenant_id)
     market_services = _get_market_services()
 
     # Carregar last_processed_at de todos os grupos de uma vez

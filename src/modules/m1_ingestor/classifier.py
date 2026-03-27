@@ -21,6 +21,7 @@ from tenacity import (
 )
 
 from src.modules.m1_ingestor.prompts import BATCH_TEMPLATE, SYSTEM_PROMPT
+from src.modules.m1_ingestor.prompt_builder import build_system_prompt
 from src.config import get_settings
 
 
@@ -48,16 +49,22 @@ class OpportunityClassifier:
 
     BATCH_SIZE = 20
 
-    def __init__(self, client: Optional[anthropic.Anthropic] = None) -> None:
+    def __init__(
+        self,
+        client: Optional[anthropic.Anthropic] = None,
+        tenant_id: Optional[str] = None,
+    ) -> None:
         """Inicializa o classificador.
 
         Args:
             client: Cliente Anthropic opcional (útil para testes).
+            tenant_id: ID do tenant para carregar estratégia personalizada.
         """
         self._settings = get_settings()
         self._client = client or anthropic.Anthropic(
             api_key=self._settings.anthropic_api_key,
         )
+        self._system_prompt = build_system_prompt(tenant_id)
 
     def classify_batch(self, messages: List[Dict[str, Any]]) -> List[OpportunityResult]:
         """Classifica um lote de mensagens.
@@ -101,7 +108,7 @@ class OpportunityClassifier:
             model=self._settings.ai_model,
             max_tokens=self._settings.ai_max_tokens,
             temperature=self._settings.ai_temperature,
-            system=SYSTEM_PROMPT,
+            system=self._system_prompt,
             messages=[{"role": "user", "content": user_content}],
         )
         return response.content[0].text

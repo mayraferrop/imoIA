@@ -2451,3 +2451,71 @@ class MarketAlert(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
+
+
+# ---------------------------------------------------------------------------
+# Estratégias de investimento configuráveis (SaaS)
+# ---------------------------------------------------------------------------
+
+
+class InvestmentStrategy(Base):
+    """Estratégia de investimento do utilizador.
+
+    Define os critérios personalizados para classificação de oportunidades.
+    Cada utilizador pode ter várias estratégias, mas apenas uma ativa.
+    """
+
+    __tablename__ = "investment_strategies"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid4())
+    )
+    tenant_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=True, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    signals: Mapped[List["ClassificationSignal"]] = relationship(
+        "ClassificationSignal",
+        back_populates="strategy",
+        cascade="all, delete-orphan",
+        order_by="ClassificationSignal.priority",
+    )
+
+
+class ClassificationSignal(Base):
+    """Sinal individual de classificação dentro de uma estratégia.
+
+    Pode ser positivo (procurar este sinal) ou negativo (ignorar).
+    """
+
+    __tablename__ = "classification_signals"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid4())
+    )
+    strategy_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("investment_strategies.id"), nullable=False, index=True
+    )
+    signal_text: Mapped[str] = mapped_column(Text, nullable=False)
+    signal_category: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="outro"
+    )
+    is_positive: Mapped[bool] = mapped_column(Boolean, default=True)
+    priority: Mapped[int] = mapped_column(Integer, default=1)
+    is_ai_suggested: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+
+    strategy: Mapped["InvestmentStrategy"] = relationship(
+        "InvestmentStrategy", back_populates="signals"
+    )
