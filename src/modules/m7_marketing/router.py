@@ -162,24 +162,21 @@ async def upload_listing_photos(
     files: List[UploadFile] = File(...),
 ) -> Dict[str, Any]:
     """Upload de fotos para uma listing. Guarda via DocumentStorageService."""
+    from src.database import supabase_rest as db
     from src.database.db import get_session
-    from src.database.models_v2 import Listing, Tenant
     from src.shared.document_storage import DocumentStorageService
-    from sqlalchemy import select
 
+    listing = db.get_by_id("listings", listing_id)
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing nao encontrada")
+
+    tid = db.ensure_tenant()
+
+    # DocumentStorageService ainda precisa de session para gravar Document no DB
     with get_session() as session:
-        listing = session.get(Listing, listing_id)
-        if not listing:
-            raise HTTPException(status_code=404, detail="Listing não encontrada")
-
-        tenant = session.execute(
-            select(Tenant).where(Tenant.slug == "default")
-        ).scalar_one_or_none()
-        tid = tenant.id if tenant else listing.tenant_id
-
         storage = DocumentStorageService(session)
         uploaded = []
-        photos = list(listing.photos or [])
+        photos = list(listing.get("photos") or [])
 
         for i, file in enumerate(files):
             content = await file.read()
@@ -187,7 +184,7 @@ async def upload_listing_photos(
                 file_content=content,
                 filename=file.filename or f"photo_{i}.jpg",
                 tenant_id=tid,
-                deal_id=listing.deal_id,
+                deal_id=listing.get("deal_id"),
                 document_type="listing_photo",
                 title=f"Foto {len(photos) + i + 1}",
             )
@@ -201,10 +198,11 @@ async def upload_listing_photos(
             photos.append(photo_entry)
             uploaded.append(photo_entry)
 
-        listing.photos = photos
-        if not listing.cover_photo_url and uploaded:
-            listing.cover_photo_url = uploaded[0]["url"]
-        session.flush()
+    # Actualizar listing via REST
+    patch: Dict[str, Any] = {"photos": photos}
+    if not listing.get("cover_photo_url") and uploaded:
+        patch["cover_photo_url"] = uploaded[0]["url"]
+    db.update("listings", listing_id, patch)
 
     return {"uploaded": len(uploaded), "total_photos": len(photos), "photos": uploaded}
 
@@ -215,35 +213,34 @@ async def set_cover_photo(
     document_id: str = Query(...),
 ) -> Dict[str, Any]:
     """Define uma foto como capa da listing."""
-    from src.database.db import get_session
-    from src.database.models_v2 import Listing
+    from src.database import supabase_rest as db
 
-    with get_session() as session:
-        listing = session.get(Listing, listing_id)
-        if not listing:
-            raise HTTPException(status_code=404, detail="Listing não encontrada")
+    listing = db.get_by_id("listings", listing_id)
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing nao encontrada")
 
-        photos = list(listing.photos or [])
-        for p in photos:
-            p["is_cover"] = p.get("document_id") == document_id
-        listing.photos = photos
-        listing.cover_photo_url = f"/api/v1/documents/{document_id}/download"
-        session.flush()
+    photos = list(listing.get("photos") or [])
+    for p in photos:
+        p["is_cover"] = p.get("document_id") == document_id
 
-    return {"cover_photo_url": listing.cover_photo_url}
+    cover_url = f"/api/v1/documents/{document_id}/download"
+    db.update("listings", listing_id, {
+        "photos": photos,
+        "cover_photo_url": cover_url,
+    })
+
+    return {"cover_photo_url": cover_url}
 
 
 @router.get("/listings/{listing_id}/photos", summary="Listar fotos")
 async def list_listing_photos(listing_id: str) -> List[Dict[str, Any]]:
     """Lista fotos de uma listing."""
-    from src.database.db import get_session
-    from src.database.models_v2 import Listing
+    from src.database import supabase_rest as db
 
-    with get_session() as session:
-        listing = session.get(Listing, listing_id)
-        if not listing:
-            raise HTTPException(status_code=404, detail="Listing não encontrada")
-        return list(listing.photos or [])
+    listing = db.get_by_id("listings", listing_id)
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing nao encontrada")
+    return list(listing.get("photos") or [])
 
 
 # ---------------------------------------------------------------------------
@@ -257,46 +254,40 @@ async def upload_brand_logo(
     logo_type: str = Query("primary", description="primary, white, icon"),
 ) -> Dict[str, Any]:
     """Upload de logo para o brand kit."""
+    from src.database import supabase_rest as db
     from src.database.db import get_session
-    from src.database.models_v2 import BrandKit, Tenant
     from src.shared.document_storage import DocumentStorageService
-    from sqlalchemy import select
+
+    tid = db.ensure_tenant()
+
+    # Verificar brand kit existe
+    bk_rows = db._get("brand_kits", f"tenant_id=eq.{tid}&limit=1")
+    if not bk_rows:
+        raise HTTPException(status_code=400, detail="Brand kit nao configurado")
+    bk = bk_rows[0]
 
     content = await file.read()
 
+    # DocumentStorageService ainda precisa de session para gravar Document
     with get_session() as session:
-        tenant = session.execute(
-            select(Tenant).where(Tenant.slug == "default")
-        ).scalar_one_or_none()
-        if not tenant:
-            raise HTTPException(status_code=400, detail="Tenant não encontrado")
-
-        bk = session.execute(
-            select(BrandKit).where(BrandKit.tenant_id == tenant.id)
-        ).scalar_one_or_none()
-        if not bk:
-            raise HTTPException(status_code=400, detail="Brand kit não configurado")
-
         storage = DocumentStorageService(session)
         doc = storage.upload_document(
             file_content=content,
             filename=file.filename or f"logo_{logo_type}.png",
-            tenant_id=tenant.id,
+            tenant_id=tid,
             document_type=f"brand_logo_{logo_type}",
             title=f"Logo {logo_type}",
         )
 
-        url = f"/api/v1/documents/{doc['id']}/download"
-        field_map = {
-            "primary": "logo_primary_url",
-            "white": "logo_white_url",
-            "icon": "logo_icon_url",
-        }
-        field = field_map.get(logo_type)
-        if field and hasattr(bk, field):
-            setattr(bk, field, url)
-
-        session.flush()
+    url = f"/api/v1/documents/{doc['id']}/download"
+    field_map = {
+        "primary": "logo_primary_url",
+        "white": "logo_white_url",
+        "icon": "logo_icon_url",
+    }
+    field = field_map.get(logo_type)
+    if field:
+        db.update("brand_kits", bk["id"], {field: url})
 
     return {"logo_type": logo_type, "url": url, "document_id": doc["id"]}
 

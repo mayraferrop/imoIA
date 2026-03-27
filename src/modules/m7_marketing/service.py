@@ -2,28 +2,18 @@
 
 Logica de negocio para gestao de brand kits, listings, conteudo multilingue,
 historico de precos e publicacao multicanal.
+
+Persistencia via Supabase REST (sem SQLAlchemy).
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from uuid import uuid4
 
 from loguru import logger
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
-from src.database.db import get_session
-from src.database.models_v2 import (
-    BrandKit,
-    Deal,
-    Listing,
-    ListingContent,
-    ListingPriceHistory,
-    Property,
-    Tenant,
-)
+from src.database import supabase_rest as db
 from src.modules.m7_marketing.content_generator import ContentGenerator
 
 _DEFAULT_TENANT_SLUG = "default"
@@ -34,159 +24,130 @@ _DEFAULT_TENANT_SLUG = "default"
 # ---------------------------------------------------------------------------
 
 
-def _ensure_default_tenant(session: Session) -> str:
+def _ensure_default_tenant() -> str:
     """Garante que o tenant default existe e retorna o id."""
-    tenant = session.execute(
-        select(Tenant).where(Tenant.slug == _DEFAULT_TENANT_SLUG)
-    ).scalar_one_or_none()
-
-    if tenant is None:
-        tenant = Tenant(
-            id=str(uuid4()),
-            name="ImoIA",
-            slug=_DEFAULT_TENANT_SLUG,
-            country="PT",
-        )
-        session.add(tenant)
-        session.flush()
-        logger.info("Tenant default criado")
-
-    return tenant.id
+    return db.ensure_tenant()
 
 
-def _brand_kit_to_dict(bk: BrandKit) -> Dict[str, Any]:
-    """Serializa BrandKit para dict."""
+def _brand_kit_to_dict(bk: Dict[str, Any]) -> Dict[str, Any]:
+    """Normaliza dict de BrandKit vindo do Supabase."""
     return {
-        "id": bk.id,
-        "tenant_id": bk.tenant_id,
-        "brand_name": bk.brand_name,
-        "tagline": bk.tagline,
-        "website_url": bk.website_url,
+        "id": bk.get("id"),
+        "tenant_id": bk.get("tenant_id"),
+        "brand_name": bk.get("brand_name"),
+        "tagline": bk.get("tagline"),
+        "website_url": bk.get("website_url"),
         # Logos
-        "logo_primary_url": bk.logo_primary_url,
-        "logo_white_url": bk.logo_white_url,
-        "logo_icon_url": bk.logo_icon_url,
+        "logo_primary_url": bk.get("logo_primary_url"),
+        "logo_white_url": bk.get("logo_white_url"),
+        "logo_icon_url": bk.get("logo_icon_url"),
         # Cores e fontes
-        "color_primary": bk.color_primary,
-        "color_secondary": bk.color_secondary,
-        "color_accent": bk.color_accent,
-        "font_heading": bk.font_heading,
-        "font_body": bk.font_body,
-        "voice_tone": bk.voice_tone,
-        "voice_description": bk.voice_description,
-        "voice_forbidden_words": bk.voice_forbidden_words or [],
-        "voice_preferred_words": bk.voice_preferred_words or [],
-        "contact_phone": bk.contact_phone,
-        "contact_email": bk.contact_email,
-        "contact_whatsapp": bk.contact_whatsapp,
-        "social_instagram": bk.social_instagram,
-        "social_facebook": bk.social_facebook,
-        "social_linkedin": bk.social_linkedin,
-        "active_languages": bk.active_languages or ["pt-PT"],
-        "template_style": bk.template_style,
-        "created_at": bk.created_at.isoformat() if bk.created_at else None,
-        "updated_at": bk.updated_at.isoformat() if bk.updated_at else None,
+        "color_primary": bk.get("color_primary"),
+        "color_secondary": bk.get("color_secondary"),
+        "color_accent": bk.get("color_accent"),
+        "font_heading": bk.get("font_heading"),
+        "font_body": bk.get("font_body"),
+        "voice_tone": bk.get("voice_tone"),
+        "voice_description": bk.get("voice_description"),
+        "voice_forbidden_words": bk.get("voice_forbidden_words") or [],
+        "voice_preferred_words": bk.get("voice_preferred_words") or [],
+        "contact_phone": bk.get("contact_phone"),
+        "contact_email": bk.get("contact_email"),
+        "contact_whatsapp": bk.get("contact_whatsapp"),
+        "social_instagram": bk.get("social_instagram"),
+        "social_facebook": bk.get("social_facebook"),
+        "social_linkedin": bk.get("social_linkedin"),
+        "active_languages": bk.get("active_languages") or ["pt-PT"],
+        "template_style": bk.get("template_style"),
+        "created_at": bk.get("created_at"),
+        "updated_at": bk.get("updated_at"),
     }
 
 
-def _listing_to_dict(listing: Listing) -> Dict[str, Any]:
-    """Serializa Listing para dict (todos os campos)."""
+def _listing_to_dict(listing: Dict[str, Any]) -> Dict[str, Any]:
+    """Normaliza dict de Listing vindo do Supabase."""
     return {
-        "id": listing.id,
-        "tenant_id": listing.tenant_id,
-        "deal_id": listing.deal_id,
+        "id": listing.get("id"),
+        "tenant_id": listing.get("tenant_id"),
+        "deal_id": listing.get("deal_id"),
         # Tipo e preco
-        "listing_type": listing.listing_type,
-        "listing_price": listing.listing_price,
-        "floor_price": listing.floor_price,
-        "currency": listing.currency,
-        "price_negotiable": listing.price_negotiable,
-        "price_on_request": listing.price_on_request,
+        "listing_type": listing.get("listing_type"),
+        "listing_price": listing.get("listing_price"),
+        "floor_price": listing.get("floor_price"),
+        "currency": listing.get("currency"),
+        "price_negotiable": listing.get("price_negotiable"),
+        "price_on_request": listing.get("price_on_request"),
         # Conteudo PT-PT
-        "title_pt": listing.title_pt,
-        "description_pt": listing.description_pt,
-        "short_description_pt": listing.short_description_pt,
+        "title_pt": listing.get("title_pt"),
+        "description_pt": listing.get("description_pt"),
+        "short_description_pt": listing.get("short_description_pt"),
         # Conteudo EN
-        "title_en": listing.title_en,
-        "description_en": listing.description_en,
-        "short_description_en": listing.short_description_en,
+        "title_en": listing.get("title_en"),
+        "description_en": listing.get("description_en"),
+        "short_description_en": listing.get("short_description_en"),
         # Conteudo PT-BR
-        "title_pt_br": listing.title_pt_br,
-        "description_pt_br": listing.description_pt_br,
+        "title_pt_br": listing.get("title_pt_br"),
+        "description_pt_br": listing.get("description_pt_br"),
         # Conteudo FR
-        "title_fr": listing.title_fr,
-        "description_fr": listing.description_fr,
+        "title_fr": listing.get("title_fr"),
+        "description_fr": listing.get("description_fr"),
         # Conteudo ZH
-        "title_zh": listing.title_zh,
-        "description_zh": listing.description_zh,
+        "title_zh": listing.get("title_zh"),
+        "description_zh": listing.get("description_zh"),
         # SEO e destaques
-        "highlights": listing.highlights or [],
-        "meta_title": listing.meta_title,
-        "meta_description": listing.meta_description,
-        "keywords": listing.keywords or [],
-        "slug": listing.slug,
+        "highlights": listing.get("highlights") or [],
+        "meta_title": listing.get("meta_title"),
+        "meta_description": listing.get("meta_description"),
+        "keywords": listing.get("keywords") or [],
+        "slug": listing.get("slug"),
         # Media
-        "photos": listing.photos or [],
-        "cover_photo_url": listing.cover_photo_url,
-        "video_url": listing.video_url,
-        "virtual_tour_url": listing.virtual_tour_url,
+        "photos": listing.get("photos") or [],
+        "cover_photo_url": listing.get("cover_photo_url"),
+        "video_url": listing.get("video_url"),
+        "virtual_tour_url": listing.get("virtual_tour_url"),
         # Conteudo por canal
-        "content_whatsapp": listing.content_whatsapp,
-        "content_instagram_post": listing.content_instagram_post,
-        "content_facebook_post": listing.content_facebook_post,
-        "content_linkedin": listing.content_linkedin,
-        "content_portal": listing.content_portal,
-        "content_email_subject": listing.content_email_subject,
-        "content_email_body": listing.content_email_body,
+        "content_whatsapp": listing.get("content_whatsapp"),
+        "content_instagram_post": listing.get("content_instagram_post"),
+        "content_facebook_post": listing.get("content_facebook_post"),
+        "content_linkedin": listing.get("content_linkedin"),
+        "content_portal": listing.get("content_portal"),
+        "content_email_subject": listing.get("content_email_subject"),
+        "content_email_body": listing.get("content_email_body"),
         # Estado
-        "status": listing.status,
+        "status": listing.get("status"),
         # Habta
-        "habta_published": listing.habta_published,
-        "habta_project_id": listing.habta_project_id,
-        "habta_url": listing.habta_url,
-        "habta_published_at": (
-            listing.habta_published_at.isoformat()
-            if listing.habta_published_at
-            else None
-        ),
-        "habta_last_synced_at": (
-            listing.habta_last_synced_at.isoformat()
-            if listing.habta_last_synced_at
-            else None
-        ),
+        "habta_published": listing.get("habta_published"),
+        "habta_project_id": listing.get("habta_project_id"),
+        "habta_url": listing.get("habta_url"),
+        "habta_published_at": listing.get("habta_published_at"),
+        "habta_last_synced_at": listing.get("habta_last_synced_at"),
         # WhatsApp
-        "whatsapp_sent": listing.whatsapp_sent,
-        "whatsapp_sent_at": (
-            listing.whatsapp_sent_at.isoformat()
-            if listing.whatsapp_sent_at
-            else None
-        ),
-        "whatsapp_groups_sent": listing.whatsapp_groups_sent or [],
-        "published_at": (
-            listing.published_at.isoformat() if listing.published_at else None
-        ),
+        "whatsapp_sent": listing.get("whatsapp_sent"),
+        "whatsapp_sent_at": listing.get("whatsapp_sent_at"),
+        "whatsapp_groups_sent": listing.get("whatsapp_groups_sent") or [],
+        "published_at": listing.get("published_at"),
         # Metricas
-        "days_on_market": listing.days_on_market,
-        "total_views": listing.total_views,
-        "total_contacts": listing.total_contacts,
-        "total_proposals": listing.total_proposals,
+        "days_on_market": listing.get("days_on_market"),
+        "total_views": listing.get("total_views"),
+        "total_contacts": listing.get("total_contacts"),
+        "total_proposals": listing.get("total_proposals"),
         # Meta
-        "notes": listing.notes,
-        "created_at": listing.created_at.isoformat() if listing.created_at else None,
-        "updated_at": listing.updated_at.isoformat() if listing.updated_at else None,
+        "notes": listing.get("notes"),
+        "created_at": listing.get("created_at"),
+        "updated_at": listing.get("updated_at"),
     }
 
 
-def _price_history_to_dict(ph: ListingPriceHistory) -> Dict[str, Any]:
-    """Serializa ListingPriceHistory para dict."""
+def _price_history_to_dict(ph: Dict[str, Any]) -> Dict[str, Any]:
+    """Normaliza dict de ListingPriceHistory vindo do Supabase."""
     return {
-        "id": ph.id,
-        "listing_id": ph.listing_id,
-        "old_price": ph.old_price,
-        "new_price": ph.new_price,
-        "reason": ph.reason,
-        "changed_by": ph.changed_by,
-        "created_at": ph.created_at.isoformat() if ph.created_at else None,
+        "id": ph.get("id"),
+        "listing_id": ph.get("listing_id"),
+        "old_price": ph.get("old_price"),
+        "new_price": ph.get("new_price"),
+        "reason": ph.get("reason"),
+        "changed_by": ph.get("changed_by"),
+        "created_at": ph.get("created_at"),
     }
 
 
@@ -212,17 +173,16 @@ class MarketingService:
         -------
         Dict com os dados do brand kit ou None se nao existir.
         """
-        with get_session() as session:
-            # Resolver slug para ID se necessario
-            resolved_id = self._resolve_tenant_id(session, tenant_id)
-            if not resolved_id:
-                return None
+        resolved_id = self._resolve_tenant_id(tenant_id)
+        if not resolved_id:
+            return None
 
-            bk = session.execute(
-                select(BrandKit).where(BrandKit.tenant_id == resolved_id)
-            ).scalar_one_or_none()
-
-            return _brand_kit_to_dict(bk) if bk else None
+        rows = db.list_rows(
+            "brand_kits",
+            filters=f"tenant_id=eq.{resolved_id}",
+            limit=1,
+        )
+        return _brand_kit_to_dict(rows[0]) if rows else None
 
     def create_or_update_brand_kit(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Cria ou actualiza o brand kit (upsert por tenant_id).
@@ -236,42 +196,49 @@ class MarketingService:
         -------
         Dict com os dados do brand kit criado/actualizado.
         """
-        with get_session() as session:
-            tenant_id = data.get("tenant_id")
-            if not tenant_id:
-                tenant_id = _ensure_default_tenant(session)
+        tenant_id = data.get("tenant_id")
+        if not tenant_id:
+            tenant_id = _ensure_default_tenant()
 
-            bk = session.execute(
-                select(BrandKit).where(BrandKit.tenant_id == tenant_id)
-            ).scalar_one_or_none()
+        rows = db.list_rows(
+            "brand_kits",
+            filters=f"tenant_id=eq.{tenant_id}",
+            limit=1,
+        )
 
-            if bk is None:
-                bk = BrandKit(
-                    id=str(uuid4()),
-                    tenant_id=tenant_id,
-                    brand_name=data.get("brand_name", "ImoIA"),
-                )
-                session.add(bk)
-                logger.info(f"BrandKit criado para tenant {tenant_id}")
-            else:
-                logger.info(f"BrandKit actualizado para tenant {tenant_id}")
+        updatable_fields = (
+            "brand_name", "tagline", "website_url",
+            "color_primary", "color_secondary", "color_accent",
+            "font_heading", "font_body",
+            "voice_tone", "voice_description",
+            "voice_forbidden_words", "voice_preferred_words",
+            "contact_phone", "contact_email", "contact_whatsapp",
+            "social_instagram", "social_facebook", "social_linkedin",
+            "active_languages", "template_style",
+        )
 
-            updatable_fields = (
-                "brand_name", "tagline", "website_url",
-                "color_primary", "color_secondary", "color_accent",
-                "font_heading", "font_body",
-                "voice_tone", "voice_description",
-                "voice_forbidden_words", "voice_preferred_words",
-                "contact_phone", "contact_email", "contact_whatsapp",
-                "social_instagram", "social_facebook", "social_linkedin",
-                "active_languages", "template_style",
-            )
+        if not rows:
+            # Criar
+            row_data = {
+                "id": db.new_id(),
+                "tenant_id": tenant_id,
+                "brand_name": data.get("brand_name", "ImoIA"),
+            }
             for field in updatable_fields:
                 if field in data:
-                    setattr(bk, field, data[field])
+                    row_data[field] = data[field]
+            bk = db.insert("brand_kits", row_data)
+            logger.info(f"BrandKit criado para tenant {tenant_id}")
+        else:
+            # Actualizar
+            update_data = {}
+            for field in updatable_fields:
+                if field in data:
+                    update_data[field] = data[field]
+            bk = db.update("brand_kits", rows[0]["id"], update_data) if update_data else rows[0]
+            logger.info(f"BrandKit actualizado para tenant {tenant_id}")
 
-            session.flush()
-            return _brand_kit_to_dict(bk)
+        return _brand_kit_to_dict(bk)
 
     # --- Listings ---
 
@@ -294,58 +261,55 @@ class MarketingService:
         -------
         Dict com os dados do listing criado.
         """
-        with get_session() as session:
-            deal = session.get(Deal, deal_id)
-            if not deal:
-                raise ValueError(f"Deal nao encontrado: {deal_id}")
+        deal = db.get_by_id("deals", deal_id)
+        if not deal:
+            raise ValueError(f"Deal nao encontrado: {deal_id}")
 
-            prop = session.get(Property, deal.property_id)
-            tenant_id = deal.tenant_id
+        tenant_id = deal.get("tenant_id")
 
-            # Determinar preco de listagem
-            listing_type = data.get("listing_type", "venda")
-            if listing_type == "arrendamento":
-                listing_price = data.get("listing_price") or deal.monthly_rent
-            else:
-                listing_price = (
-                    data.get("listing_price")
-                    or deal.target_sale_price
-                    or deal.purchase_price
-                )
-
-            if not listing_price:
-                raise ValueError("listing_price e obrigatorio (ou definir target_sale_price/monthly_rent no deal)")
-
-            listing = Listing(
-                id=str(uuid4()),
-                tenant_id=tenant_id,
-                deal_id=deal_id,
-                listing_type=listing_type,
-                listing_price=float(listing_price),
-                floor_price=data.get("floor_price"),
-                currency=data.get("currency", "EUR"),
-                price_negotiable=data.get("price_negotiable", True),
-                price_on_request=data.get("price_on_request", False),
-                highlights=data.get("highlights", []),
-                notes=data.get("notes"),
-                status="draft",
+        # Determinar preco de listagem
+        listing_type = data.get("listing_type", "venda")
+        if listing_type == "arrendamento":
+            listing_price = data.get("listing_price") or deal.get("monthly_rent")
+        else:
+            listing_price = (
+                data.get("listing_price")
+                or deal.get("target_sale_price")
+                or deal.get("purchase_price")
             )
-            session.add(listing)
-            session.flush()
 
-            logger.info(
-                f"Listing {listing.id} criado para deal {deal_id} "
-                f"({listing_type}, {listing_price} EUR)"
-            )
-            result = _listing_to_dict(listing)
+        if not listing_price:
+            raise ValueError("listing_price e obrigatorio (ou definir target_sale_price/monthly_rent no deal)")
 
-        # Gerar conteudo IA se solicitado (fora da sessao para evitar lock)
+        listing_id = db.new_id()
+        listing = db.insert("listings", {
+            "id": listing_id,
+            "tenant_id": tenant_id,
+            "deal_id": deal_id,
+            "listing_type": listing_type,
+            "listing_price": float(listing_price),
+            "floor_price": data.get("floor_price"),
+            "currency": data.get("currency", "EUR"),
+            "price_negotiable": data.get("price_negotiable", True),
+            "price_on_request": data.get("price_on_request", False),
+            "highlights": data.get("highlights", []),
+            "notes": data.get("notes"),
+            "status": "draft",
+        })
+
+        logger.info(
+            f"Listing {listing_id} criado para deal {deal_id} "
+            f"({listing_type}, {listing_price} EUR)"
+        )
+        result = _listing_to_dict(listing)
+
+        # Gerar conteudo IA se solicitado
         if data.get("auto_generate", False):
             try:
                 generator = ContentGenerator()
                 languages = data.get("languages")
-                generator.generate_all_content(listing.id, languages=languages)
-                logger.info(f"Conteudo gerado automaticamente para listing {listing.id}")
+                generator.generate_all_content(listing_id, languages=languages)
+                logger.info(f"Conteudo gerado automaticamente para listing {listing_id}")
             except Exception as exc:
                 logger.warning(f"Erro na geracao automatica de conteudo: {exc}")
 
@@ -353,25 +317,22 @@ class MarketingService:
 
     def create_listing_in_session(
         self,
-        session: Session,
-        deal: Deal,
+        deal: Dict[str, Any],
         target_status: str,
     ) -> Dict[str, Any]:
-        """Cria listing usando sessao existente (chamado pelo hook do M4).
+        """Cria listing (chamado pelo hook do M4).
 
         Determina o tipo de listing com base no target_status do deal:
-        - 'em_venda' → listing_type='venda'
-        - 'arrendamento' → listing_type='arrendamento'
-        - 'marketing_activo' → listing_type='venda'
+        - 'em_venda' -> listing_type='venda'
+        - 'arrendamento' -> listing_type='arrendamento'
+        - 'marketing_activo' -> listing_type='venda'
 
         Usa deal.target_sale_price ou deal.monthly_rent como preco de listagem.
 
         Parametros
         ----------
-        session:
-            Sessao SQLAlchemy existente.
         deal:
-            Deal para o qual criar o listing.
+            Dict do deal para o qual criar o listing.
         target_status:
             Novo estado do deal que despoleta a criacao do listing.
 
@@ -379,67 +340,70 @@ class MarketingService:
         -------
         Dict com os dados do listing criado.
         """
+        deal_id = deal.get("id") or deal.get("deal_id")
+
         # Verificar se ja existe listing activo para este deal
-        existing = session.execute(
-            select(Listing).where(
-                Listing.deal_id == deal.id,
-                Listing.status.notin_(["vendido", "arrendado", "cancelado"]),
-            )
-        ).scalar_one_or_none()
+        existing = db.list_rows(
+            "listings",
+            filters=(
+                f"deal_id=eq.{deal_id}"
+                "&status=not.in.(vendido,arrendado,cancelado)"
+            ),
+            limit=1,
+        )
 
         if existing:
             logger.warning(
-                f"Listing ja existe para deal {deal.id}: {existing.id}"
+                f"Listing ja existe para deal {deal_id}: {existing[0]['id']}"
             )
-            return _listing_to_dict(existing)
+            return _listing_to_dict(existing[0])
 
         # Determinar tipo e preco
         if target_status == "arrendamento":
             listing_type = "arrendamento"
-            listing_price = deal.monthly_rent
+            listing_price = deal.get("monthly_rent")
         else:
             # em_venda, marketing_activo
             listing_type = "venda"
-            listing_price = deal.target_sale_price
+            listing_price = deal.get("target_sale_price")
 
         if not listing_price:
             logger.warning(
-                f"Listing nao criado para deal {deal.id}: preco nao definido"
+                f"Listing nao criado para deal {deal_id}: preco nao definido"
             )
             return {}
 
-        listing = Listing(
-            id=str(uuid4()),
-            tenant_id=deal.tenant_id,
-            deal_id=deal.id,
-            listing_type=listing_type,
-            listing_price=float(listing_price),
-            currency="EUR",
-            price_negotiable=True,
-            status="draft",
-        )
-        session.add(listing)
-        session.flush()
+        listing_id = db.new_id()
+        listing = db.insert("listings", {
+            "id": listing_id,
+            "tenant_id": deal.get("tenant_id"),
+            "deal_id": deal_id,
+            "listing_type": listing_type,
+            "listing_price": float(listing_price),
+            "currency": "EUR",
+            "price_negotiable": True,
+            "status": "draft",
+        })
 
         logger.info(
-            f"Listing {listing.id} criado em sessao para deal {deal.id} "
+            f"Listing {listing_id} criado para deal {deal_id} "
             f"({listing_type}, {listing_price} EUR, trigger: {target_status})"
         )
         return _listing_to_dict(listing)
 
     def get_listing(self, listing_id: str) -> Optional[Dict[str, Any]]:
         """Retorna um listing completo por ID."""
-        with get_session() as session:
-            listing = session.get(Listing, listing_id)
-            return _listing_to_dict(listing) if listing else None
+        listing = db.get_by_id("listings", listing_id)
+        return _listing_to_dict(listing) if listing else None
 
     def get_listing_by_deal(self, deal_id: str) -> Optional[Dict[str, Any]]:
         """Retorna listing associada a um deal."""
-        with get_session() as session:
-            listing = session.execute(
-                select(Listing).where(Listing.deal_id == deal_id)
-            ).scalar_one_or_none()
-            return _listing_to_dict(listing) if listing else None
+        rows = db.list_rows(
+            "listings",
+            filters=f"deal_id=eq.{deal_id}",
+            limit=1,
+        )
+        return _listing_to_dict(rows[0]) if rows else None
 
     def list_listings(
         self,
@@ -465,27 +429,26 @@ class MarketingService:
         -------
         Dict com total, limit, offset e items.
         """
-        with get_session() as session:
-            stmt = select(Listing)
+        filter_parts = []
+        if status:
+            filter_parts.append(f"status=eq.{status}")
+        if listing_type:
+            filter_parts.append(f"listing_type=eq.{listing_type}")
+        filters = "&".join(filter_parts)
 
-            if status:
-                stmt = stmt.where(Listing.status == status)
-            if listing_type:
-                stmt = stmt.where(Listing.listing_type == listing_type)
-
-            count_stmt = select(func.count()).select_from(stmt.subquery())
-            total = session.execute(count_stmt).scalar() or 0
-
-            stmt = stmt.order_by(Listing.updated_at.desc())
-            stmt = stmt.offset(offset).limit(limit)
-
-            listings = session.execute(stmt).scalars().all()
-            return {
-                "total": total,
-                "limit": limit,
-                "offset": offset,
-                "items": [_listing_to_dict(lst) for lst in listings],
-            }
+        result = db.list_with_count(
+            "listings",
+            filters=filters,
+            order="updated_at.desc",
+            limit=limit,
+            offset=offset,
+        )
+        return {
+            "total": result["total"],
+            "limit": limit,
+            "offset": offset,
+            "items": [_listing_to_dict(lst) for lst in result["items"]],
+        }
 
     def update_listing(
         self, listing_id: str, data: Dict[str, Any]
@@ -503,18 +466,17 @@ class MarketingService:
         -------
         Dict com o listing actualizado ou None se nao existir.
         """
-        with get_session() as session:
-            listing = session.get(Listing, listing_id)
-            if not listing:
-                return None
+        listing = db.get_by_id("listings", listing_id)
+        if not listing:
+            return None
 
-            for field_name, value in data.items():
-                if hasattr(listing, field_name):
-                    setattr(listing, field_name, value)
+        # Filtrar apenas campos validos
+        update_data = {k: v for k, v in data.items() if k != "id"}
+        if update_data:
+            listing = db.update("listings", listing_id, update_data)
 
-            session.flush()
-            logger.info(f"Listing {listing_id} actualizado: {list(data.keys())}")
-            return _listing_to_dict(listing)
+        logger.info(f"Listing {listing_id} actualizado: {list(data.keys())}")
+        return _listing_to_dict(listing)
 
     # --- Geracao de conteudo ---
 
@@ -549,15 +511,13 @@ class MarketingService:
         -------
         Dict com o listing actualizado ou None se nao existir.
         """
-        with get_session() as session:
-            listing = session.get(Listing, listing_id)
-            if not listing:
-                return None
+        listing = db.get_by_id("listings", listing_id)
+        if not listing:
+            return None
 
-            listing.status = "aprovado"
-            session.flush()
-            logger.info(f"Listing {listing_id} aprovado")
-            return _listing_to_dict(listing)
+        listing = db.update("listings", listing_id, {"status": "aprovado"})
+        logger.info(f"Listing {listing_id} aprovado")
+        return _listing_to_dict(listing)
 
     # --- Preco ---
 
@@ -585,31 +545,29 @@ class MarketingService:
         -------
         Dict com o listing actualizado ou None se nao existir.
         """
-        with get_session() as session:
-            listing = session.get(Listing, listing_id)
-            if not listing:
-                return None
+        listing = db.get_by_id("listings", listing_id)
+        if not listing:
+            return None
 
-            old_price = listing.listing_price
+        old_price = listing.get("listing_price")
 
-            history = ListingPriceHistory(
-                id=str(uuid4()),
-                listing_id=listing_id,
-                old_price=old_price,
-                new_price=new_price,
-                reason=reason,
-                changed_by=changed_by or "user",
-            )
-            session.add(history)
+        # Registar historico
+        db.insert("listing_price_history", {
+            "id": db.new_id(),
+            "listing_id": listing_id,
+            "old_price": old_price,
+            "new_price": new_price,
+            "reason": reason,
+            "changed_by": changed_by or "user",
+        })
 
-            listing.listing_price = new_price
-            session.flush()
+        listing = db.update("listings", listing_id, {"listing_price": new_price})
 
-            logger.info(
-                f"Listing {listing_id}: preco alterado "
-                f"{old_price} → {new_price} EUR"
-            )
-            return _listing_to_dict(listing)
+        logger.info(
+            f"Listing {listing_id}: preco alterado "
+            f"{old_price} -> {new_price} EUR"
+        )
+        return _listing_to_dict(listing)
 
     def get_price_history(self, listing_id: str) -> List[Dict[str, Any]]:
         """Retorna historico de precos de um listing.
@@ -623,14 +581,12 @@ class MarketingService:
         -------
         Lista de registos de historico de precos.
         """
-        with get_session() as session:
-            stmt = (
-                select(ListingPriceHistory)
-                .where(ListingPriceHistory.listing_id == listing_id)
-                .order_by(ListingPriceHistory.created_at.desc())
-            )
-            items = session.execute(stmt).scalars().all()
-            return [_price_history_to_dict(ph) for ph in items]
+        items = db.list_rows(
+            "listing_price_history",
+            filters=f"listing_id=eq.{listing_id}",
+            order="created_at.desc",
+        )
+        return [_price_history_to_dict(ph) for ph in items]
 
     # --- Estado final ---
 
@@ -650,28 +606,27 @@ class MarketingService:
         -------
         Dict com o listing actualizado ou None se nao existir.
         """
-        with get_session() as session:
-            listing = session.get(Listing, listing_id)
-            if not listing:
-                return None
+        listing = db.get_by_id("listings", listing_id)
+        if not listing:
+            return None
 
-            if sale_price is not None:
-                old_price = listing.listing_price
-                listing.listing_price = sale_price
-                history = ListingPriceHistory(
-                    id=str(uuid4()),
-                    listing_id=listing_id,
-                    old_price=old_price,
-                    new_price=sale_price,
-                    reason="Preco de venda final",
-                    changed_by="system",
-                )
-                session.add(history)
+        update_data: Dict[str, Any] = {"status": "vendido"}
 
-            listing.status = "vendido"
-            session.flush()
-            logger.info(f"Listing {listing_id} marcado como vendido")
-            return _listing_to_dict(listing)
+        if sale_price is not None:
+            old_price = listing.get("listing_price")
+            update_data["listing_price"] = sale_price
+            db.insert("listing_price_history", {
+                "id": db.new_id(),
+                "listing_id": listing_id,
+                "old_price": old_price,
+                "new_price": sale_price,
+                "reason": "Preco de venda final",
+                "changed_by": "system",
+            })
+
+        listing = db.update("listings", listing_id, update_data)
+        logger.info(f"Listing {listing_id} marcado como vendido")
+        return _listing_to_dict(listing)
 
     def mark_as_rented(self, listing_id: str) -> Optional[Dict[str, Any]]:
         """Marca um listing como arrendado.
@@ -685,15 +640,13 @@ class MarketingService:
         -------
         Dict com o listing actualizado ou None se nao existir.
         """
-        with get_session() as session:
-            listing = session.get(Listing, listing_id)
-            if not listing:
-                return None
+        listing = db.get_by_id("listings", listing_id)
+        if not listing:
+            return None
 
-            listing.status = "arrendado"
-            session.flush()
-            logger.info(f"Listing {listing_id} marcado como arrendado")
-            return _listing_to_dict(listing)
+        listing = db.update("listings", listing_id, {"status": "arrendado"})
+        logger.info(f"Listing {listing_id} marcado como arrendado")
+        return _listing_to_dict(listing)
 
     # --- Publicacao (stubs) ---
 
@@ -759,122 +712,122 @@ class MarketingService:
         -------
         Dict com as estatisticas.
         """
-        with get_session() as session:
-            active_statuses = ("draft", "aprovado", "publicado")
-            stmt = select(Listing).where(Listing.status.in_(active_statuses))
-            listings = session.execute(stmt).scalars().all()
+        listings = db.list_rows(
+            "listings",
+            filters="status=in.(draft,aprovado,publicado)",
+            limit=1000,
+        )
 
-            total_value = sum(lst.listing_price for lst in listings)
-            avg_days = (
-                round(
-                    sum(lst.days_on_market for lst in listings) / len(listings), 1
-                )
-                if listings
-                else 0.0
+        total_value = sum(lst.get("listing_price", 0) or 0 for lst in listings)
+        avg_days = (
+            round(
+                sum(lst.get("days_on_market", 0) or 0 for lst in listings) / len(listings), 1
             )
-            total_views = sum(lst.total_views for lst in listings)
-            total_contacts = sum(lst.total_contacts for lst in listings)
+            if listings
+            else 0.0
+        )
+        total_views = sum(lst.get("total_views", 0) or 0 for lst in listings)
+        total_contacts = sum(lst.get("total_contacts", 0) or 0 for lst in listings)
 
-            # Distribuicao por tipo
-            by_type: Dict[str, int] = {}
-            for lst in listings:
-                by_type[lst.listing_type] = by_type.get(lst.listing_type, 0) + 1
+        # Distribuicao por tipo
+        by_type: Dict[str, int] = {}
+        for lst in listings:
+            lt = lst.get("listing_type", "unknown")
+            by_type[lt] = by_type.get(lt, 0) + 1
 
-            # Distribuicao por estado
-            by_status: Dict[str, int] = {}
-            for lst in listings:
-                by_status[lst.status] = by_status.get(lst.status, 0) + 1
+        # Distribuicao por estado
+        by_status: Dict[str, int] = {}
+        for lst in listings:
+            st = lst.get("status", "unknown")
+            by_status[st] = by_status.get(st, 0) + 1
 
-            return {
-                "active_listings": len(listings),
-                "total_value": total_value,
-                "avg_days_on_market": avg_days,
-                "total_views": total_views,
-                "total_contacts": total_contacts,
-                "by_type": by_type,
-                "by_status": by_status,
-            }
+        return {
+            "active_listings": len(listings),
+            "total_value": total_value,
+            "avg_days_on_market": avg_days,
+            "total_views": total_views,
+            "total_contacts": total_contacts,
+            "by_type": by_type,
+            "by_status": by_status,
+        }
 
     # --- Hook M4 ---
 
     def handle_deal_advance(
         self,
-        session: Session,
-        deal: Deal,
+        deal: Dict[str, Any],
         new_status: str,
     ) -> None:
         """Chamado pelo M4 quando um deal avanca de estado.
 
         Cria ou actualiza listings com base no novo estado:
-        - 'em_venda' → cria listing do tipo 'venda'
-        - 'arrendamento' → cria listing do tipo 'arrendamento'
-        - 'marketing_activo' → cria/activa listing do tipo 'venda'
-        - 'cpcv_venda' → sem accao (listing ja criado)
-        - 'escritura_venda' → marca listing como vendido
+        - 'em_venda' -> cria listing do tipo 'venda'
+        - 'arrendamento' -> cria listing do tipo 'arrendamento'
+        - 'marketing_activo' -> cria/activa listing do tipo 'venda'
+        - 'cpcv_venda' -> sem accao (listing ja criado)
+        - 'escritura_venda' -> marca listing como vendido
 
         Parametros
         ----------
-        session:
-            Sessao SQLAlchemy existente.
         deal:
-            Deal que avancou de estado.
+            Dict do deal que avancou de estado.
         new_status:
             Novo estado do deal.
         """
+        deal_id = deal.get("id") or deal.get("deal_id")
         try:
             if new_status in ("em_venda", "arrendamento", "marketing_activo"):
-                result = self.create_listing_in_session(session, deal, new_status)
+                result = self.create_listing_in_session(deal, new_status)
                 if result:
                     logger.info(
-                        f"M7: Listing criado para deal {deal.id} "
+                        f"M7: Listing criado para deal {deal_id} "
                         f"(trigger: {new_status})"
                     )
 
             elif new_status == "escritura_venda":
                 # Marcar listing activo como vendido
-                existing = session.execute(
-                    select(Listing).where(
-                        Listing.deal_id == deal.id,
-                        Listing.status.notin_(["vendido", "arrendado", "cancelado"]),
-                    )
-                ).scalar_one_or_none()
+                existing = db.list_rows(
+                    "listings",
+                    filters=(
+                        f"deal_id=eq.{deal_id}"
+                        "&status=not.in.(vendido,arrendado,cancelado)"
+                    ),
+                    limit=1,
+                )
 
                 if existing:
-                    existing.status = "vendido"
-                    sale_price = deal.actual_sale_price or deal.target_sale_price
+                    update_data: Dict[str, Any] = {"status": "vendido"}
+                    sale_price = deal.get("actual_sale_price") or deal.get("target_sale_price")
                     if sale_price:
-                        existing.listing_price = sale_price
-                    session.flush()
+                        update_data["listing_price"] = sale_price
+                    db.update("listings", existing[0]["id"], update_data)
                     logger.info(
-                        f"M7: Listing {existing.id} marcado como vendido "
-                        f"(deal {deal.id}, escritura)"
+                        f"M7: Listing {existing[0]['id']} marcado como vendido "
+                        f"(deal {deal_id}, escritura)"
                     )
 
             elif new_status == "cpcv_venda":
                 # Sem accao especifica no M7; listing continua activo
                 logger.debug(
-                    f"M7: CPCV assinado para deal {deal.id} — "
+                    f"M7: CPCV assinado para deal {deal_id} — "
                     f"listing permanece activo"
                 )
 
         except Exception as exc:
             logger.warning(
-                f"M7 handle_deal_advance erro (deal {deal.id}, "
+                f"M7 handle_deal_advance erro (deal {deal_id}, "
                 f"status {new_status}): {exc}"
             )
 
     # --- Helpers privados ---
 
-    def _resolve_tenant_id(
-        self, session: Session, tenant_id: str
-    ) -> Optional[str]:
+    def _resolve_tenant_id(self, tenant_id: str) -> Optional[str]:
         """Resolve o ID de um tenant a partir do ID ou slug."""
         if tenant_id == _DEFAULT_TENANT_SLUG or len(tenant_id) != 36:
-            # Pode ser um slug
-            tenant = session.execute(
-                select(Tenant).where(
-                    (Tenant.slug == tenant_id) | (Tenant.id == tenant_id)
-                )
-            ).scalar_one_or_none()
-            return tenant.id if tenant else None
+            # Pode ser um slug — procurar por slug ou id
+            rows = db._get(
+                "tenants",
+                f"or=(slug.eq.{tenant_id},id.eq.{tenant_id})&limit=1",
+            )
+            return rows[0]["id"] if rows else None
         return tenant_id

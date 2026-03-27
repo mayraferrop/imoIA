@@ -214,58 +214,56 @@ async def get_cash_flow(model_id: str) -> Dict[str, Any]:
     o pico maximo de capital necessario, e o saldo final.
     Equivalente a aba '02_Fluxo' do Excel.
     """
-    from src.database.db import get_session
-    from src.database.models_v2 import FinancialModel
+    from src.database import supabase_rest as db
 
-    with get_session() as session:
-        model = session.get(FinancialModel, model_id)
-        if model is None:
-            raise HTTPException(
-                status_code=404, detail="Modelo nao encontrado"
-            )
-
-        # Reconstruir input a partir do modelo persistido
-        inp = FinancialInput(
-            purchase_price=model.purchase_price or 0,
-            country=model.country or "PT",
-            entity_structure=model.entity_structure or "pf_jp",
-            imt_resale_regime=model.imt_resale_regime or "none",
-            renovation_budget=model.renovation_budget,
-            renovation_contingency_pct=model.renovation_contingency_pct,
-            renovation_duration_months=model.renovation_duration_months,
-            financing_type=model.financing_type or "cash",
-            loan_amount=model.loan_amount,
-            interest_rate_pct=model.interest_rate_pct,
-            loan_term_months=model.loan_term_months,
-            estimated_sale_price=model.estimated_sale_price,
-            comissao_venda_pct=model.comissao_venda_pct,
-            additional_holding_months=max(
-                model.holding_months - model.renovation_duration_months, 0
-            ),
-            monthly_condominio=model.monthly_condominio,
-            annual_insurance=model.monthly_insurance * 12,
-            monthly_consumos=getattr(model, "monthly_consumos", 0) or 0,
-            comissao_compra_pct=model.comissao_compra_pct,
+    model = db.get_by_id("financial_models", model_id)
+    if model is None:
+        raise HTTPException(
+            status_code=404, detail="Modelo nao encontrado"
         )
 
-        # Reconstruir result parcial necessario para cash flow
-        from src.modules.m3_financial.calculator import FinancialResult
+    # Reconstruir input a partir do modelo persistido
+    inp = FinancialInput(
+        purchase_price=model.get("purchase_price") or 0,
+        country=model.get("country") or "PT",
+        entity_structure=model.get("entity_structure") or "pf_jp",
+        imt_resale_regime=model.get("imt_resale_regime") or "none",
+        renovation_budget=model.get("renovation_budget"),
+        renovation_contingency_pct=model.get("renovation_contingency_pct"),
+        renovation_duration_months=model.get("renovation_duration_months"),
+        financing_type=model.get("financing_type") or "cash",
+        loan_amount=model.get("loan_amount"),
+        interest_rate_pct=model.get("interest_rate_pct"),
+        loan_term_months=model.get("loan_term_months"),
+        estimated_sale_price=model.get("estimated_sale_price"),
+        comissao_venda_pct=model.get("comissao_venda_pct"),
+        additional_holding_months=max(
+            (model.get("holding_months") or 0) - (model.get("renovation_duration_months") or 0), 0
+        ),
+        monthly_condominio=model.get("monthly_condominio"),
+        annual_insurance=(model.get("monthly_insurance") or 0) * 12,
+        monthly_consumos=model.get("monthly_consumos") or 0,
+        comissao_compra_pct=model.get("comissao_compra_pct"),
+    )
 
-        res = FinancialResult(
-            entity_structure=model.entity_structure or "pf_jp",
-            imt=model.imt,
-            imposto_selo=model.imposto_selo,
-            notario_registo=model.notario_registo,
-            comissao_compra=model.comissao_compra,
-            total_acquisition_cost_2=model.total_acquisition_cost_2,
-            bank_fees=model.bank_fees,
-            interest_rate_pct=model.interest_rate_pct,
-            loan_amount=model.loan_amount,
-            monthly_payment=model.monthly_payment,
-            holding_months=model.holding_months,
-        )
+    # Reconstruir result parcial necessario para cash flow
+    from src.modules.m3_financial.calculator import FinancialResult
 
-        return calculator.calc_cash_flow(inp, res)
+    res = FinancialResult(
+        entity_structure=model.get("entity_structure") or "pf_jp",
+        imt=model.get("imt"),
+        imposto_selo=model.get("imposto_selo"),
+        notario_registo=model.get("notario_registo"),
+        comissao_compra=model.get("comissao_compra"),
+        total_acquisition_cost_2=model.get("total_acquisition_cost_2"),
+        bank_fees=model.get("bank_fees"),
+        interest_rate_pct=model.get("interest_rate_pct"),
+        loan_amount=model.get("loan_amount"),
+        monthly_payment=model.get("monthly_payment"),
+        holding_months=model.get("holding_months"),
+    )
+
+    return calculator.calc_cash_flow(inp, res)
 
 
 @router.post("/{model_id}/export-cashflow", summary="Exportar para CashFlow Pro")

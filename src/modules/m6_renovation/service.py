@@ -2,32 +2,19 @@
 
 Logica de negocio para gestao de obras/renovacoes, milestones, despesas e fotos
 associadas a deals imobiliarios fix and flip.
+
+Persistencia via Supabase REST (sem SQLAlchemy).
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from uuid import uuid4
 
 from loguru import logger
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
-from src.database.db import get_session
-from src.database.models_v2 import (
-    Deal,
-    Property,
-    Renovation,
-    RenovationExpense,
-    RenovationMilestone,
-    RenovationPhoto,
-    Tenant,
-)
+from src.database import supabase_rest as db
 from src.modules.m6_renovation.templates import get_milestone_template
-from src.shared.document_storage import DocumentStorageService
-
-_DEFAULT_TENANT_SLUG = "default"
 
 # Metodos de pagamento que permitem dedutibilidade fiscal
 _TAX_DEDUCTIBLE_PAYMENT_METHODS = ("transferencia", "cartao", "mbway")
@@ -38,193 +25,220 @@ _TAX_DEDUCTIBLE_PAYMENT_METHODS = ("transferencia", "cartao", "mbway")
 # ---------------------------------------------------------------------------
 
 
-def _ensure_default_tenant(session: Session) -> str:
-    """Garante que o tenant default existe e retorna o id."""
-    tenant = session.execute(
-        select(Tenant).where(Tenant.slug == _DEFAULT_TENANT_SLUG)
-    ).scalar_one_or_none()
-
-    if tenant is None:
-        tenant = Tenant(
-            id=str(uuid4()),
-            name="ImoIA",
-            slug=_DEFAULT_TENANT_SLUG,
-            country="PT",
-        )
-        session.add(tenant)
-        session.flush()
-        logger.info("Tenant default criado")
-
-    return tenant.id
-
-
-def _renovation_to_dict(r: Renovation) -> Dict[str, Any]:
-    """Serializa Renovation para dict."""
+def _renovation_to_dict(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Normaliza um registo de renovations para o formato da API."""
     return {
-        "id": r.id,
-        "tenant_id": r.tenant_id,
-        "deal_id": r.deal_id,
-        "initial_budget": r.initial_budget,
-        "current_budget": r.current_budget,
-        "total_spent": r.total_spent,
-        "total_committed": r.total_committed,
-        "budget_variance_pct": r.budget_variance_pct,
-        "contingency_pct": r.contingency_pct,
-        "contingency_amount": r.contingency_amount,
-        "planned_start": r.planned_start.isoformat() if r.planned_start else None,
-        "actual_start": r.actual_start.isoformat() if r.actual_start else None,
-        "planned_end": r.planned_end.isoformat() if r.planned_end else None,
-        "estimated_end": r.estimated_end.isoformat() if r.estimated_end else None,
-        "actual_end": r.actual_end.isoformat() if r.actual_end else None,
-        "planned_duration_days": r.planned_duration_days,
-        "delay_days": r.delay_days,
-        "delay_reason": r.delay_reason,
-        "contractor_name": r.contractor_name,
-        "contractor_phone": r.contractor_phone,
-        "contractor_email": r.contractor_email,
-        "contractor_nif": r.contractor_nif,
-        "license_type": r.license_type,
-        "license_status": r.license_status,
-        "license_number": r.license_number,
-        "is_aru": r.is_aru,
-        "status": r.status,
-        "progress_pct": r.progress_pct,
-        "scope_description": r.scope_description,
-        "notes": r.notes,
-        "cashflow_project_id": r.cashflow_project_id,
-        "cashflow_project_name": r.cashflow_project_name,
-        "last_synced_at": r.last_synced_at.isoformat() if r.last_synced_at else None,
-        "created_at": r.created_at.isoformat() if r.created_at else None,
-        "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+        "id": row.get("id"),
+        "tenant_id": row.get("tenant_id"),
+        "deal_id": row.get("deal_id"),
+        "initial_budget": row.get("initial_budget"),
+        "current_budget": row.get("current_budget"),
+        "total_spent": row.get("total_spent"),
+        "total_committed": row.get("total_committed"),
+        "budget_variance_pct": row.get("budget_variance_pct"),
+        "contingency_pct": row.get("contingency_pct"),
+        "contingency_amount": row.get("contingency_amount"),
+        "planned_start": row.get("planned_start"),
+        "actual_start": row.get("actual_start"),
+        "planned_end": row.get("planned_end"),
+        "estimated_end": row.get("estimated_end"),
+        "actual_end": row.get("actual_end"),
+        "planned_duration_days": row.get("planned_duration_days"),
+        "delay_days": row.get("delay_days"),
+        "delay_reason": row.get("delay_reason"),
+        "contractor_name": row.get("contractor_name"),
+        "contractor_phone": row.get("contractor_phone"),
+        "contractor_email": row.get("contractor_email"),
+        "contractor_nif": row.get("contractor_nif"),
+        "license_type": row.get("license_type"),
+        "license_status": row.get("license_status"),
+        "license_number": row.get("license_number"),
+        "is_aru": row.get("is_aru"),
+        "status": row.get("status"),
+        "progress_pct": row.get("progress_pct"),
+        "scope_description": row.get("scope_description"),
+        "notes": row.get("notes"),
+        "cashflow_project_id": row.get("cashflow_project_id"),
+        "cashflow_project_name": row.get("cashflow_project_name"),
+        "last_synced_at": row.get("last_synced_at"),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
     }
 
 
-def _milestone_to_dict(m: RenovationMilestone) -> Dict[str, Any]:
-    """Serializa RenovationMilestone para dict."""
+def _milestone_to_dict(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Normaliza um registo de renovation_milestones para o formato da API."""
     return {
-        "id": m.id,
-        "renovation_id": m.renovation_id,
-        "name": m.name,
-        "category": m.category,
-        "description": m.description,
-        "sort_order": m.sort_order,
-        "budget": m.budget,
-        "spent": m.spent,
-        "variance_pct": m.variance_pct,
-        "planned_start": m.planned_start.isoformat() if m.planned_start else None,
-        "planned_end": m.planned_end.isoformat() if m.planned_end else None,
-        "actual_start": m.actual_start.isoformat() if m.actual_start else None,
-        "actual_end": m.actual_end.isoformat() if m.actual_end else None,
-        "duration_days": m.duration_days,
-        "status": m.status,
-        "completion_pct": m.completion_pct,
-        "depends_on_id": m.depends_on_id,
-        "supplier_name": m.supplier_name,
-        "supplier_phone": m.supplier_phone,
-        "supplier_nif": m.supplier_nif,
-        "notes": m.notes,
-        "created_at": m.created_at.isoformat() if m.created_at else None,
-        "updated_at": m.updated_at.isoformat() if m.updated_at else None,
+        "id": row.get("id"),
+        "renovation_id": row.get("renovation_id"),
+        "name": row.get("name"),
+        "category": row.get("category"),
+        "description": row.get("description"),
+        "sort_order": row.get("sort_order"),
+        "budget": row.get("budget"),
+        "spent": row.get("spent"),
+        "variance_pct": row.get("variance_pct"),
+        "planned_start": row.get("planned_start"),
+        "planned_end": row.get("planned_end"),
+        "actual_start": row.get("actual_start"),
+        "actual_end": row.get("actual_end"),
+        "duration_days": row.get("duration_days"),
+        "status": row.get("status"),
+        "completion_pct": row.get("completion_pct"),
+        "depends_on_id": row.get("depends_on_id"),
+        "supplier_name": row.get("supplier_name"),
+        "supplier_phone": row.get("supplier_phone"),
+        "supplier_nif": row.get("supplier_nif"),
+        "notes": row.get("notes"),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
     }
 
 
-def _expense_to_dict(e: RenovationExpense) -> Dict[str, Any]:
-    """Serializa RenovationExpense para dict."""
+def _expense_to_dict(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Normaliza um registo de renovation_expenses para o formato da API."""
     return {
-        "id": e.id,
-        "renovation_id": e.renovation_id,
-        "milestone_id": e.milestone_id,
-        "description": e.description,
-        "category": e.category,
-        "amount": e.amount,
-        "currency": e.currency,
-        "supplier_name": e.supplier_name,
-        "supplier_nif": e.supplier_nif,
-        "invoice_number": e.invoice_number,
-        "invoice_date": e.invoice_date.isoformat() if e.invoice_date else None,
-        "invoice_document_id": e.invoice_document_id,
-        "has_valid_invoice": e.has_valid_invoice,
-        "payment_method": e.payment_method,
-        "is_tax_deductible": e.is_tax_deductible,
-        "payment_status": e.payment_status,
-        "paid_amount": e.paid_amount,
-        "paid_date": e.paid_date.isoformat() if e.paid_date else None,
-        "expense_date": e.expense_date.isoformat() if e.expense_date else None,
-        "external_id": e.external_id,
-        "external_source": e.external_source,
-        "notes": e.notes,
-        "created_at": e.created_at.isoformat() if e.created_at else None,
+        "id": row.get("id"),
+        "renovation_id": row.get("renovation_id"),
+        "milestone_id": row.get("milestone_id"),
+        "description": row.get("description"),
+        "category": row.get("category"),
+        "amount": row.get("amount"),
+        "currency": row.get("currency"),
+        "supplier_name": row.get("supplier_name"),
+        "supplier_nif": row.get("supplier_nif"),
+        "invoice_number": row.get("invoice_number"),
+        "invoice_date": row.get("invoice_date"),
+        "invoice_document_id": row.get("invoice_document_id"),
+        "has_valid_invoice": row.get("has_valid_invoice"),
+        "payment_method": row.get("payment_method"),
+        "is_tax_deductible": row.get("is_tax_deductible"),
+        "payment_status": row.get("payment_status"),
+        "paid_amount": row.get("paid_amount"),
+        "paid_date": row.get("paid_date"),
+        "expense_date": row.get("expense_date"),
+        "external_id": row.get("external_id"),
+        "external_source": row.get("external_source"),
+        "notes": row.get("notes"),
+        "created_at": row.get("created_at"),
     }
 
 
-def _photo_to_dict(p: RenovationPhoto) -> Dict[str, Any]:
-    """Serializa RenovationPhoto para dict."""
+def _photo_to_dict(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Normaliza um registo de renovation_photos para o formato da API."""
     return {
-        "id": p.id,
-        "renovation_id": p.renovation_id,
-        "milestone_id": p.milestone_id,
-        "document_id": p.document_id,
-        "photo_type": p.photo_type,
-        "caption": p.caption,
-        "taken_at": p.taken_at.isoformat() if p.taken_at else None,
-        "taken_by": p.taken_by,
-        "room_area": p.room_area,
-        "sort_order": p.sort_order,
-        "created_at": p.created_at.isoformat() if p.created_at else None,
+        "id": row.get("id"),
+        "renovation_id": row.get("renovation_id"),
+        "milestone_id": row.get("milestone_id"),
+        "document_id": row.get("document_id"),
+        "photo_type": row.get("photo_type"),
+        "caption": row.get("caption"),
+        "taken_at": row.get("taken_at"),
+        "taken_by": row.get("taken_by"),
+        "room_area": row.get("room_area"),
+        "sort_order": row.get("sort_order"),
+        "created_at": row.get("created_at"),
     }
 
 
-def _recalc_totals(session: Session, renovation_id: str) -> None:
+def _recalc_totals(renovation_id: str) -> None:
     """Recalcula total_spent, budget_variance_pct e progress_pct da renovacao.
 
     Agrega todas as despesas pagas ou pendentes, recalcula a variacao orcamental
     e actualiza o progresso ponderado com base nos milestones.
     """
-    renovation = session.get(Renovation, renovation_id)
+    renovation = db.get_by_id("renovations", renovation_id)
     if not renovation:
         return
 
     # Recalcular total_spent a partir das despesas
-    expenses_stmt = select(RenovationExpense).where(
-        RenovationExpense.renovation_id == renovation_id
+    expenses = db.list_rows(
+        "renovation_expenses",
+        filters=f"renovation_id=eq.{renovation_id}",
     )
-    expenses = session.execute(expenses_stmt).scalars().all()
-    total_spent = sum(e.amount for e in expenses)
-    renovation.total_spent = total_spent
+    total_spent = sum(e.get("amount", 0) or 0 for e in expenses)
 
     # Recalcular variacao orcamental
-    current_budget = renovation.current_budget or renovation.initial_budget
+    current_budget = renovation.get("current_budget") or renovation.get("initial_budget")
     if current_budget and current_budget > 0:
-        renovation.budget_variance_pct = round(
-            (total_spent / current_budget) * 100, 2
-        )
+        budget_variance_pct = round((total_spent / current_budget) * 100, 2)
     else:
-        renovation.budget_variance_pct = 0.0
+        budget_variance_pct = 0.0
 
     # Recalcular progress_pct como media ponderada por orcamento dos milestones
-    milestones_stmt = select(RenovationMilestone).where(
-        RenovationMilestone.renovation_id == renovation_id
+    milestones = db.list_rows(
+        "renovation_milestones",
+        filters=f"renovation_id=eq.{renovation_id}",
     )
-    milestones = session.execute(milestones_stmt).scalars().all()
 
     if milestones:
-        total_budget_weight = sum(m.budget for m in milestones)
+        total_budget_weight = sum(m.get("budget", 0) or 0 for m in milestones)
         if total_budget_weight > 0:
             weighted_sum = sum(
-                m.completion_pct * m.budget for m in milestones
+                (m.get("completion_pct", 0) or 0) * (m.get("budget", 0) or 0)
+                for m in milestones
             )
-            renovation.progress_pct = round(
-                weighted_sum / total_budget_weight, 1
-            )
+            progress_pct = round(weighted_sum / total_budget_weight, 1)
         else:
             # Sem pesos, usar media simples
-            renovation.progress_pct = round(
-                sum(m.completion_pct for m in milestones) / len(milestones), 1
+            progress_pct = round(
+                sum(m.get("completion_pct", 0) or 0 for m in milestones) / len(milestones),
+                1,
             )
     else:
-        renovation.progress_pct = 0.0
+        progress_pct = 0.0
 
-    session.flush()
+    db.update("renovations", renovation_id, {
+        "total_spent": total_spent,
+        "budget_variance_pct": budget_variance_pct,
+        "progress_pct": progress_pct,
+    })
+
+
+def _create_milestones_from_template(
+    renovation_id: str,
+    initial_budget: float,
+    property_type: str,
+    strategy: Optional[str],
+) -> int:
+    """Cria milestones a partir do template e resolve dependencias. Retorna contagem."""
+    template_items = get_milestone_template(property_type, strategy)
+
+    # Primeira passagem: criar todos os milestones (sem dependencias)
+    created_milestones: Dict[str, Dict[str, Any]] = {}
+    for idx, tmpl in enumerate(template_items):
+        budget_pct = float(tmpl.get("budget_pct", 0))
+        milestone_budget = round(initial_budget * budget_pct / 100, 2)
+
+        row = {
+            "id": db.new_id(),
+            "renovation_id": renovation_id,
+            "name": tmpl.get("name", f"Fase {idx + 1}"),
+            "category": tmpl.get("category", "geral"),
+            "description": tmpl.get("description"),
+            "sort_order": tmpl.get("sort_order", idx),
+            "budget": milestone_budget,
+            "duration_days": tmpl.get("duration_days"),
+            "status": "pendente",
+            "completion_pct": 0,
+        }
+        inserted = db.insert("renovation_milestones", row)
+        created_milestones[tmpl.get("name", "")] = inserted
+
+    # Segunda passagem: resolver dependencias por nome
+    for tmpl in template_items:
+        depends_on_name = tmpl.get("depends_on")
+        if depends_on_name and depends_on_name in created_milestones:
+            current = created_milestones.get(tmpl.get("name", ""))
+            dep = created_milestones[depends_on_name]
+            if current:
+                db.update(
+                    "renovation_milestones",
+                    current["id"],
+                    {"depends_on_id": dep["id"]},
+                )
+
+    return len(created_milestones)
 
 
 # ---------------------------------------------------------------------------
@@ -246,316 +260,267 @@ class RenovationService:
         gera automaticamente os milestones a partir do template adequado ao
         tipo de imovel.
         """
-        with get_session() as session:
-            deal = session.get(Deal, deal_id)
-            if not deal:
-                raise ValueError(f"Deal nao encontrado: {deal_id}")
+        deal = db.get_by_id("deals", deal_id)
+        if not deal:
+            raise ValueError(f"Deal nao encontrado: {deal_id}")
 
-            tenant_id = deal.tenant_id
+        tenant_id = deal["tenant_id"]
 
-            # Verificar se ja existe renovacao para este deal
-            existing = session.execute(
-                select(Renovation).where(Renovation.deal_id == deal_id)
-            ).scalar_one_or_none()
-            if existing:
-                raise ValueError(
-                    f"Renovacao ja existe para o deal {deal_id}: {existing.id}"
-                )
-
-            initial_budget = float(data.get("initial_budget", 50000))
-            contingency_pct = float(data.get("contingency_pct", 15))
-            contingency_amount = round(initial_budget * contingency_pct / 100, 2)
-
-            renovation = Renovation(
-                id=str(uuid4()),
-                tenant_id=tenant_id,
-                deal_id=deal_id,
-                initial_budget=initial_budget,
-                current_budget=initial_budget,
-                contingency_pct=contingency_pct,
-                contingency_amount=contingency_amount,
-                planned_start=data.get("planned_start"),
-                planned_end=data.get("planned_end"),
-                planned_duration_days=data.get("planned_duration_days"),
-                contractor_name=data.get("contractor_name"),
-                contractor_phone=data.get("contractor_phone"),
-                contractor_email=data.get("contractor_email"),
-                contractor_nif=data.get("contractor_nif"),
-                license_type=data.get("license_type", "isento"),
-                license_status=data.get("license_status", "na"),
-                license_number=data.get("license_number"),
-                is_aru=data.get("is_aru", False),
-                scope_description=data.get("scope_description"),
-                notes=data.get("notes"),
-                status="planeamento",
-            )
-            session.add(renovation)
-            session.flush()
-
-            # Gerar milestones automaticos a partir do template
-            milestone_count = 0
-            auto_milestones = data.get("auto_milestones", True)
-            if auto_milestones:
-                prop = session.get(Property, deal.property_id)
-                property_type = (prop.property_type if prop else None) or "apartamento"
-                strategy = deal.investment_strategy
-
-                template_items = get_milestone_template(property_type, strategy)
-
-                # Primeira passagem: criar todos os milestones (sem dependencias)
-                created_milestones: Dict[str, RenovationMilestone] = {}
-                for idx, tmpl in enumerate(template_items):
-                    budget_pct = float(tmpl.get("budget_pct", 0))
-                    milestone_budget = round(initial_budget * budget_pct / 100, 2)
-
-                    milestone = RenovationMilestone(
-                        id=str(uuid4()),
-                        renovation_id=renovation.id,
-                        name=tmpl.get("name", f"Fase {idx + 1}"),
-                        category=tmpl.get("category", "geral"),
-                        description=tmpl.get("description"),
-                        sort_order=tmpl.get("sort_order", idx),
-                        budget=milestone_budget,
-                        duration_days=tmpl.get("duration_days"),
-                        status="pendente",
-                        completion_pct=0,
-                    )
-                    session.add(milestone)
-                    session.flush()
-                    created_milestones[tmpl.get("name", "")] = milestone
-                    milestone_count += 1
-
-                # Segunda passagem: resolver dependencias por nome
-                for tmpl in template_items:
-                    depends_on_name = tmpl.get("depends_on")
-                    if depends_on_name and depends_on_name in created_milestones:
-                        current = created_milestones.get(tmpl.get("name", ""))
-                        dep = created_milestones[depends_on_name]
-                        if current:
-                            current.depends_on_id = dep.id
-
-                session.flush()
-
-            logger.info(
-                f"Renovacao {renovation.id} criada para deal {deal_id} "
-                f"(orcamento: {initial_budget}EUR, {milestone_count} milestones)"
+        # Verificar se ja existe renovacao para este deal
+        existing = db.list_rows(
+            "renovations",
+            filters=f"deal_id=eq.{deal_id}",
+            limit=1,
+        )
+        if existing:
+            raise ValueError(
+                f"Renovacao ja existe para o deal {deal_id}: {existing[0]['id']}"
             )
 
-            result = _renovation_to_dict(renovation)
-            result["milestone_count"] = milestone_count
-            return result
+        initial_budget = float(data.get("initial_budget", 50000))
+        contingency_pct = float(data.get("contingency_pct", 15))
+        contingency_amount = round(initial_budget * contingency_pct / 100, 2)
+
+        row = {
+            "id": db.new_id(),
+            "tenant_id": tenant_id,
+            "deal_id": deal_id,
+            "initial_budget": initial_budget,
+            "current_budget": initial_budget,
+            "contingency_pct": contingency_pct,
+            "contingency_amount": contingency_amount,
+            "planned_start": data.get("planned_start"),
+            "planned_end": data.get("planned_end"),
+            "planned_duration_days": data.get("planned_duration_days"),
+            "contractor_name": data.get("contractor_name"),
+            "contractor_phone": data.get("contractor_phone"),
+            "contractor_email": data.get("contractor_email"),
+            "contractor_nif": data.get("contractor_nif"),
+            "license_type": data.get("license_type", "isento"),
+            "license_status": data.get("license_status", "na"),
+            "license_number": data.get("license_number"),
+            "is_aru": data.get("is_aru", False),
+            "scope_description": data.get("scope_description"),
+            "notes": data.get("notes"),
+            "status": "planeamento",
+        }
+        renovation = db.insert("renovations", row)
+
+        # Gerar milestones automaticos a partir do template
+        milestone_count = 0
+        auto_milestones = data.get("auto_milestones", True)
+        if auto_milestones:
+            prop = (
+                db.get_by_id("properties", deal["property_id"])
+                if deal.get("property_id")
+                else None
+            )
+            property_type = (prop.get("property_type") if prop else None) or "apartamento"
+            strategy = deal.get("investment_strategy")
+
+            milestone_count = _create_milestones_from_template(
+                renovation["id"], initial_budget, property_type, strategy
+            )
+
+        logger.info(
+            f"Renovacao {renovation['id']} criada para deal {deal_id} "
+            f"(orcamento: {initial_budget}EUR, {milestone_count} milestones)"
+        )
+
+        result = _renovation_to_dict(renovation)
+        result["milestone_count"] = milestone_count
+        return result
 
     def create_renovation_in_session(
-        self, session: Session, deal: Deal
+        self, deal_id: str, deal_data: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Cria renovacao usando sessao existente (chamado pelo M4 advance_deal).
+        """Cria renovacao para um deal (chamado pelo M4 advance_deal).
 
+        Aceita deal_data como dict em vez de objecto ORM.
+        Se deal_data nao for fornecido, busca o deal pelo id.
         Usa deal.renovation_budget como orcamento inicial (50000 se None).
-        Obtém o property_type da propriedade associada ao deal.
         """
+        if not deal_data:
+            deal_data = db.get_by_id("deals", deal_id)
+            if not deal_data:
+                raise ValueError(f"Deal nao encontrado: {deal_id}")
+
         # Verificar se ja existe renovacao para este deal
-        existing = session.execute(
-            select(Renovation).where(Renovation.deal_id == deal.id)
-        ).scalar_one_or_none()
+        existing = db.list_rows(
+            "renovations",
+            filters=f"deal_id=eq.{deal_id}",
+            limit=1,
+        )
         if existing:
             logger.warning(
-                f"Renovacao ja existe para deal {deal.id}: {existing.id}"
+                f"Renovacao ja existe para deal {deal_id}: {existing[0]['id']}"
             )
-            return _renovation_to_dict(existing)
+            return _renovation_to_dict(existing[0])
 
-        initial_budget = float(deal.renovation_budget or 50000)
+        initial_budget = float(deal_data.get("renovation_budget") or 50000)
         contingency_pct = 15.0
         contingency_amount = round(initial_budget * contingency_pct / 100, 2)
 
-        renovation = Renovation(
-            id=str(uuid4()),
-            tenant_id=deal.tenant_id,
-            deal_id=deal.id,
-            initial_budget=initial_budget,
-            current_budget=initial_budget,
-            contingency_pct=contingency_pct,
-            contingency_amount=contingency_amount,
-            status="planeamento",
-        )
-        session.add(renovation)
-        session.flush()
+        row = {
+            "id": db.new_id(),
+            "tenant_id": deal_data.get("tenant_id"),
+            "deal_id": deal_id,
+            "initial_budget": initial_budget,
+            "current_budget": initial_budget,
+            "contingency_pct": contingency_pct,
+            "contingency_amount": contingency_amount,
+            "status": "planeamento",
+        }
+        renovation = db.insert("renovations", row)
 
         # Milestones automaticos
-        prop = session.get(Property, deal.property_id)
-        property_type = (prop.property_type if prop else None) or "apartamento"
-        strategy = deal.investment_strategy
-        template_items = get_milestone_template(property_type, strategy)
+        prop = (
+            db.get_by_id("properties", deal_data["property_id"])
+            if deal_data.get("property_id")
+            else None
+        )
+        property_type = (prop.get("property_type") if prop else None) or "apartamento"
+        strategy = deal_data.get("investment_strategy")
 
-        created_milestones: Dict[str, RenovationMilestone] = {}
-        for idx, tmpl in enumerate(template_items):
-            budget_pct = float(tmpl.get("budget_pct", 0))
-            milestone_budget = round(initial_budget * budget_pct / 100, 2)
+        milestone_count = _create_milestones_from_template(
+            renovation["id"], initial_budget, property_type, strategy
+        )
 
-            milestone = RenovationMilestone(
-                id=str(uuid4()),
-                renovation_id=renovation.id,
-                name=tmpl.get("name", f"Fase {idx + 1}"),
-                category=tmpl.get("category", "geral"),
-                description=tmpl.get("description"),
-                sort_order=tmpl.get("sort_order", idx),
-                budget=milestone_budget,
-                duration_days=tmpl.get("duration_days"),
-                status="pendente",
-                completion_pct=0,
-            )
-            session.add(milestone)
-            session.flush()
-            created_milestones[tmpl.get("name", "")] = milestone
-
-        # Resolver dependencias por nome
-        for tmpl in template_items:
-            depends_on_name = tmpl.get("depends_on")
-            if depends_on_name and depends_on_name in created_milestones:
-                current = created_milestones.get(tmpl.get("name", ""))
-                dep = created_milestones[depends_on_name]
-                if current:
-                    current.depends_on_id = dep.id
-
-        session.flush()
         logger.info(
-            f"Renovacao {renovation.id} criada em sessao para deal {deal.id} "
-            f"({len(created_milestones)} milestones)"
+            f"Renovacao {renovation['id']} criada para deal {deal_id} "
+            f"({milestone_count} milestones)"
         )
         result = _renovation_to_dict(renovation)
-        result["milestone_count"] = len(created_milestones)
+        result["milestone_count"] = milestone_count
         return result
 
     def get_renovation(self, deal_id: str) -> Optional[Dict[str, Any]]:
         """Retorna renovacao completa com milestones, resumo de despesas e saude orcamental."""
-        with get_session() as session:
-            renovation = session.execute(
-                select(Renovation).where(Renovation.deal_id == deal_id)
-            ).scalar_one_or_none()
+        rows = db.list_rows(
+            "renovations",
+            filters=f"deal_id=eq.{deal_id}",
+            limit=1,
+        )
+        if not rows:
+            return None
+        renovation = rows[0]
 
-            if not renovation:
-                return None
+        # Milestones ordenados
+        milestones = db.list_rows(
+            "renovation_milestones",
+            filters=f"renovation_id=eq.{renovation['id']}",
+            order="sort_order.asc",
+        )
 
-            # Milestones ordenados
-            milestones_stmt = (
-                select(RenovationMilestone)
-                .where(RenovationMilestone.renovation_id == renovation.id)
-                .order_by(RenovationMilestone.sort_order)
-            )
-            milestones = session.execute(milestones_stmt).scalars().all()
+        # Resumo de despesas
+        expense_summary = self._build_expense_summary(renovation["id"])
 
-            # Resumo de despesas
-            expense_summary = self._build_expense_summary(session, renovation.id)
+        # Saude orcamental
+        variance_pct = renovation.get("budget_variance_pct", 0) or 0
+        if variance_pct > 100:
+            budget_health = "over_budget"
+        elif variance_pct >= 80:
+            budget_health = "warning"
+        else:
+            budget_health = "on_track"
 
-            # Saude orcamental
-            variance_pct = renovation.budget_variance_pct
-            if variance_pct > 100:
-                budget_health = "over_budget"
-            elif variance_pct >= 80:
-                budget_health = "warning"
-            else:
-                budget_health = "on_track"
-
-            return {
-                "renovation": _renovation_to_dict(renovation),
-                "milestones": [_milestone_to_dict(m) for m in milestones],
-                "expense_summary": expense_summary,
-                "budget_health": budget_health,
-            }
+        return {
+            "renovation": _renovation_to_dict(renovation),
+            "milestones": [_milestone_to_dict(m) for m in milestones],
+            "expense_summary": expense_summary,
+            "budget_health": budget_health,
+        }
 
     def update_renovation(
         self, renovation_id: str, data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Actualiza campos de uma renovacao."""
-        with get_session() as session:
-            renovation = session.get(Renovation, renovation_id)
-            if not renovation:
-                raise ValueError(f"Renovacao nao encontrada: {renovation_id}")
+        renovation = db.get_by_id("renovations", renovation_id)
+        if not renovation:
+            raise ValueError(f"Renovacao nao encontrada: {renovation_id}")
 
-            updatable_fields = (
-                "current_budget",
-                "contingency_pct",
-                "contingency_amount",
-                "planned_start",
-                "planned_end",
-                "planned_duration_days",
-                "estimated_end",
-                "delay_days",
-                "delay_reason",
-                "contractor_name",
-                "contractor_phone",
-                "contractor_email",
-                "contractor_nif",
-                "license_type",
-                "license_status",
-                "license_number",
-                "is_aru",
-                "scope_description",
-                "notes",
-                "status",
+        updatable_fields = (
+            "current_budget",
+            "contingency_pct",
+            "contingency_amount",
+            "planned_start",
+            "planned_end",
+            "planned_duration_days",
+            "estimated_end",
+            "delay_days",
+            "delay_reason",
+            "contractor_name",
+            "contractor_phone",
+            "contractor_email",
+            "contractor_nif",
+            "license_type",
+            "license_status",
+            "license_number",
+            "is_aru",
+            "scope_description",
+            "notes",
+            "status",
+        )
+        update_data: Dict[str, Any] = {}
+        for field in updatable_fields:
+            if field in data:
+                update_data[field] = data[field]
+
+        # Recalcular contingencia se current_budget alterado
+        if "current_budget" in data and data["current_budget"]:
+            new_budget = float(data["current_budget"])
+            contingency_pct = renovation.get("contingency_pct") or 15.0
+            update_data["contingency_amount"] = round(
+                new_budget * contingency_pct / 100, 2
             )
-            for field in updatable_fields:
-                if field in data:
-                    setattr(renovation, field, data[field])
 
-            # Recalcular contingencia se current_budget alterado
-            if "current_budget" in data and data["current_budget"]:
-                new_budget = float(data["current_budget"])
-                contingency_pct = renovation.contingency_pct or 15.0
-                renovation.contingency_amount = round(
-                    new_budget * contingency_pct / 100, 2
-                )
-
-            session.flush()
-            logger.info(f"Renovacao {renovation_id} actualizada: {list(data.keys())}")
-            return _renovation_to_dict(renovation)
+        updated = db.update("renovations", renovation_id, update_data)
+        logger.info(f"Renovacao {renovation_id} actualizada: {list(data.keys())}")
+        return _renovation_to_dict(updated)
 
     # --- Milestones ---
 
     def get_milestones(self, renovation_id: str) -> List[Dict[str, Any]]:
         """Lista milestones de uma renovacao ordenados por sort_order."""
-        with get_session() as session:
-            stmt = (
-                select(RenovationMilestone)
-                .where(RenovationMilestone.renovation_id == renovation_id)
-                .order_by(RenovationMilestone.sort_order)
-            )
-            items = session.execute(stmt).scalars().all()
-            return [_milestone_to_dict(m) for m in items]
+        items = db.list_rows(
+            "renovation_milestones",
+            filters=f"renovation_id=eq.{renovation_id}",
+            order="sort_order.asc",
+        )
+        return [_milestone_to_dict(m) for m in items]
 
     def add_milestone(
         self, renovation_id: str, data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Adiciona um milestone a uma renovacao."""
-        with get_session() as session:
-            renovation = session.get(Renovation, renovation_id)
-            if not renovation:
-                raise ValueError(f"Renovacao nao encontrada: {renovation_id}")
+        renovation = db.get_by_id("renovations", renovation_id)
+        if not renovation:
+            raise ValueError(f"Renovacao nao encontrada: {renovation_id}")
 
-            milestone = RenovationMilestone(
-                id=str(uuid4()),
-                renovation_id=renovation_id,
-                name=data["name"],
-                category=data.get("category", "geral"),
-                description=data.get("description"),
-                sort_order=data.get("sort_order", 999),
-                budget=float(data.get("budget", 0)),
-                planned_start=data.get("planned_start"),
-                planned_end=data.get("planned_end"),
-                duration_days=data.get("duration_days"),
-                depends_on_id=data.get("depends_on_id"),
-                supplier_name=data.get("supplier_name"),
-                supplier_phone=data.get("supplier_phone"),
-                supplier_nif=data.get("supplier_nif"),
-                notes=data.get("notes"),
-                status="pendente",
-                completion_pct=0,
-            )
-            session.add(milestone)
-            session.flush()
-            logger.info(
-                f"Milestone '{milestone.name}' adicionado a renovacao {renovation_id}"
-            )
-            return _milestone_to_dict(milestone)
+        row = {
+            "id": db.new_id(),
+            "renovation_id": renovation_id,
+            "name": data["name"],
+            "category": data.get("category", "geral"),
+            "description": data.get("description"),
+            "sort_order": data.get("sort_order", 999),
+            "budget": float(data.get("budget", 0)),
+            "planned_start": data.get("planned_start"),
+            "planned_end": data.get("planned_end"),
+            "duration_days": data.get("duration_days"),
+            "depends_on_id": data.get("depends_on_id"),
+            "supplier_name": data.get("supplier_name"),
+            "supplier_phone": data.get("supplier_phone"),
+            "supplier_nif": data.get("supplier_nif"),
+            "notes": data.get("notes"),
+            "status": "pendente",
+            "completion_pct": 0,
+        }
+        inserted = db.insert("renovation_milestones", row)
+        logger.info(
+            f"Milestone '{row['name']}' adicionado a renovacao {renovation_id}"
+        )
+        return _milestone_to_dict(inserted)
 
     def update_milestone(
         self, milestone_id: str, data: Dict[str, Any]
@@ -565,47 +530,47 @@ class RenovationService:
         Se completion_pct atingir 100, define status='concluido' e actual_end=now.
         Recalcula o progresso global da renovacao.
         """
-        with get_session() as session:
-            milestone = session.get(RenovationMilestone, milestone_id)
-            if not milestone:
-                raise ValueError(f"Milestone nao encontrado: {milestone_id}")
+        milestone = db.get_by_id("renovation_milestones", milestone_id)
+        if not milestone:
+            raise ValueError(f"Milestone nao encontrado: {milestone_id}")
 
-            updatable_fields = (
-                "name",
-                "category",
-                "description",
-                "sort_order",
-                "budget",
-                "planned_start",
-                "planned_end",
-                "actual_start",
-                "actual_end",
-                "duration_days",
-                "completion_pct",
-                "depends_on_id",
-                "supplier_name",
-                "supplier_phone",
-                "supplier_nif",
-                "notes",
-                "status",
-            )
-            for field in updatable_fields:
-                if field in data:
-                    setattr(milestone, field, data[field])
+        updatable_fields = (
+            "name",
+            "category",
+            "description",
+            "sort_order",
+            "budget",
+            "planned_start",
+            "planned_end",
+            "actual_start",
+            "actual_end",
+            "duration_days",
+            "completion_pct",
+            "depends_on_id",
+            "supplier_name",
+            "supplier_phone",
+            "supplier_nif",
+            "notes",
+            "status",
+        )
+        update_data: Dict[str, Any] = {}
+        for field in updatable_fields:
+            if field in data:
+                update_data[field] = data[field]
 
-            # Auto-completar se completion_pct = 100
-            if data.get("completion_pct") == 100:
-                milestone.status = "concluido"
-                if not milestone.actual_end:
-                    milestone.actual_end = datetime.now(timezone.utc)
+        # Auto-completar se completion_pct = 100
+        if data.get("completion_pct") == 100:
+            update_data["status"] = "concluido"
+            if not milestone.get("actual_end"):
+                update_data["actual_end"] = datetime.now(timezone.utc).isoformat()
 
-            session.flush()
+        updated = db.update("renovation_milestones", milestone_id, update_data)
 
-            # Recalcular progresso da renovacao
-            _recalc_totals(session, milestone.renovation_id)
+        # Recalcular progresso da renovacao
+        _recalc_totals(milestone["renovation_id"])
 
-            logger.info(f"Milestone {milestone_id} actualizado: {list(data.keys())}")
-            return _milestone_to_dict(milestone)
+        logger.info(f"Milestone {milestone_id} actualizado: {list(data.keys())}")
+        return _milestone_to_dict(updated)
 
     def start_milestone(self, milestone_id: str) -> Dict[str, Any]:
         """Inicia um milestone.
@@ -613,103 +578,95 @@ class RenovationService:
         Verifica se o milestone de dependencia esta concluido antes de arrancar.
         Se for o primeiro milestone iniciado, define actual_start da renovacao.
         """
-        with get_session() as session:
-            milestone = session.get(RenovationMilestone, milestone_id)
-            if not milestone:
-                raise ValueError(f"Milestone nao encontrado: {milestone_id}")
+        milestone = db.get_by_id("renovation_milestones", milestone_id)
+        if not milestone:
+            raise ValueError(f"Milestone nao encontrado: {milestone_id}")
 
-            # Verificar dependencia
-            if milestone.depends_on_id:
-                dep = session.get(RenovationMilestone, milestone.depends_on_id)
-                if dep and dep.status != "concluido":
-                    raise ValueError(
-                        f"O milestone '{dep.name}' (dependencia) ainda nao esta concluido"
-                    )
+        # Verificar dependencia
+        if milestone.get("depends_on_id"):
+            dep = db.get_by_id("renovation_milestones", milestone["depends_on_id"])
+            if dep and dep.get("status") != "concluido":
+                raise ValueError(
+                    f"O milestone '{dep.get('name')}' (dependencia) ainda nao esta concluido"
+                )
 
-            now = datetime.now(timezone.utc)
-            milestone.status = "em_curso"
-            milestone.actual_start = now
+        now = datetime.now(timezone.utc).isoformat()
+        db.update("renovation_milestones", milestone_id, {
+            "status": "em_curso",
+            "actual_start": now,
+        })
 
-            # Se for o primeiro milestone iniciado, actualizar renovacao
-            renovation = session.get(Renovation, milestone.renovation_id)
-            if renovation and not renovation.actual_start:
-                renovation.actual_start = now
-                renovation.status = "em_curso"
+        # Se for o primeiro milestone iniciado, actualizar renovacao
+        renovation = db.get_by_id("renovations", milestone["renovation_id"])
+        if renovation and not renovation.get("actual_start"):
+            db.update("renovations", renovation["id"], {
+                "actual_start": now,
+                "status": "em_curso",
+            })
 
-            session.flush()
-            logger.info(
-                f"Milestone '{milestone.name}' iniciado "
-                f"(renovacao {milestone.renovation_id})"
-            )
-            return _milestone_to_dict(milestone)
+        updated = db.get_by_id("renovation_milestones", milestone_id)
+        logger.info(
+            f"Milestone '{milestone.get('name')}' iniciado "
+            f"(renovacao {milestone['renovation_id']})"
+        )
+        return _milestone_to_dict(updated)
 
     def complete_milestone(self, milestone_id: str) -> Dict[str, Any]:
         """Conclui um milestone e recalcula o progresso da renovacao."""
-        with get_session() as session:
-            milestone = session.get(RenovationMilestone, milestone_id)
-            if not milestone:
-                raise ValueError(f"Milestone nao encontrado: {milestone_id}")
+        milestone = db.get_by_id("renovation_milestones", milestone_id)
+        if not milestone:
+            raise ValueError(f"Milestone nao encontrado: {milestone_id}")
 
-            now = datetime.now(timezone.utc)
-            milestone.status = "concluido"
-            milestone.completion_pct = 100
-            milestone.actual_end = now
+        now = datetime.now(timezone.utc).isoformat()
+        updated = db.update("renovation_milestones", milestone_id, {
+            "status": "concluido",
+            "completion_pct": 100,
+            "actual_end": now,
+        })
 
-            session.flush()
+        # Recalcular progresso global
+        _recalc_totals(milestone["renovation_id"])
 
-            # Recalcular progresso global
-            _recalc_totals(session, milestone.renovation_id)
-
-            logger.info(
-                f"Milestone '{milestone.name}' concluido "
-                f"(renovacao {milestone.renovation_id})"
-            )
-            return _milestone_to_dict(milestone)
+        logger.info(
+            f"Milestone '{milestone.get('name')}' concluido "
+            f"(renovacao {milestone['renovation_id']})"
+        )
+        return _milestone_to_dict(updated)
 
     def delete_milestone(self, milestone_id: str) -> bool:
         """Remove um milestone e recalcula totais da renovacao."""
-        with get_session() as session:
-            milestone = session.get(RenovationMilestone, milestone_id)
-            if not milestone:
-                raise ValueError(f"Milestone nao encontrado: {milestone_id}")
+        milestone = db.get_by_id("renovation_milestones", milestone_id)
+        if not milestone:
+            raise ValueError(f"Milestone nao encontrado: {milestone_id}")
 
-            reno_id = milestone.renovation_id
+        reno_id = milestone["renovation_id"]
 
-            # Remover despesas associadas
-            expenses = session.execute(
-                select(RenovationExpense).where(
-                    RenovationExpense.milestone_id == milestone_id
-                )
-            ).scalars().all()
-            for exp in expenses:
-                session.delete(exp)
+        # Remover despesas associadas
+        db.delete_by_filter(
+            "renovation_expenses",
+            f"milestone_id=eq.{milestone_id}",
+        )
 
-            # Remover fotos associadas
-            photos = session.execute(
-                select(RenovationPhoto).where(
-                    RenovationPhoto.milestone_id == milestone_id
-                )
-            ).scalars().all()
-            for photo in photos:
-                session.delete(photo)
+        # Remover fotos associadas
+        db.delete_by_filter(
+            "renovation_photos",
+            f"milestone_id=eq.{milestone_id}",
+        )
 
-            # Limpar dependencias que apontam para este milestone
-            dependents = session.execute(
-                select(RenovationMilestone).where(
-                    RenovationMilestone.depends_on_id == milestone_id
-                )
-            ).scalars().all()
-            for dep in dependents:
-                dep.depends_on_id = None
+        # Limpar dependencias que apontam para este milestone
+        dependents = db.list_rows(
+            "renovation_milestones",
+            filters=f"depends_on_id=eq.{milestone_id}",
+        )
+        for dep in dependents:
+            db.update("renovation_milestones", dep["id"], {"depends_on_id": None})
 
-            session.delete(milestone)
-            session.flush()
+        db.delete_by_id("renovation_milestones", milestone_id)
 
-            self._recalc_totals(session, reno_id)
-            session.flush()
+        _recalc_totals(reno_id)
 
-            logger.info(f"Milestone {milestone_id} removido")
-            return True
+        logger.info(f"Milestone {milestone_id} removido")
+        return True
 
     # --- Despesas ---
 
@@ -722,107 +679,108 @@ class RenovationService:
         factura valida e no metodo de pagamento.
         Actualiza os totais do milestone associado (se indicado) e da renovacao.
         """
-        with get_session() as session:
-            renovation = session.get(Renovation, renovation_id)
-            if not renovation:
-                raise ValueError(f"Renovacao nao encontrada: {renovation_id}")
+        renovation = db.get_by_id("renovations", renovation_id)
+        if not renovation:
+            raise ValueError(f"Renovacao nao encontrada: {renovation_id}")
 
-            has_valid_invoice = bool(data.get("has_valid_invoice", False))
-            payment_method = data.get("payment_method")
-            is_tax_deductible = (
-                has_valid_invoice
-                and payment_method in _TAX_DEDUCTIBLE_PAYMENT_METHODS
-            )
+        has_valid_invoice = bool(data.get("has_valid_invoice", False))
+        payment_method = data.get("payment_method")
+        is_tax_deductible = (
+            has_valid_invoice
+            and payment_method in _TAX_DEDUCTIBLE_PAYMENT_METHODS
+        )
 
-            expense_date = data.get("expense_date") or datetime.now(timezone.utc)
+        expense_date = data.get("expense_date") or datetime.now(timezone.utc).isoformat()
 
-            expense = RenovationExpense(
-                id=str(uuid4()),
-                renovation_id=renovation_id,
-                milestone_id=data.get("milestone_id"),
-                description=data["description"],
-                category=data.get("category"),
-                amount=float(data["amount"]),
-                currency=data.get("currency", "EUR"),
-                supplier_name=data.get("supplier_name"),
-                supplier_nif=data.get("supplier_nif"),
-                invoice_number=data.get("invoice_number"),
-                invoice_date=data.get("invoice_date"),
-                invoice_document_id=data.get("invoice_document_id"),
-                has_valid_invoice=has_valid_invoice,
-                payment_method=payment_method,
-                is_tax_deductible=is_tax_deductible,
-                payment_status=data.get("payment_status", "pendente"),
-                expense_date=expense_date,
-                notes=data.get("notes"),
-            )
-            session.add(expense)
-            session.flush()
+        row = {
+            "id": db.new_id(),
+            "renovation_id": renovation_id,
+            "milestone_id": data.get("milestone_id"),
+            "description": data["description"],
+            "category": data.get("category"),
+            "amount": float(data["amount"]),
+            "currency": data.get("currency", "EUR"),
+            "supplier_name": data.get("supplier_name"),
+            "supplier_nif": data.get("supplier_nif"),
+            "invoice_number": data.get("invoice_number"),
+            "invoice_date": data.get("invoice_date"),
+            "invoice_document_id": data.get("invoice_document_id"),
+            "has_valid_invoice": has_valid_invoice,
+            "payment_method": payment_method,
+            "is_tax_deductible": is_tax_deductible,
+            "payment_status": data.get("payment_status", "pendente"),
+            "expense_date": expense_date,
+            "notes": data.get("notes"),
+        }
+        expense = db.insert("renovation_expenses", row)
 
-            # Actualizar totais do milestone (se indicado)
-            if expense.milestone_id:
-                milestone = session.get(RenovationMilestone, expense.milestone_id)
-                if milestone:
-                    milestone.spent = (milestone.spent or 0) + expense.amount
-                    if milestone.budget and milestone.budget > 0:
-                        milestone.variance_pct = round(
-                            milestone.spent / milestone.budget * 100, 2
-                        )
-                    session.flush()
+        # Actualizar totais do milestone (se indicado)
+        milestone_id = data.get("milestone_id")
+        if milestone_id:
+            milestone = db.get_by_id("renovation_milestones", milestone_id)
+            if milestone:
+                new_spent = (milestone.get("spent") or 0) + float(data["amount"])
+                milestone_update: Dict[str, Any] = {"spent": new_spent}
+                budget = milestone.get("budget")
+                if budget and budget > 0:
+                    milestone_update["variance_pct"] = round(
+                        new_spent / budget * 100, 2
+                    )
+                db.update("renovation_milestones", milestone_id, milestone_update)
 
-            # Recalcular totais da renovacao
-            _recalc_totals(session, renovation_id)
+        # Recalcular totais da renovacao
+        _recalc_totals(renovation_id)
 
-            logger.info(
-                f"Despesa {expense.id} adicionada a renovacao {renovation_id}: "
-                f"{expense.description} — {expense.amount}EUR"
-            )
-            return _expense_to_dict(expense)
+        logger.info(
+            f"Despesa {expense['id']} adicionada a renovacao {renovation_id}: "
+            f"{expense.get('description')} — {expense.get('amount')}EUR"
+        )
+        return _expense_to_dict(expense)
 
     def mark_expense_paid(self, expense_id: str) -> Dict[str, Any]:
         """Marca uma despesa como paga."""
-        with get_session() as session:
-            expense = session.get(RenovationExpense, expense_id)
-            if not expense:
-                raise ValueError(f"Despesa nao encontrada: {expense_id}")
+        expense = db.get_by_id("renovation_expenses", expense_id)
+        if not expense:
+            raise ValueError(f"Despesa nao encontrada: {expense_id}")
 
-            expense.payment_status = "pago"
-            expense.paid_amount = expense.amount
-            expense.paid_date = datetime.now(timezone.utc)
-
-            session.flush()
-            logger.info(f"Despesa {expense_id} marcada como paga: {expense.amount}EUR")
-            return _expense_to_dict(expense)
+        updated = db.update("renovation_expenses", expense_id, {
+            "payment_status": "pago",
+            "paid_amount": expense.get("amount"),
+            "paid_date": datetime.now(timezone.utc).isoformat(),
+        })
+        logger.info(f"Despesa {expense_id} marcada como paga: {expense.get('amount')}EUR")
+        return _expense_to_dict(updated)
 
     def delete_expense(self, expense_id: str) -> bool:
         """Remove uma despesa e recalcula os totais."""
-        with get_session() as session:
-            expense = session.get(RenovationExpense, expense_id)
-            if not expense:
-                return False
+        expense = db.get_by_id("renovation_expenses", expense_id)
+        if not expense:
+            return False
 
-            renovation_id = expense.renovation_id
-            milestone_id = expense.milestone_id
-            amount = expense.amount
+        renovation_id = expense["renovation_id"]
+        milestone_id = expense.get("milestone_id")
+        amount = expense.get("amount", 0) or 0
 
-            # Reverter total do milestone
-            if milestone_id:
-                milestone = session.get(RenovationMilestone, milestone_id)
-                if milestone:
-                    milestone.spent = max(0, (milestone.spent or 0) - amount)
-                    if milestone.budget and milestone.budget > 0:
-                        milestone.variance_pct = round(
-                            milestone.spent / milestone.budget * 100, 2
-                        )
+        # Reverter total do milestone
+        if milestone_id:
+            milestone = db.get_by_id("renovation_milestones", milestone_id)
+            if milestone:
+                new_spent = max(0, (milestone.get("spent") or 0) - amount)
+                milestone_update: Dict[str, Any] = {"spent": new_spent}
+                budget = milestone.get("budget")
+                if budget and budget > 0:
+                    milestone_update["variance_pct"] = round(
+                        new_spent / budget * 100, 2
+                    )
+                db.update("renovation_milestones", milestone_id, milestone_update)
 
-            session.delete(expense)
-            session.flush()
+        db.delete_by_id("renovation_expenses", expense_id)
 
-            # Recalcular totais da renovacao
-            _recalc_totals(session, renovation_id)
+        # Recalcular totais da renovacao
+        _recalc_totals(renovation_id)
 
-            logger.info(f"Despesa {expense_id} eliminada da renovacao {renovation_id}")
-            return True
+        logger.info(f"Despesa {expense_id} eliminada da renovacao {renovation_id}")
+        return True
 
     def list_expenses(
         self,
@@ -831,49 +789,47 @@ class RenovationService:
         category: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Lista despesas de uma renovacao com filtros opcionais."""
-        with get_session() as session:
-            stmt = (
-                select(RenovationExpense)
-                .where(RenovationExpense.renovation_id == renovation_id)
-            )
-            if milestone_id:
-                stmt = stmt.where(RenovationExpense.milestone_id == milestone_id)
-            if category:
-                stmt = stmt.where(RenovationExpense.category == category)
+        filters = f"renovation_id=eq.{renovation_id}"
+        if milestone_id:
+            filters += f"&milestone_id=eq.{milestone_id}"
+        if category:
+            filters += f"&category=eq.{category}"
 
-            stmt = stmt.order_by(RenovationExpense.expense_date.desc())
-            expenses = session.execute(stmt).scalars().all()
-            return [_expense_to_dict(e) for e in expenses]
+        expenses = db.list_rows(
+            "renovation_expenses",
+            filters=filters,
+            order="expense_date.desc",
+        )
+        return [_expense_to_dict(e) for e in expenses]
 
     def get_expense_summary(self, renovation_id: str) -> Dict[str, Any]:
         """Retorna resumo financeiro completo da renovacao.
 
         Inclui totais por categoria, por milestone, dedutiveis fiscais e alertas.
         """
-        with get_session() as session:
-            renovation = session.get(Renovation, renovation_id)
-            if not renovation:
-                raise ValueError(f"Renovacao nao encontrada: {renovation_id}")
+        renovation = db.get_by_id("renovations", renovation_id)
+        if not renovation:
+            raise ValueError(f"Renovacao nao encontrada: {renovation_id}")
 
-            return self._build_expense_summary(session, renovation_id)
+        return self._build_expense_summary(renovation_id)
 
-    def _build_expense_summary(
-        self, session: Session, renovation_id: str
-    ) -> Dict[str, Any]:
-        """Helper interno que constroi o resumo de despesas usando sessao existente."""
-        renovation = session.get(Renovation, renovation_id)
+    def _build_expense_summary(self, renovation_id: str) -> Dict[str, Any]:
+        """Helper interno que constroi o resumo de despesas."""
+        renovation = db.get_by_id("renovations", renovation_id)
         if not renovation:
             return {}
 
-        expenses_stmt = select(RenovationExpense).where(
-            RenovationExpense.renovation_id == renovation_id
+        expenses = db.list_rows(
+            "renovation_expenses",
+            filters=f"renovation_id=eq.{renovation_id}",
         )
-        expenses = session.execute(expenses_stmt).scalars().all()
 
-        total_budget = renovation.current_budget or renovation.initial_budget
-        total_spent = sum(e.amount for e in expenses)
+        total_budget = renovation.get("current_budget") or renovation.get("initial_budget")
+        total_spent = sum(e.get("amount", 0) or 0 for e in expenses)
         total_pending = sum(
-            e.amount for e in expenses if e.payment_status == "pendente"
+            e.get("amount", 0) or 0
+            for e in expenses
+            if e.get("payment_status") == "pendente"
         )
         variance_pct = (
             round(total_spent / total_budget * 100, 2)
@@ -883,30 +839,36 @@ class RenovationService:
         budget_remaining = (total_budget or 0) - total_spent
 
         total_deductible = sum(
-            e.amount for e in expenses if e.is_tax_deductible
+            e.get("amount", 0) or 0
+            for e in expenses
+            if e.get("is_tax_deductible")
         )
         total_non_deductible = total_spent - total_deductible
 
         # Agrupamento por categoria
         by_category: Dict[str, float] = {}
         for e in expenses:
-            cat = e.category or "outros"
-            by_category[cat] = by_category.get(cat, 0) + e.amount
+            cat = e.get("category") or "outros"
+            by_category[cat] = by_category.get(cat, 0) + (e.get("amount", 0) or 0)
 
         # Agrupamento por milestone
-        milestones_stmt = select(RenovationMilestone).where(
-            RenovationMilestone.renovation_id == renovation_id
+        milestones = db.list_rows(
+            "renovation_milestones",
+            filters=f"renovation_id=eq.{renovation_id}",
         )
-        milestones = session.execute(milestones_stmt).scalars().all()
-        milestone_names: Dict[str, str] = {m.id: m.name for m in milestones}
+        milestone_names: Dict[str, str] = {m["id"]: m.get("name", "") for m in milestones}
 
         by_milestone: Dict[str, Dict[str, Any]] = {}
         for e in expenses:
-            mid = e.milestone_id or "sem_milestone"
-            name = milestone_names.get(mid, "Sem milestone") if mid != "sem_milestone" else "Sem milestone"
+            mid = e.get("milestone_id") or "sem_milestone"
+            name = (
+                milestone_names.get(mid, "Sem milestone")
+                if mid != "sem_milestone"
+                else "Sem milestone"
+            )
             if mid not in by_milestone:
                 by_milestone[mid] = {"name": name, "total": 0}
-            by_milestone[mid]["total"] += e.amount
+            by_milestone[mid]["total"] += e.get("amount", 0) or 0
 
         # Alertas
         alerts: List[str] = []
@@ -954,44 +916,49 @@ class RenovationService:
         """Faz upload de uma foto de progresso da obra.
 
         Usa DocumentStorageService para guardar o ficheiro e cria o registo
-        RenovationPhoto associado.
-        """
-        with get_session() as session:
-            renovation = session.get(Renovation, renovation_id)
-            if not renovation:
-                raise ValueError(f"Renovacao nao encontrada: {renovation_id}")
+        renovation_photos associado.
 
+        Nota: DocumentStorageService ainda usa sessao SQLAlchemy internamente.
+        Quando for migrado, este metodo sera simplificado.
+        """
+        from src.database.db import get_session
+        from src.shared.document_storage import DocumentStorageService
+
+        renovation = db.get_by_id("renovations", renovation_id)
+        if not renovation:
+            raise ValueError(f"Renovacao nao encontrada: {renovation_id}")
+
+        with get_session() as session:
             storage = DocumentStorageService(session, base_path=storage_base)
             doc = storage.upload_document(
                 file_content=file_content,
                 filename=filename,
-                tenant_id=renovation.tenant_id,
-                deal_id=renovation.deal_id,
+                tenant_id=renovation["tenant_id"],
+                deal_id=renovation["deal_id"],
                 document_type="foto_obra",
                 title=data.get("caption") or filename,
                 uploaded_by=data.get("taken_by", "system"),
             )
 
-            photo = RenovationPhoto(
-                id=str(uuid4()),
-                renovation_id=renovation_id,
-                milestone_id=data.get("milestone_id"),
-                document_id=doc["id"],
-                photo_type=data.get("photo_type", "progresso"),
-                caption=data.get("caption"),
-                taken_at=data.get("taken_at") or datetime.now(timezone.utc),
-                taken_by=data.get("taken_by"),
-                room_area=data.get("room_area"),
-                sort_order=data.get("sort_order", 0),
-            )
-            session.add(photo)
-            session.flush()
+        photo_row = {
+            "id": db.new_id(),
+            "renovation_id": renovation_id,
+            "milestone_id": data.get("milestone_id"),
+            "document_id": doc["id"],
+            "photo_type": data.get("photo_type", "progresso"),
+            "caption": data.get("caption"),
+            "taken_at": data.get("taken_at") or datetime.now(timezone.utc).isoformat(),
+            "taken_by": data.get("taken_by"),
+            "room_area": data.get("room_area"),
+            "sort_order": data.get("sort_order", 0),
+        }
+        photo = db.insert("renovation_photos", photo_row)
 
-            logger.info(
-                f"Foto '{filename}' adicionada a renovacao {renovation_id} "
-                f"(tipo: {photo.photo_type})"
-            )
-            return _photo_to_dict(photo)
+        logger.info(
+            f"Foto '{filename}' adicionada a renovacao {renovation_id} "
+            f"(tipo: {photo.get('photo_type')})"
+        )
+        return _photo_to_dict(photo)
 
     def list_photos(
         self,
@@ -1000,22 +967,18 @@ class RenovationService:
         milestone_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Lista fotos de uma renovacao com filtros opcionais."""
-        with get_session() as session:
-            stmt = (
-                select(RenovationPhoto)
-                .where(RenovationPhoto.renovation_id == renovation_id)
-            )
-            if photo_type:
-                stmt = stmt.where(RenovationPhoto.photo_type == photo_type)
-            if milestone_id:
-                stmt = stmt.where(RenovationPhoto.milestone_id == milestone_id)
+        filters = f"renovation_id=eq.{renovation_id}"
+        if photo_type:
+            filters += f"&photo_type=eq.{photo_type}"
+        if milestone_id:
+            filters += f"&milestone_id=eq.{milestone_id}"
 
-            stmt = stmt.order_by(
-                RenovationPhoto.sort_order.asc(),
-                RenovationPhoto.taken_at.desc().nullslast(),
-            )
-            photos = session.execute(stmt).scalars().all()
-            return [_photo_to_dict(p) for p in photos]
+        photos = db.list_rows(
+            "renovation_photos",
+            filters=filters,
+            order="sort_order.asc,taken_at.desc.nullslast",
+        )
+        return [_photo_to_dict(p) for p in photos]
 
     # --- Alertas ---
 
@@ -1024,144 +987,163 @@ class RenovationService:
 
         Avalia o estado do orcamento, milestones atrasados e despesas pendentes.
         """
-        with get_session() as session:
-            renovation = session.get(Renovation, renovation_id)
-            if not renovation:
-                raise ValueError(f"Renovacao nao encontrada: {renovation_id}")
+        renovation = db.get_by_id("renovations", renovation_id)
+        if not renovation:
+            raise ValueError(f"Renovacao nao encontrada: {renovation_id}")
 
-            alerts: List[Dict[str, Any]] = []
-            variance_pct = renovation.budget_variance_pct
-            current_budget = renovation.current_budget or renovation.initial_budget
+        alerts: List[Dict[str, Any]] = []
+        variance_pct = renovation.get("budget_variance_pct", 0) or 0
+        current_budget = renovation.get("current_budget") or renovation.get("initial_budget") or 0
+        total_spent = renovation.get("total_spent", 0) or 0
 
-            # Alertas de orcamento
-            if variance_pct >= 100:
-                alerts.append({
-                    "severity": "critical",
-                    "message": (
-                        f"Orcamento ultrapassado: {variance_pct:.1f}% gasto "
-                        f"({renovation.total_spent:.0f} / {current_budget:.0f} EUR)"
-                    ),
-                })
-            elif variance_pct >= 90:
-                alerts.append({
-                    "severity": "high",
-                    "message": (
-                        f"Orcamento quase esgotado: {variance_pct:.1f}% utilizado"
-                    ),
-                })
-            elif variance_pct >= 80:
-                alerts.append({
-                    "severity": "medium",
-                    "message": (
-                        f"80%+ do orcamento consumido: {variance_pct:.1f}%"
-                    ),
-                })
+        # Alertas de orcamento
+        if variance_pct >= 100:
+            alerts.append({
+                "severity": "critical",
+                "message": (
+                    f"Orcamento ultrapassado: {variance_pct:.1f}% gasto "
+                    f"({total_spent:.0f} / {current_budget:.0f} EUR)"
+                ),
+            })
+        elif variance_pct >= 90:
+            alerts.append({
+                "severity": "high",
+                "message": (
+                    f"Orcamento quase esgotado: {variance_pct:.1f}% utilizado"
+                ),
+            })
+        elif variance_pct >= 80:
+            alerts.append({
+                "severity": "medium",
+                "message": (
+                    f"80%+ do orcamento consumido: {variance_pct:.1f}%"
+                ),
+            })
 
-            # Milestones em atraso (planned_end no passado, nao concluidos)
-            now = datetime.now(timezone.utc)
-            milestones_stmt = select(RenovationMilestone).where(
-                RenovationMilestone.renovation_id == renovation_id,
-                RenovationMilestone.status.notin_(["concluido"]),
-                RenovationMilestone.planned_end.isnot(None),
-            )
-            milestones = session.execute(milestones_stmt).scalars().all()
-            for m in milestones:
-                if m.planned_end:
-                    planned_end = m.planned_end.replace(tzinfo=timezone.utc) if m.planned_end.tzinfo is None else m.planned_end
+        # Milestones em atraso (planned_end no passado, nao concluidos)
+        now = datetime.now(timezone.utc)
+        milestones = db.list_rows(
+            "renovation_milestones",
+            filters=(
+                f"renovation_id=eq.{renovation_id}"
+                f"&status=neq.concluido"
+                f"&planned_end=not.is.null"
+            ),
+        )
+        for m in milestones:
+            planned_end_str = m.get("planned_end")
+            if planned_end_str:
+                try:
+                    planned_end = datetime.fromisoformat(
+                        planned_end_str.replace("Z", "+00:00")
+                    )
+                    if planned_end.tzinfo is None:
+                        planned_end = planned_end.replace(tzinfo=timezone.utc)
                     if planned_end < now:
                         delay_days = (now - planned_end).days
                         alerts.append({
                             "severity": "high" if delay_days > 14 else "medium",
                             "message": (
-                                f"Milestone '{m.name}' em atraso: "
+                                f"Milestone '{m.get('name')}' em atraso: "
                                 f"{delay_days} dia(s) alem do planeado"
                             ),
                         })
+                except (ValueError, TypeError):
+                    pass
 
-            # Despesas pendentes de pagamento
-            expenses_stmt = select(RenovationExpense).where(
-                RenovationExpense.renovation_id == renovation_id,
-                RenovationExpense.payment_status == "pendente",
-            )
-            pending_expenses = session.execute(expenses_stmt).scalars().all()
-            if pending_expenses:
-                total_pending = sum(e.amount for e in pending_expenses)
-                alerts.append({
-                    "severity": "low",
-                    "message": (
-                        f"{len(pending_expenses)} despesa(s) pendente(s) de pagamento: "
-                        f"{total_pending:.0f}EUR"
-                    ),
-                })
+        # Despesas pendentes de pagamento
+        pending_expenses = db.list_rows(
+            "renovation_expenses",
+            filters=(
+                f"renovation_id=eq.{renovation_id}"
+                f"&payment_status=eq.pendente"
+            ),
+        )
+        if pending_expenses:
+            total_pending = sum(e.get("amount", 0) or 0 for e in pending_expenses)
+            alerts.append({
+                "severity": "low",
+                "message": (
+                    f"{len(pending_expenses)} despesa(s) pendente(s) de pagamento: "
+                    f"{total_pending:.0f}EUR"
+                ),
+            })
 
-            return alerts
+        return alerts
 
     # --- Conclusao ---
 
     def complete_renovation(self, renovation_id: str) -> Dict[str, Any]:
         """Conclui uma renovacao e actualiza o custo real no deal."""
-        with get_session() as session:
-            renovation = session.get(Renovation, renovation_id)
-            if not renovation:
-                raise ValueError(f"Renovacao nao encontrada: {renovation_id}")
+        renovation = db.get_by_id("renovations", renovation_id)
+        if not renovation:
+            raise ValueError(f"Renovacao nao encontrada: {renovation_id}")
 
-            now = datetime.now(timezone.utc)
-            renovation.status = "concluida"
-            renovation.actual_end = now
-            renovation.progress_pct = 100.0
+        now = datetime.now(timezone.utc).isoformat()
+        updated = db.update("renovations", renovation_id, {
+            "status": "concluida",
+            "actual_end": now,
+            "progress_pct": 100.0,
+        })
 
-            # Actualizar custo real da obra no deal
-            deal = session.get(Deal, renovation.deal_id)
+        # Actualizar custo real da obra no deal
+        deal_id = renovation.get("deal_id")
+        if deal_id:
+            deal = db.get_by_id("deals", deal_id)
             if deal:
-                deal.actual_renovation_cost = renovation.total_spent
+                db.update("deals", deal_id, {
+                    "actual_renovation_cost": renovation.get("total_spent"),
+                })
 
-            session.flush()
-            logger.info(
-                f"Renovacao {renovation_id} concluida. "
-                f"Custo total: {renovation.total_spent}EUR"
-            )
-            return _renovation_to_dict(renovation)
+        logger.info(
+            f"Renovacao {renovation_id} concluida. "
+            f"Custo total: {renovation.get('total_spent')}EUR"
+        )
+        return _renovation_to_dict(updated)
 
     # --- Estatisticas globais ---
 
     def get_renovation_stats(self) -> Dict[str, Any]:
         """Retorna estatisticas globais de todas as renovacoes."""
-        with get_session() as session:
-            all_renovations = session.execute(select(Renovation)).scalars().all()
+        all_renovations = db.list_rows("renovations")
 
-            active = [
-                r for r in all_renovations
-                if r.status in ("planeamento", "em_curso")
-            ]
+        active = [
+            r for r in all_renovations
+            if r.get("status") in ("planeamento", "em_curso")
+        ]
 
-            total_budget = sum(
-                r.current_budget or r.initial_budget for r in active
+        total_budget = sum(
+            r.get("current_budget") or r.get("initial_budget") or 0
+            for r in active
+        )
+        total_spent = sum(r.get("total_spent", 0) or 0 for r in active)
+        avg_progress = (
+            round(
+                sum(r.get("progress_pct", 0) or 0 for r in active) / len(active),
+                1,
             )
-            total_spent = sum(r.total_spent for r in active)
-            avg_progress = (
-                round(
-                    sum(r.progress_pct for r in active) / len(active), 1
-                )
-                if active
-                else 0.0
-            )
+            if active
+            else 0.0
+        )
 
-            # Total de despesas dedutiveis (todas as renovacoes activas)
-            if active:
-                renovation_ids = [r.id for r in active]
-                expenses_stmt = select(RenovationExpense).where(
-                    RenovationExpense.renovation_id.in_(renovation_ids),
-                    RenovationExpense.is_tax_deductible == True,  # noqa: E712
+        # Total de despesas dedutiveis (todas as renovacoes activas)
+        total_deductible = 0.0
+        if active:
+            renovation_ids = [r["id"] for r in active]
+            for rid in renovation_ids:
+                deductible = db.list_rows(
+                    "renovation_expenses",
+                    select="amount",
+                    filters=f"renovation_id=eq.{rid}&is_tax_deductible=eq.true",
                 )
-                deductible_expenses = session.execute(expenses_stmt).scalars().all()
-                total_deductible = sum(e.amount for e in deductible_expenses)
-            else:
-                total_deductible = 0.0
+                total_deductible += sum(
+                    e.get("amount", 0) or 0 for e in deductible
+                )
 
-            return {
-                "active_count": len(active),
-                "total_budget": total_budget,
-                "total_spent": total_spent,
-                "avg_progress_pct": avg_progress,
-                "total_deductible": total_deductible,
-            }
+        return {
+            "active_count": len(active),
+            "total_budget": total_budget,
+            "total_spent": total_spent,
+            "avg_progress_pct": avg_progress,
+            "total_deductible": total_deductible,
+        }

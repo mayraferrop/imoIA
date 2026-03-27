@@ -334,11 +334,12 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[
             "https://imoia.vercel.app",
+            "https://imo-ia.vercel.app",
             "https://imoia-frontend.vercel.app",
             "https://frontend-three-omega-51.vercel.app",
             "http://localhost:3000",
         ],
-        allow_origin_regex=r"https://frontend-.*-mayraferrops-projects\.vercel\.app",
+        allow_origin_regex=r"https://(frontend|imo)-.*-mayraferrops-projects\.vercel\.app",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -346,7 +347,7 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     def on_startup() -> None:
-        """Inicializa a BD ao arrancar e sincroniza dados do Supabase."""
+        """Inicializa a BD local (tabelas legacy) e valida conexao Supabase."""
         try:
             init_db()
             import src.database.models_v2  # noqa: F401
@@ -354,19 +355,17 @@ def create_app() -> FastAPI:
             from src.database.db import _get_engine
             Base.metadata.create_all(bind=_get_engine())
         except Exception as e:
-            logger.warning(f"Aviso ao inicializar BD (tabelas podem ja existir): {e}")
+            logger.warning(f"Aviso ao inicializar BD local: {e}")
 
-        # Sync Supabase → SQLite no cold start (preenche SQLite volatil)
+        # Validar conexao Supabase REST
         try:
-            _sync_from_supabase()
+            from src.database.supabase_rest import _ensure_config
+            _ensure_config()
+            logger.info("Supabase REST configurado")
         except Exception as e:
-            logger.warning(f"Sync Supabase falhou (app continua): {e}")
+            logger.warning(f"Supabase REST nao configurado: {e}")
 
         logger.info("ImoIA API iniciada")
-
-    @app.post("/api/v1/admin/migrate", tags=["Admin"])
-    async def migrate_endpoint(payload: dict):
-        return await _migrate_from_supabase(payload)
 
     app.include_router(health_router, tags=["Sistema"])
     app.include_router(

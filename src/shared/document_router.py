@@ -2,6 +2,9 @@
 
 Upload, download, listagem e remocao de ficheiros.
 Usado pelo M5 e futuramente por M4, M6, M9.
+
+Tenant lookup migrado para Supabase REST.
+DocumentStorageService ainda usa SQLAlchemy (filesystem + ORM Document).
 """
 
 from __future__ import annotations
@@ -13,22 +16,10 @@ from fastapi.responses import Response
 from loguru import logger
 
 from src.database.db import get_session
+from src.database import supabase_rest as db
 from src.shared.document_storage import DocumentStorageService
 
 router = APIRouter()
-
-_DEFAULT_TENANT_SLUG = "default"
-
-
-def _get_tenant_id(session) -> str:
-    """Retorna o tenant_id default."""
-    from sqlalchemy import select
-    from src.database.models_v2 import Tenant
-
-    tenant = session.execute(
-        select(Tenant).where(Tenant.slug == _DEFAULT_TENANT_SLUG)
-    ).scalar_one_or_none()
-    return tenant.id if tenant else ""
 
 
 @router.post("/upload", summary="Upload de documento")
@@ -44,8 +35,8 @@ async def upload_document(
 ) -> Dict[str, Any]:
     """Upload de ficheiro para o storage."""
     content = await file.read()
+    tenant_id = db.ensure_tenant()
     with get_session() as session:
-        tenant_id = _get_tenant_id(session)
         storage = DocumentStorageService(session)
         return storage.upload_document(
             file_content=content,

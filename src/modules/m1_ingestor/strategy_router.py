@@ -1,9 +1,11 @@
-"""Router para gestão de estratégias de investimento e sinais de classificação.
+"""Router para gestao de estrategias de investimento e sinais de classificacao.
 
 Permite ao utilizador:
-- Descrever a estratégia em linguagem natural → IA sugere sinais
-- CRUD de estratégias e sinais individuais
-- Ativar/desativar estratégias
+- Descrever a estrategia em linguagem natural -> IA sugere sinais
+- CRUD de estrategias e sinais individuais
+- Ativar/desativar estrategias
+
+Migrado para Supabase REST (sem SQLAlchemy).
 """
 
 from __future__ import annotations
@@ -16,15 +18,9 @@ import anthropic
 from fastapi import APIRouter, HTTPException
 from loguru import logger
 from pydantic import BaseModel, Field
-from sqlalchemy import select, update
 
 from src.config import get_settings
-from src.database.db import get_session
-from src.database.models_v2 import (
-    ClassificationSignal,
-    InvestmentStrategy,
-    Tenant,
-)
+from src.database import supabase_rest as db
 
 router = APIRouter()
 
@@ -91,51 +87,70 @@ class UpdateSignalRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 def _get_tenant_id() -> str:
-    """Retorna o tenant_id ativo. Cria um default se não existir."""
-    with get_session() as session:
-        tenant = session.execute(select(Tenant).limit(1)).scalar_one_or_none()
-        if tenant:
-            return tenant.id
-        # Criar tenant default
-        tid = str(uuid4())
-        session.add(Tenant(id=tid, name="ImoIA", slug="default", country="PT"))
-        session.flush()
-        return tid
+    """Retorna o tenant_id ativo. Cria um default se nao existir."""
+    return db.ensure_tenant()
+
+
+def _strategy_with_signals(row: dict) -> dict:
+    """Monta StrategyOut a partir de uma row + sinais do Supabase."""
+    signals = db.list_rows(
+        "classification_signals",
+        params=f"strategy_id=eq.{row['id']}",
+        order="priority.asc",
+        limit=200,
+    )
+    return StrategyOut(
+        id=row["id"],
+        name=row["name"],
+        description=row.get("description"),
+        is_active=row.get("is_active", False),
+        signals=[
+            SignalOut(
+                id=s["id"],
+                signal_text=s["signal_text"],
+                signal_category=s.get("signal_category", "outro"),
+                is_positive=s.get("is_positive", True),
+                priority=s.get("priority", 1),
+                is_ai_suggested=s.get("is_ai_suggested", False),
+            )
+            for s in signals
+        ],
+    ).model_dump()
 
 
 # ---------------------------------------------------------------------------
-# POST /suggest-signals — IA sugere sinais a partir da descrição
+# POST /suggest-signals — IA sugere sinais a partir da descricao
 # ---------------------------------------------------------------------------
 
-_SUGGEST_PROMPT = """És um consultor de investimento imobiliário em Portugal.
+_SUGGEST_PROMPT = """Es um consultor de investimento imobiliario em Portugal.
 
-O utilizador vai descrever a sua estratégia de investimento em linguagem natural.
-Com base nisso, sugere 8 a 12 sinais de classificação que devem ser usados para
+O utilizador vai descrever a sua estrategia de investimento em linguagem natural.
+Com base nisso, sugere 8 a 12 sinais de classificacao que devem ser usados para
 identificar oportunidades relevantes em mensagens de grupos de WhatsApp.
 
 Responde APENAS com um array JSON. Cada elemento:
 {
-  "signal_text": "<descrição do sinal em português de Portugal>",
+  "signal_text": "<descricao do sinal em portugues de Portugal>",
   "signal_category": "<uma de: preco, urgencia, condicao, mercado, yield, legal, outro>",
-  "is_positive": <true se é algo a PROCURAR, false se é algo a IGNORAR>,
+  "is_positive": <true se e algo a PROCURAR, false se e algo a IGNORAR>,
   "priority": <int 1-12, 1 = mais importante>
 }
 
 Exemplos de sinais positivos (is_positive=true):
-- "Preço abaixo do mercado (comparado com a zona) ou menção a baixa de preço"
-- "Venda urgente (divórcio, herança, dação em pagamento, penhora)"
-- "Imóvel para reabilitação — que precise de obras, em mau estado, devoluto"
-- "Imóvel off-market (não publicado em portais, exclusivo)"
-- "Leilão ou venda judicial"
+- "Preco abaixo do mercado (comparado com a zona) ou mencao a baixa de preco"
+- "Venda urgente (divorcio, heranca, dacao em pagamento, penhora)"
+- "Imovel para reabilitacao — que precise de obras, em mau estado, devoluto"
+- "Imovel off-market (nao publicado em portais, exclusivo)"
+- "Leilao ou venda judicial"
 
 Exemplos de sinais negativos (is_positive=false):
-- "Construção nova, empreendimentos de promotores, imóveis em fase de obra"
-- "Imóveis já renovados vendidos a preço de mercado"
-- "Ofertas de crédito, seguros, ou serviços financeiros"
+- "Construcao nova, empreendimentos de promotores, imoveis em fase de obra"
+- "Imoveis ja renovados vendidos a preco de mercado"
+- "Ofertas de credito, seguros, ou servicos financeiros"
 - "Arrendamentos puros sem dados de yield"
 
-Adapta os sinais à estratégia descrita. Se o utilizador diz "fix and flip",
-foca em sinais de imóveis com desconto e que precisem de obras.
+Adapta os sinais a estrategia descrita. Se o utilizador diz "fix and flip",
+foca em sinais de imoveis com desconto e que precisem de obras.
 Se diz "arrendamento", foca em yield e rentabilidade.
 
 Inclui SEMPRE pelo menos 2-3 sinais negativos (coisas a ignorar).
@@ -144,7 +159,7 @@ Responde APENAS com o array JSON, sem texto adicional."""
 
 @router.post("/suggest-signals")
 async def suggest_signals(req: SuggestSignalsRequest) -> dict:
-    """Usa IA para sugerir sinais de classificação com base na estratégia descrita."""
+    """Usa IA para sugerir sinais de classificacao com base na estrategia descrita."""
     settings = get_settings()
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
@@ -182,177 +197,133 @@ async def suggest_signals(req: SuggestSignalsRequest) -> dict:
 
     except json.JSONDecodeError as e:
         logger.error(f"Erro ao fazer parse da resposta IA: {e}")
-        raise HTTPException(status_code=500, detail="Erro ao processar sugestões da IA")
+        raise HTTPException(status_code=500, detail="Erro ao processar sugestoes da IA")
     except Exception as e:
-        logger.error(f"Erro ao gerar sugestões: {e}")
+        logger.error(f"Erro ao gerar sugestoes: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 # ---------------------------------------------------------------------------
-# CRUD Estratégias
+# CRUD Estrategias
 # ---------------------------------------------------------------------------
 
 
 @router.get("")
 async def list_strategies() -> list[dict]:
-    """Lista todas as estratégias do tenant."""
+    """Lista todas as estrategias do tenant."""
     tenant_id = _get_tenant_id()
-    with get_session() as session:
-        strategies = session.execute(
-            select(InvestmentStrategy)
-            .where(InvestmentStrategy.tenant_id == tenant_id)
-            .order_by(InvestmentStrategy.created_at.desc())
-        ).scalars().all()
-
-        return [
-            StrategyOut(
-                id=s.id,
-                name=s.name,
-                description=s.description,
-                is_active=s.is_active,
-                signals=[
-                    SignalOut(
-                        id=sig.id,
-                        signal_text=sig.signal_text,
-                        signal_category=sig.signal_category,
-                        is_positive=sig.is_positive,
-                        priority=sig.priority,
-                        is_ai_suggested=sig.is_ai_suggested,
-                    )
-                    for sig in s.signals
-                ],
-            ).model_dump()
-            for s in strategies
-        ]
+    rows = db.list_rows(
+        "investment_strategies",
+        params=f"tenant_id=eq.{tenant_id}",
+        order="created_at.desc",
+        limit=100,
+    )
+    return [_strategy_with_signals(r) for r in rows]
 
 
 @router.get("/{strategy_id}")
 async def get_strategy(strategy_id: str) -> dict:
-    """Obtém uma estratégia com os seus sinais."""
-    with get_session() as session:
-        strategy = session.get(InvestmentStrategy, strategy_id)
-        if not strategy:
-            raise HTTPException(status_code=404, detail="Estratégia não encontrada")
-
-        return StrategyOut(
-            id=strategy.id,
-            name=strategy.name,
-            description=strategy.description,
-            is_active=strategy.is_active,
-            signals=[
-                SignalOut(
-                    id=sig.id,
-                    signal_text=sig.signal_text,
-                    signal_category=sig.signal_category,
-                    is_positive=sig.is_positive,
-                    priority=sig.priority,
-                    is_ai_suggested=sig.is_ai_suggested,
-                )
-                for sig in strategy.signals
-            ],
-        ).model_dump()
+    """Obtem uma estrategia com os seus sinais."""
+    row = db.get_by_id("investment_strategies", strategy_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Estrategia nao encontrada")
+    return _strategy_with_signals(row)
 
 
 @router.post("")
 async def create_strategy(req: CreateStrategyRequest) -> dict:
-    """Cria uma nova estratégia com sinais."""
+    """Cria uma nova estrategia com sinais."""
     tenant_id = _get_tenant_id()
 
-    with get_session() as session:
-        # Se is_active, desativar as outras
-        if req.is_active:
-            session.execute(
-                update(InvestmentStrategy)
-                .where(InvestmentStrategy.tenant_id == tenant_id)
-                .values(is_active=False)
-            )
-
-        strategy = InvestmentStrategy(
-            id=str(uuid4()),
-            tenant_id=tenant_id,
-            name=req.name,
-            description=req.description,
-            is_active=req.is_active,
+    # Se is_active, desativar as outras
+    if req.is_active:
+        db._patch(
+            "investment_strategies",
+            f"tenant_id=eq.{tenant_id}",
+            {"is_active": False},
         )
-        session.add(strategy)
-        session.flush()
 
-        # Adicionar sinais
-        for s in req.signals:
-            signal = ClassificationSignal(
-                id=s.get("id", str(uuid4())),
-                strategy_id=strategy.id,
-                signal_text=s["signal_text"],
-                signal_category=s.get("signal_category", "outro"),
-                is_positive=s.get("is_positive", True),
-                priority=s.get("priority", 1),
-                is_ai_suggested=s.get("is_ai_suggested", False),
-            )
-            session.add(signal)
+    strategy_id = db.new_id()
+    db.insert("investment_strategies", {
+        "id": strategy_id,
+        "tenant_id": tenant_id,
+        "name": req.name,
+        "description": req.description,
+        "is_active": req.is_active,
+    })
 
-        session.flush()
+    # Adicionar sinais
+    for s in req.signals:
+        db.insert("classification_signals", {
+            "id": s.get("id", db.new_id()),
+            "strategy_id": strategy_id,
+            "signal_text": s["signal_text"],
+            "signal_category": s.get("signal_category", "outro"),
+            "is_positive": s.get("is_positive", True),
+            "priority": s.get("priority", 1),
+            "is_ai_suggested": s.get("is_ai_suggested", False),
+        })
 
-        return {"id": strategy.id, "message": "Estratégia criada com sucesso"}
+    return {"id": strategy_id, "message": "Estrategia criada com sucesso"}
 
 
 @router.put("/{strategy_id}")
 async def update_strategy(strategy_id: str, req: UpdateStrategyRequest) -> dict:
-    """Atualiza uma estratégia."""
-    with get_session() as session:
-        strategy = session.get(InvestmentStrategy, strategy_id)
-        if not strategy:
-            raise HTTPException(status_code=404, detail="Estratégia não encontrada")
+    """Atualiza uma estrategia."""
+    row = db.get_by_id("investment_strategies", strategy_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Estrategia nao encontrada")
 
-        if req.name is not None:
-            strategy.name = req.name
-        if req.description is not None:
-            strategy.description = req.description
-        if req.is_active is not None:
-            if req.is_active:
-                # Desativar outras do mesmo tenant
-                session.execute(
-                    update(InvestmentStrategy)
-                    .where(
-                        InvestmentStrategy.tenant_id == strategy.tenant_id,
-                        InvestmentStrategy.id != strategy_id,
-                    )
-                    .values(is_active=False)
-                )
-            strategy.is_active = req.is_active
+    patch = {}
+    if req.name is not None:
+        patch["name"] = req.name
+    if req.description is not None:
+        patch["description"] = req.description
+    if req.is_active is not None:
+        if req.is_active:
+            # Desativar outras do mesmo tenant
+            db._patch(
+                "investment_strategies",
+                f"tenant_id=eq.{row['tenant_id']}&id=neq.{strategy_id}",
+                {"is_active": False},
+            )
+        patch["is_active"] = req.is_active
 
-        session.flush()
-        return {"message": "Estratégia atualizada"}
+    if patch:
+        db.update("investment_strategies", strategy_id, patch)
+
+    return {"message": "Estrategia atualizada"}
 
 
 @router.delete("/{strategy_id}")
 async def delete_strategy(strategy_id: str) -> dict:
-    """Remove uma estratégia e todos os seus sinais."""
-    with get_session() as session:
-        strategy = session.get(InvestmentStrategy, strategy_id)
-        if not strategy:
-            raise HTTPException(status_code=404, detail="Estratégia não encontrada")
+    """Remove uma estrategia e todos os seus sinais."""
+    row = db.get_by_id("investment_strategies", strategy_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Estrategia nao encontrada")
 
-        session.delete(strategy)
-        session.flush()
-        return {"message": "Estratégia removida"}
+    # Remover sinais primeiro (cascade manual)
+    db.delete_by_filter("classification_signals", f"strategy_id=eq.{strategy_id}")
+    db.delete_by_id("investment_strategies", strategy_id)
+    return {"message": "Estrategia removida"}
 
 
 @router.post("/{strategy_id}/activate")
 async def activate_strategy(strategy_id: str) -> dict:
-    """Ativa uma estratégia (desativa as outras do mesmo tenant)."""
-    with get_session() as session:
-        strategy = session.get(InvestmentStrategy, strategy_id)
-        if not strategy:
-            raise HTTPException(status_code=404, detail="Estratégia não encontrada")
+    """Ativa uma estrategia (desativa as outras do mesmo tenant)."""
+    row = db.get_by_id("investment_strategies", strategy_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Estrategia nao encontrada")
 
-        session.execute(
-            update(InvestmentStrategy)
-            .where(InvestmentStrategy.tenant_id == strategy.tenant_id)
-            .values(is_active=False)
-        )
-        strategy.is_active = True
-        session.flush()
-        return {"message": f"Estratégia '{strategy.name}' ativada"}
+    # Desativar todas do mesmo tenant
+    db._patch(
+        "investment_strategies",
+        f"tenant_id=eq.{row['tenant_id']}",
+        {"is_active": False},
+    )
+    # Ativar esta
+    db.update("investment_strategies", strategy_id, {"is_active": True})
+    return {"message": f"Estrategia '{row['name']}' ativada"}
 
 
 # ---------------------------------------------------------------------------
@@ -362,57 +333,55 @@ async def activate_strategy(strategy_id: str) -> dict:
 
 @router.post("/{strategy_id}/signals")
 async def add_signal(strategy_id: str, req: AddSignalRequest) -> dict:
-    """Adiciona um sinal a uma estratégia."""
-    with get_session() as session:
-        strategy = session.get(InvestmentStrategy, strategy_id)
-        if not strategy:
-            raise HTTPException(status_code=404, detail="Estratégia não encontrada")
+    """Adiciona um sinal a uma estrategia."""
+    row = db.get_by_id("investment_strategies", strategy_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Estrategia nao encontrada")
 
-        signal = ClassificationSignal(
-            id=str(uuid4()),
-            strategy_id=strategy_id,
-            signal_text=req.signal_text,
-            signal_category=req.signal_category,
-            is_positive=req.is_positive,
-            priority=req.priority,
-            is_ai_suggested=False,
-        )
-        session.add(signal)
-        session.flush()
-        return {"id": signal.id, "message": "Sinal adicionado"}
+    signal_id = db.new_id()
+    db.insert("classification_signals", {
+        "id": signal_id,
+        "strategy_id": strategy_id,
+        "signal_text": req.signal_text,
+        "signal_category": req.signal_category,
+        "is_positive": req.is_positive,
+        "priority": req.priority,
+        "is_ai_suggested": False,
+    })
+    return {"id": signal_id, "message": "Sinal adicionado"}
 
 
 @router.put("/{strategy_id}/signals/{signal_id}")
 async def update_signal(
     strategy_id: str, signal_id: str, req: UpdateSignalRequest
 ) -> dict:
-    """Edita um sinal de uma estratégia."""
-    with get_session() as session:
-        signal = session.get(ClassificationSignal, signal_id)
-        if not signal or signal.strategy_id != strategy_id:
-            raise HTTPException(status_code=404, detail="Sinal não encontrado")
+    """Edita um sinal de uma estrategia."""
+    signal = db.get_by_id("classification_signals", signal_id)
+    if not signal or signal.get("strategy_id") != strategy_id:
+        raise HTTPException(status_code=404, detail="Sinal nao encontrado")
 
-        if req.signal_text is not None:
-            signal.signal_text = req.signal_text
-        if req.signal_category is not None:
-            signal.signal_category = req.signal_category
-        if req.is_positive is not None:
-            signal.is_positive = req.is_positive
-        if req.priority is not None:
-            signal.priority = req.priority
+    patch = {}
+    if req.signal_text is not None:
+        patch["signal_text"] = req.signal_text
+    if req.signal_category is not None:
+        patch["signal_category"] = req.signal_category
+    if req.is_positive is not None:
+        patch["is_positive"] = req.is_positive
+    if req.priority is not None:
+        patch["priority"] = req.priority
 
-        session.flush()
-        return {"message": "Sinal atualizado"}
+    if patch:
+        db.update("classification_signals", signal_id, patch)
+
+    return {"message": "Sinal atualizado"}
 
 
 @router.delete("/{strategy_id}/signals/{signal_id}")
 async def delete_signal(strategy_id: str, signal_id: str) -> dict:
-    """Remove um sinal de uma estratégia."""
-    with get_session() as session:
-        signal = session.get(ClassificationSignal, signal_id)
-        if not signal or signal.strategy_id != strategy_id:
-            raise HTTPException(status_code=404, detail="Sinal não encontrado")
+    """Remove um sinal de uma estrategia."""
+    signal = db.get_by_id("classification_signals", signal_id)
+    if not signal or signal.get("strategy_id") != strategy_id:
+        raise HTTPException(status_code=404, detail="Sinal nao encontrado")
 
-        session.delete(signal)
-        session.flush()
-        return {"message": "Sinal removido"}
+    db.delete_by_id("classification_signals", signal_id)
+    return {"message": "Sinal removido"}

@@ -2,6 +2,8 @@
 
 Gere o pipeline de ingestao WhatsApp (trigger + polling de estado)
 e expoe dados historicos das tabelas legacy como read-only.
+
+Migrado para Supabase REST (sem SQLAlchemy).
 """
 
 from __future__ import annotations
@@ -14,16 +16,14 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from loguru import logger
-from sqlalchemy import func, select
 
-from src.database.db import get_session
-from src.database.models import Group, MarketData, Message, Opportunity
+from src.database import supabase_rest as db
 
 router = APIRouter()
 
 _LOGS_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
 
-# ── Estado in-memory do pipeline ────────────────────────────────────
+# -- Estado in-memory do pipeline --
 _pipeline_lock = threading.Lock()
 _pipeline_state: Dict[str, Any] = {
     "status": "idle",  # idle | running | done | error
@@ -71,54 +71,6 @@ def _run_pipeline_background() -> None:
         logger.error(f"Pipeline M1 falhou: {e}")
 
 
-def _opp_to_dict(opp: Opportunity) -> Dict[str, Any]:
-    """Serializa uma Opportunity para dict."""
-    return {
-        "id": opp.id,
-        "is_opportunity": opp.is_opportunity,
-        "confidence": opp.confidence,
-        "opportunity_type": opp.opportunity_type,
-        "property_type": opp.property_type,
-        "location": opp.location_extracted,
-        "parish": opp.parish,
-        "municipality": opp.municipality,
-        "district": opp.district,
-        "price": opp.price_mentioned,
-        "area_m2": opp.area_m2,
-        "bedrooms": opp.bedrooms,
-        "deal_score": opp.deal_score,
-        "deal_grade": opp.deal_grade,
-        "status": opp.status,
-        "ai_reasoning": opp.ai_reasoning,
-        "original_message": opp.original_message,
-        "notes": opp.notes,
-        "created_at": opp.created_at.isoformat() if opp.created_at else None,
-    }
-
-
-def _market_to_dict(md: MarketData) -> Dict[str, Any]:
-    """Serializa MarketData para dict."""
-    return {
-        "ine_median_price_m2": md.ine_median_price_m2,
-        "ine_quarter": md.ine_quarter,
-        "casafari_avg_price_m2": md.casafari_avg_price_m2,
-        "casafari_median_price_m2": md.casafari_median_price_m2,
-        "sir_median_price_m2": md.sir_median_price_m2,
-        "sir_market_position": md.sir_market_position,
-        "sir_price_vs_market_pct": md.sir_price_vs_market_pct,
-        "idealista_avg_price_m2": md.idealista_avg_price_m2,
-        "idealista_listings_count": md.idealista_listings_count,
-        "estimated_market_value": md.estimated_market_value,
-        "estimated_monthly_rent": md.estimated_monthly_rent,
-        "gross_yield_pct": md.gross_yield_pct,
-        "net_yield_pct": md.net_yield_pct,
-        "price_vs_market_pct": md.price_vs_market_pct,
-        "imt_estimate": md.imt_estimate,
-        "stamp_duty_estimate": md.stamp_duty_estimate,
-        "total_acquisition_cost": md.total_acquisition_cost,
-    }
-
-
 @router.post("/trigger", summary="Disparar pipeline de ingestao")
 async def trigger_pipeline() -> Dict[str, Any]:
     """Dispara o pipeline M1 em background. Usar GET /status para acompanhar."""
@@ -157,26 +109,19 @@ async def get_pipeline_status() -> Dict[str, Any]:
 @router.get("/groups", summary="Listar grupos monitorizados")
 async def list_groups() -> List[Dict[str, Any]]:
     """Lista todos os grupos com estatisticas (dados historicos)."""
-    with get_session() as session:
-        groups = session.execute(
-            select(Group).order_by(Group.name)
-        ).scalars().all()
-        return [
-            {
-                "id": g.id,
-                "whatsapp_group_id": g.whatsapp_group_id,
-                "name": g.name,
-                "is_active": g.is_active,
-                "last_processed_at": (
-                    g.last_processed_at.isoformat()
-                    if g.last_processed_at
-                    else None
-                ),
-                "messages": g.message_count,
-                "opportunities": g.opportunity_count,
-            }
-            for g in groups
-        ]
+    rows = db.list_rows("groups", order="name.asc", limit=200)
+    return [
+        {
+            "id": g.get("id"),
+            "whatsapp_group_id": g.get("whatsapp_group_id"),
+            "name": g.get("name"),
+            "is_active": g.get("is_active"),
+            "last_processed_at": g.get("last_processed_at"),
+            "messages": g.get("message_count", 0),
+            "opportunities": g.get("opportunity_count", 0),
+        }
+        for g in rows
+    ]
 
 
 @router.get("/opportunities", summary="Listar oportunidades")
@@ -189,115 +134,115 @@ async def list_opportunities(
     offset: int = Query(0, ge=0),
 ) -> Dict[str, Any]:
     """Lista oportunidades com filtros (dados historicos read-only)."""
-    with get_session() as session:
-        stmt = select(Opportunity).where(Opportunity.is_opportunity.is_(True))
+    # Montar filtros
+    filters: list[str] = ["is_opportunity=eq.true"]
+    if min_confidence > 0.0:
+        filters.append(f"confidence=gte.{min_confidence}")
+    if grade:
+        filters.append(f"deal_grade=eq.{grade}")
+    if district:
+        filters.append(f"district=eq.{district}")
+    if status:
+        filters.append(f"status=eq.{status}")
 
-        if min_confidence > 0.0:
-            stmt = stmt.where(Opportunity.confidence >= min_confidence)
-        if grade:
-            stmt = stmt.where(Opportunity.deal_grade == grade)
-        if district:
-            stmt = stmt.where(Opportunity.district == district)
-        if status:
-            stmt = stmt.where(Opportunity.status == status)
+    params = "&".join(filters)
 
-        count_stmt = select(func.count()).select_from(stmt.subquery())
-        total = session.execute(count_stmt).scalar() or 0
+    # Total count
+    total = db._count("opportunities", params)
 
-        stmt = stmt.order_by(
-            Opportunity.deal_score.desc().nullslast(),
-            Opportunity.created_at.desc(),
-        )
-        stmt = stmt.offset(offset).limit(limit)
+    # Buscar registos com paginacao
+    rows = db.list_rows(
+        "opportunities",
+        params=params,
+        order="deal_score.desc.nullslast,created_at.desc",
+        limit=limit,
+        offset=offset,
+        select_cols="id,is_opportunity,confidence,opportunity_type,property_type,"
+                    "location_extracted,parish,municipality,district,"
+                    "price_mentioned,area_m2,bedrooms,deal_score,deal_grade,"
+                    "status,ai_reasoning,original_message,notes,created_at",
+    )
 
-        results = session.execute(stmt).scalars().all()
-        return {
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-            "items": [_opp_to_dict(opp) for opp in results],
-        }
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "items": rows,
+    }
 
 
 @router.get("/opportunities/{opp_id}", summary="Detalhe de uma oportunidade")
 async def get_opportunity(opp_id: int) -> Dict[str, Any]:
     """Retorna detalhe completo de uma oportunidade + market data."""
-    with get_session() as session:
-        opp = session.get(Opportunity, opp_id)
-        if not opp:
-            raise HTTPException(
-                status_code=404, detail="Oportunidade nao encontrada"
-            )
+    rows = db._get("opportunities", f"id=eq.{opp_id}&select=*&limit=1")
+    if not rows:
+        raise HTTPException(
+            status_code=404, detail="Oportunidade nao encontrada"
+        )
+    opp = rows[0]
 
-        market = session.execute(
-            select(MarketData).where(MarketData.opportunity_id == opp_id)
-        ).scalar_one_or_none()
+    # Market data
+    market_rows = db._get(
+        "market_data",
+        f"opportunity_id=eq.{opp_id}&limit=1"
+        "&select=ine_median_price_m2,ine_quarter,casafari_avg_price_m2,"
+        "casafari_median_price_m2,sir_median_price_m2,sir_market_position,"
+        "sir_price_vs_market_pct,idealista_avg_price_m2,idealista_listings_count,"
+        "estimated_market_value,estimated_monthly_rent,gross_yield_pct,"
+        "net_yield_pct,price_vs_market_pct,imt_estimate,stamp_duty_estimate,"
+        "total_acquisition_cost"
+    )
+    opp["market_data"] = market_rows[0] if market_rows else None
 
-        result = _opp_to_dict(opp)
-        result["market_data"] = _market_to_dict(market) if market else None
+    # Info do grupo via message
+    message_id = opp.get("message_id")
+    if message_id:
+        msg_rows = db._get("messages", f"id=eq.{message_id}&select=group_name,sender_name,timestamp&limit=1")
+        if msg_rows:
+            msg = msg_rows[0]
+            opp["group_name"] = msg.get("group_name")
+            opp["sender_name"] = msg.get("sender_name")
+            opp["message_timestamp"] = msg.get("timestamp")
 
-        # Buscar info do grupo
-        msg = session.get(Message, opp.message_id)
-        if msg:
-            result["group_name"] = msg.group_name
-            result["sender_name"] = msg.sender_name
-            result["message_timestamp"] = (
-                msg.timestamp.isoformat() if msg.timestamp else None
-            )
-
-        return result
+    return opp
 
 
 @router.get("/stats", summary="Estatisticas gerais")
 async def get_stats() -> Dict[str, Any]:
     """Resumo: totais, top grupos, distribuicao geografica e por tipo."""
-    with get_session() as session:
-        total_groups = session.execute(
-            select(func.count(Group.id))
-        ).scalar() or 0
-        active_groups = session.execute(
-            select(func.count(Group.id)).where(Group.is_active.is_(True))
-        ).scalar() or 0
-        total_messages = session.execute(
-            select(func.count(Message.id))
-        ).scalar() or 0
-        total_opps = session.execute(
-            select(func.count(Opportunity.id)).where(
-                Opportunity.is_opportunity.is_(True)
-            )
-        ).scalar() or 0
+    total_groups = db._count("groups")
+    active_groups = db._count("groups", "is_active=eq.true")
+    total_messages = db._count("messages")
+    total_opps = db._count("opportunities", "is_opportunity=eq.true")
 
-        # Distribuicao por grade
-        grade_counts: Dict[str, int] = {}
-        for g in ["A", "B", "C", "D", "F"]:
-            cnt = session.execute(
-                select(func.count(Opportunity.id)).where(
-                    Opportunity.is_opportunity.is_(True),
-                    Opportunity.deal_grade == g,
-                )
-            ).scalar() or 0
-            grade_counts[g] = cnt
+    # Distribuicao por grade
+    grade_counts: Dict[str, int] = {}
+    for g in ["A", "B", "C", "D", "F"]:
+        grade_counts[g] = db._count(
+            "opportunities",
+            f"is_opportunity=eq.true&deal_grade=eq.{g}",
+        )
 
-        # Top distritos
-        top_districts = session.execute(
-            select(
-                Opportunity.district, func.count(Opportunity.id).label("total")
-            )
-            .where(
-                Opportunity.is_opportunity.is_(True),
-                Opportunity.district.isnot(None),
-            )
-            .group_by(Opportunity.district)
-            .order_by(func.count(Opportunity.id).desc())
-            .limit(10)
-        ).all()
+    # Top distritos — buscar oportunidades agrupadas manualmente
+    # (Supabase REST nao suporta GROUP BY, fazemos client-side)
+    opp_rows = db._get(
+        "opportunities",
+        "is_opportunity=eq.true&district=not.is.null"
+        "&select=district&limit=1000",
+    )
+    district_map: Dict[str, int] = {}
+    for r in opp_rows:
+        d = r.get("district")
+        if d:
+            district_map[d] = district_map.get(d, 0) + 1
+    top_districts = sorted(district_map.items(), key=lambda x: x[1], reverse=True)[:10]
 
-        return {
-            "groups": {"total": total_groups, "active": active_groups},
-            "messages": total_messages,
-            "opportunities": total_opps,
-            "grade_distribution": grade_counts,
-            "top_districts": [
-                {"district": d, "count": c} for d, c in top_districts
-            ],
-        }
+    return {
+        "groups": {"total": total_groups, "active": active_groups},
+        "messages": total_messages,
+        "opportunities": total_opps,
+        "grade_distribution": grade_counts,
+        "top_districts": [
+            {"district": d, "count": c} for d, c in top_districts
+        ],
+    }
