@@ -87,6 +87,8 @@ async def list_properties(
     params = "select=*&order=created_at.desc"
     if status:
         params += f"&status=eq.{status}"
+    else:
+        params += "&status=neq.descartado"
     if municipality:
         params += f"&municipality=eq.{municipality}"
     params += f"&limit={limit}&offset={offset}"
@@ -97,6 +99,8 @@ async def list_properties(
     count_params = "select=id"
     if status:
         count_params += f"&status=eq.{status}"
+    else:
+        count_params += "&status=neq.descartado"
     if municipality:
         count_params += f"&municipality=eq.{municipality}"
     supa._ensure_config()
