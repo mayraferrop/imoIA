@@ -253,6 +253,70 @@ def _sync_from_supabase():
                 break
         session.flush()
 
+        # Tabelas dos módulos M4-M9 (sync genérico)
+        from src.database.models_v2 import (
+            Deal, DealTask, DealStateHistory, Proposal, DealVisit, DealCommission, DealRental,
+            DueDiligenceItem,
+            Renovation, RenovationMilestone, RenovationExpense, RenovationPhoto,
+            BrandKit, Listing, ListingCreative, EmailCampaign,
+            SocialMediaAccount, SocialMediaPost,
+            Lead, LeadInteraction, NurtureSequence,
+            ClosingProcess, DealPnL,
+            InvestmentStrategy, ClassificationSignal,
+        )
+
+        module_tables = [
+            ("deals", Deal),
+            ("deal_tasks", DealTask),
+            ("deal_state_history", DealStateHistory),
+            ("proposals", Proposal),
+            ("deal_visits", DealVisit),
+            ("deal_commissions", DealCommission),
+            ("deal_rentals", DealRental),
+            ("due_diligence_items", DueDiligenceItem),
+            ("renovations", Renovation),
+            ("renovation_milestones", RenovationMilestone),
+            ("renovation_expenses", RenovationExpense),
+            ("renovation_photos", RenovationPhoto),
+            ("brand_kits", BrandKit),
+            ("listings", Listing),
+            ("listing_creatives", ListingCreative),
+            ("email_campaigns", EmailCampaign),
+            ("social_media_accounts", SocialMediaAccount),
+            ("social_media_posts", SocialMediaPost),
+            ("leads", Lead),
+            ("lead_interactions", LeadInteraction),
+            ("nurture_sequences", NurtureSequence),
+            ("closing_processes", ClosingProcess),
+            ("deal_pnl", DealPnL),
+            ("investment_strategies", InvestmentStrategy),
+            ("classification_signals", ClassificationSignal),
+        ]
+
+        for table_name, ModelClass in module_tables:
+            try:
+                for off in range(0, 2000, 500):
+                    batch = fetch(table_name, 500, off)
+                    if not batch:
+                        break
+                    for row in batch:
+                        try:
+                            obj = ModelClass(id=row.get("id"))
+                            for k, v in row.items():
+                                if k not in ("id", "created_at", "updated_at") and hasattr(ModelClass, k) and v is not None:
+                                    try:
+                                        setattr(obj, k, v)
+                                    except Exception:
+                                        pass
+                            session.merge(obj)
+                        except Exception:
+                            pass
+                    if len(batch) < 500:
+                        break
+                session.flush()
+            except Exception as e:
+                logger.debug(f"Sync {table_name} skip: {e}")
+
     logger.info("Sync Supabase completo")
 
 
@@ -291,6 +355,12 @@ def create_app() -> FastAPI:
             Base.metadata.create_all(bind=_get_engine())
         except Exception as e:
             logger.warning(f"Aviso ao inicializar BD (tabelas podem ja existir): {e}")
+
+        # Sync Supabase → SQLite no cold start (preenche SQLite volatil)
+        try:
+            _sync_from_supabase()
+        except Exception as e:
+            logger.warning(f"Sync Supabase falhou (app continua): {e}")
 
         logger.info("ImoIA API iniciada")
 
