@@ -55,7 +55,7 @@ export function Sidebar() {
       </nav>
 
       <div className="p-4 border-t border-slate-200 text-xs text-slate-400">
-        ImoIA v0.2.0
+        ImoIA v0.3.0
       </div>
     </aside>
   );
