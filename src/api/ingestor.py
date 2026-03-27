@@ -153,14 +153,14 @@ async def list_opportunities(
     # Buscar registos com paginacao
     rows = db.list_rows(
         "opportunities",
-        params=params,
+        select="id,is_opportunity,confidence,opportunity_type,property_type,"
+               "location_extracted,parish,municipality,district,"
+               "price_mentioned,area_m2,bedrooms,deal_score,deal_grade,"
+               "status,ai_reasoning,original_message,notes,created_at",
+        filters=params,
         order="deal_score.desc.nullslast,created_at.desc",
         limit=limit,
         offset=offset,
-        select_cols="id,is_opportunity,confidence,opportunity_type,property_type,"
-                    "location_extracted,parish,municipality,district,"
-                    "price_mentioned,area_m2,bedrooms,deal_score,deal_grade,"
-                    "status,ai_reasoning,original_message,notes,created_at",
     )
 
     return {

@@ -95,7 +95,7 @@ def _strategy_with_signals(row: dict) -> dict:
     """Monta StrategyOut a partir de uma row + sinais do Supabase."""
     signals = db.list_rows(
         "classification_signals",
-        params=f"strategy_id=eq.{row['id']}",
+        filters=f"strategy_id=eq.{row['id']}",
         order="priority.asc",
         limit=200,
     )
