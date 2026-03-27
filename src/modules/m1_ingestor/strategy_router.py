@@ -214,7 +214,7 @@ async def list_strategies() -> list[dict]:
     tenant_id = _get_tenant_id()
     rows = db.list_rows(
         "investment_strategies",
-        params=f"tenant_id=eq.{tenant_id}",
+        filters=f"tenant_id=eq.{tenant_id}",
         order="created_at.desc",
         limit=100,
     )
