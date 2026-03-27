@@ -217,5 +217,29 @@ Quando receber instruções para trabalhar em paralelo, monte este time automati
 |------|---------|--------|
 | Mar/2026 | Whapi: endpoint de arquivar atualizado pelo fornecedor | Mudança no lado do Whapi, não bug nosso |
 | Mar/2026 | NVM adicionado ao `.zshrc` para persistência | Evitar `command not found: claude` em terminais novos |
+| Mar/2026 | Vercel: alias `imoia.vercel.app` → projecto `imo-ia` | URL principal usada em produção |
 
 > Adicionar novas entradas aqui quando decisões técnicas relevantes forem tomadas.
+
+---
+
+## 🚀 Deploy do Frontend (Vercel)
+
+**URL de produção:** `https://imoia.vercel.app`
+
+**Projecto Vercel:** `imo-ia` (team: `mayraferrops-projects`)
+- Root Directory configurado como `src/frontend` no dashboard Vercel
+- Push para `main` NÃO faz deploy automático — é necessário deploy manual
+
+**Comandos de deploy:**
+```bash
+# A partir da raiz do projecto:
+vercel --prod --scope mayraferrops-projects --yes --cwd /Users/mayaraferro/Projects/imoIA
+
+# Re-aplicar alias (necessário após cada deploy manual):
+vercel alias set imo-ia.vercel.app imoia.vercel.app --scope mayraferrops-projects
+```
+
+**IMPORTANTE:**
+- Nunca fazer `vercel --prod` de dentro de `src/frontend/` — causa erro de path duplicado
+- Sempre re-aplicar o alias `imoia.vercel.app` após deploy manual
