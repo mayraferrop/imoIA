@@ -1056,9 +1056,9 @@ export default function FinancialPage() {
                     onClick={() => {
                       setShowSaveModal(true);
                       // Carregar propriedades existentes
-                      fetch(`${SUPABASE_URL}/rest/v1/properties?select=id,municipality,parish,asking_price,property_type,status,financial_models(id)&status=neq.descartado&order=created_at.desc&limit=50`, {
+                      fetch(`${SUPABASE_URL}/rest/v1/properties?select=id,municipality,parish,asking_price,property_type,status&status=neq.descartado&order=created_at.desc&limit=50`, {
                         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-                      }).then(r => r.ok ? r.json() : []).then(setExistingProperties).catch(() => {});
+                      }).then(r => { if (!r.ok) { console.error("Props fetch failed:", r.status); return []; } return r.json(); }).then(setExistingProperties).catch(e => console.error("Props error:", e));
                     }}
                     className="w-full bg-teal-700 text-white py-2.5 rounded-lg font-medium hover:bg-teal-800 transition-colors text-sm"
                   >
