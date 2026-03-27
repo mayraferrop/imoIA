@@ -1483,7 +1483,7 @@ export default function FinancialPage() {
                           if (!municipality) { alert("Preencha pelo menos o concelho."); return; }
                           setNewPropLoading(true);
                           try {
-                            const res = await fetch(`${API_BASE}/api/v1/properties/`, {
+                            const res = await fetch(`${API_BASE}/api/v1/financial/create-property`, {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({

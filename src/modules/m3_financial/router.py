@@ -67,18 +67,14 @@ async def create_scenarios(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("/debug-supabase", summary="Debug Supabase connection")
-async def debug_supabase() -> Dict[str, Any]:
-    """Debug: verifica se o backend consegue ligar ao Supabase REST."""
-    import os
-    from src.database.supabase_rest import _url, _key, _get
-    url = _url()
-    key = _key()
+@router.post("/create-property", summary="Criar propriedade via Supabase REST")
+async def create_property_supa(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Cria propriedade directamente no Supabase (sem SQLAlchemy)."""
+    from src.database.supabase_rest import create_property
     try:
-        result = _get("financial_models", "select=id&limit=1")
-        return {"url": url[:30] + "..." if url else "EMPTY", "key_len": len(key), "test_result": result}
+        return create_property(data)
     except Exception as e:
-        return {"url": url[:30] + "..." if url else "EMPTY", "key_len": len(key), "error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/scenarios", summary="Listar cenarios salvos")
