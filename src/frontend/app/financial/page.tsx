@@ -140,6 +140,8 @@ export default function FinancialPage() {
   // Criar imóvel rápido (dentro do modal de salvar cenário)
   const [showNewProperty, setShowNewProperty] = useState(false);
   const [newPropLoading, setNewPropLoading] = useState(false);
+  const [propSearch, setPropSearch] = useState("");
+  const [propDropdownOpen, setPropDropdownOpen] = useState(false);
 
   // CashFlow Pro export
   const [cfpProjects, setCfpProjects] = useState<{id: string; name: string}[]>([]);
@@ -1440,22 +1442,49 @@ export default function FinancialPage() {
 
                   {!showNewProperty ? (
                     <>
-                      <select
-                        value={selectedPropertyId}
-                        onChange={(e) => setSelectedPropertyId(e.target.value)}
-                        className={`w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500 ${!selectedPropertyId ? "border-red-300" : "border-slate-300"}`}
-                      >
-                        <option value="">-- Seleccionar imóvel --</option>
-                        {existingProperties.map((p: any) => (
-                          <option key={p.id} value={p.id}>
-                            {p.municipality || "?"}{p.parish ? ` — ${p.parish}` : ""} | {p.property_type || ""} | {formatEUR(p.asking_price)}{p.financial_models?.length ? " (já tem cenário)" : ""}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Pesquisar imóvel por concelho, freguesia..."
+                          value={propSearch || (selectedPropertyId ? (() => { const p = existingProperties.find((x: any) => x.id === selectedPropertyId); return p ? `${p.municipality || "?"}${p.parish ? ` — ${p.parish}` : ""} | ${p.property_type || ""} | ${formatEUR(p.asking_price)}` : ""; })() : "")}
+                          onChange={(e) => { setPropSearch(e.target.value); setPropDropdownOpen(true); if (!e.target.value) setSelectedPropertyId(""); }}
+                          onFocus={() => setPropDropdownOpen(true)}
+                          className={`w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500 ${!selectedPropertyId ? "border-red-300" : "border-slate-300"}`}
+                        />
+                        {selectedPropertyId && (
+                          <button type="button" onClick={() => { setSelectedPropertyId(""); setPropSearch(""); }} className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 text-sm">✕</button>
+                        )}
+                        {propDropdownOpen && (
+                          <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {existingProperties
+                              .filter((p: any) => {
+                                if (!propSearch) return true;
+                                const s = propSearch.toLowerCase();
+                                return (p.municipality || "").toLowerCase().includes(s) ||
+                                  (p.parish || "").toLowerCase().includes(s) ||
+                                  (p.property_type || "").toLowerCase().includes(s);
+                              })
+                              .map((p: any) => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => { setSelectedPropertyId(p.id); setPropSearch(""); setPropDropdownOpen(false); }}
+                                  className={`w-full text-left px-3 py-2 text-sm hover:bg-teal-50 ${selectedPropertyId === p.id ? "bg-teal-100 font-medium" : ""}`}
+                                >
+                                  {p.municipality || "?"}{p.parish ? ` — ${p.parish}` : ""} | {p.property_type || ""} | {formatEUR(p.asking_price)}
+                                </button>
+                              ))}
+                            {existingProperties.filter((p: any) => {
+                              if (!propSearch) return true;
+                              const s = propSearch.toLowerCase();
+                              return (p.municipality || "").toLowerCase().includes(s) || (p.parish || "").toLowerCase().includes(s) || (p.property_type || "").toLowerCase().includes(s);
+                            }).length === 0 && (
+                              <p className="px-3 py-2 text-sm text-slate-400">Nenhum imóvel encontrado</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       {!selectedPropertyId && <p className="text-xs text-red-500 mt-0.5">Obrigatório</p>}
-                      {selectedPropertyId && existingProperties.find((p: any) => p.id === selectedPropertyId)?.financial_models?.length > 0 && (
-                        <p className="text-xs text-amber-600 mt-0.5">Este imóvel já tem cenário(s). O novo será adicionado, mantendo os existentes.</p>
-                      )}
                     </>
                   ) : (
                     <div className="border border-teal-200 rounded-lg p-3 bg-teal-50 space-y-2">
