@@ -110,21 +110,32 @@ def _calc_dates(
     renovation_duration_months: int,
     holding_months: int,
 ) -> Dict[str, date]:
-    """Calcula todas as datas do cronograma a partir da data do CPCV."""
+    """Calcula todas as datas do cronograma a partir da data do CPCV.
+
+    Cronologia:
+      CPCV → Escritura 1 (60d) → Obra inicio (dia seguinte)
+      → Mes 1 (30d apos escritura) → Mes 2 ... → Escritura 2 (1 mes antes venda)
+      → VENDA → Reembolso IMT (12 meses depois)
+    """
     esc = escritura_date or (cpcv_date + timedelta(days=60))
     obra_ini = obra_start_date or (esc + timedelta(days=1))
 
+    # Meses: 1o mes comeca 30 dias apos escritura (nao no dia seguinte)
     meses: List[date] = []
     for m in range(holding_months):
-        meses.append(obra_ini + timedelta(days=30 * m))
+        meses.append(esc + timedelta(days=30 * (m + 1)))
 
-    venda = sale_date or (obra_ini + timedelta(days=30 * holding_months))
+    venda = sale_date or (esc + timedelta(days=30 * (holding_months + 1)))
+
+    # Escritura 2: 1 mes antes da venda
+    escritura_2 = venda - timedelta(days=30)
 
     return {
         "cpcv": cpcv_date,
         "escritura": esc,
         "obra_inicio": obra_ini,
         "meses": meses,
+        "escritura_2": escritura_2,
         "venda": venda,
     }
 
@@ -151,6 +162,9 @@ def _build_entries(
         # Determinar data deste periodo
         if label == "CPCV" or label.startswith("CPCV "):
             entry_date = dates["cpcv"]
+        elif "Escritura 2" in label:
+            # Escritura 2 (PF→JP): 1 mes antes da venda
+            entry_date = dates["escritura_2"]
         elif "Escritura" in label:
             entry_date = dates["escritura"]
         elif label == "VENDA":
@@ -502,6 +516,7 @@ def export_to_cashflow_pro(
             "cpcv": cpcv_date.isoformat(),
             "escritura": dates["escritura"].isoformat(),
             "obra_inicio": dates["obra_inicio"].isoformat(),
+            "escritura_2": dates["escritura_2"].isoformat(),
             "venda": dates["venda"].isoformat(),
         },
     }
