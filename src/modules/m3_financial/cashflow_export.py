@@ -110,18 +110,19 @@ def _calc_dates(
     sale_date: Optional[date],
     renovation_duration_months: int,
     holding_months: int,
-) -> Dict[str, date]:
+    tranches: Optional[List[Dict]] = None,
+) -> Dict[str, Any]:
     """Calcula todas as datas do cronograma a partir da data do CPCV.
 
     Cronologia:
-      CPCV → Escritura 1 (60d) → Obra inicio (dia seguinte)
-      → Mes 1 (30d apos escritura) → Mes 2 ... → Escritura 2 (1 mes antes venda)
+      CPCV (parcelas com datas proprias) → Escritura 1 → Obra inicio
+      → Mes 1 (30d apos escritura) → ... → Escritura 2 (1 mes antes venda)
       → VENDA → Reembolso IMT (12 meses depois)
     """
     esc = escritura_date or (cpcv_date + timedelta(days=60))
     obra_ini = obra_start_date or (esc + timedelta(days=1))
 
-    # Meses: 1o mes comeca 30 dias apos escritura (nao no dia seguinte)
+    # Meses: 1o mes comeca 30 dias apos escritura
     meses: List[date] = []
     for m in range(holding_months):
         meses.append(esc + timedelta(days=30 * (m + 1)))
@@ -131,8 +132,20 @@ def _calc_dates(
     # Escritura 2: 1 mes antes da venda
     escritura_2 = venda - timedelta(days=30)
 
+    # Datas individuais das tranches CPCV (se disponivel)
+    cpcv_dates: List[date] = []
+    if tranches:
+        for t in tranches:
+            t_date_str = t.get("data")
+            if t_date_str and t.get("tipo") != "escritura":
+                try:
+                    cpcv_dates.append(date.fromisoformat(t_date_str[:10]))
+                except (ValueError, TypeError):
+                    cpcv_dates.append(cpcv_date)
+
     return {
         "cpcv": cpcv_date,
+        "cpcv_dates": cpcv_dates,
         "escritura": esc,
         "obra_inicio": obra_ini,
         "meses": meses,
@@ -154,6 +167,7 @@ def _build_entries(
     """
     entries: List[Dict[str, Any]] = []
     mes_idx = 0
+    cpcv_idx = 0  # indice para datas individuais das tranches CPCV
 
     for f in flows:
         label = f.get("label", "")
@@ -162,7 +176,13 @@ def _build_entries(
 
         # Determinar data deste periodo
         if label == "CPCV" or label.startswith("CPCV "):
-            entry_date = dates["cpcv"]
+            # Usar data individual da tranche se disponivel
+            cpcv_dates = dates.get("cpcv_dates", [])
+            if cpcv_idx < len(cpcv_dates):
+                entry_date = cpcv_dates[cpcv_idx]
+            else:
+                entry_date = dates["cpcv"]
+            cpcv_idx += 1
         elif "Escritura 2" in label:
             # Escritura 2 (PF→JP): 1 mes antes da venda
             entry_date = dates["escritura_2"]
@@ -407,6 +427,7 @@ def export_to_cashflow_pro(
     sale_date: Optional[date] = None,
     renovation_duration_months: int = 3,
     holding_months: int = 9,
+    tranches: Optional[List[Dict]] = None,
 ) -> Dict[str, Any]:
     """Exporta fluxo de caixa M3 para o Cash Flow Pro via edge function.
 
@@ -463,6 +484,7 @@ def export_to_cashflow_pro(
         sale_date=sale_date,
         renovation_duration_months=renovation_duration_months,
         holding_months=holding_months,
+        tranches=tranches,
     )
 
     # Montar entries

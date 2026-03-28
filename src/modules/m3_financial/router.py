@@ -302,6 +302,7 @@ async def export_to_cashflow_pro(
         projections = supa_get_proj(model_id)
         cpcv_date = None
         escritura_date = None
+        tranches_data = None
         if projections and projections.get("payment_condition"):
             from datetime import date as date_type
             pc = projections["payment_condition"]
@@ -309,6 +310,7 @@ async def export_to_cashflow_pro(
                 cpcv_date = date_type.fromisoformat(pc["cpcv_date"][:10])
             if pc.get("escritura_date"):
                 escritura_date = date_type.fromisoformat(pc["escritura_date"][:10])
+            tranches_data = pc.get("tranches")
 
         export_result = do_export(
             flows=cash_flow.get("flows", []),
@@ -319,6 +321,7 @@ async def export_to_cashflow_pro(
             escritura_date=escritura_date,
             renovation_duration_months=fin_input.renovation_duration_months,
             holding_months=result.holding_months,
+            tranches=tranches_data,
         )
         return export_result
     except ValueError as e:
@@ -408,8 +411,26 @@ async def save_scenario(request: ScenarioSaveRequest) -> Dict[str, Any]:
             "property_id": property_id,
             "scenario_name": data.get("scenario_name", "base"),
             "status": "calculated",
+            # Campos do FinancialResult
             **{k: v for k, v in result_dict.items()
                if k in _FM_COLS and not isinstance(v, (dict, list))},
+            # Campos do FinancialInput que nao estao no Result
+            "purchase_price": fin_input.purchase_price,
+            "renovation_budget": fin_input.renovation_budget,
+            "renovation_contingency_pct": fin_input.renovation_contingency_pct,
+            "renovation_duration_months": fin_input.renovation_duration_months,
+            "estimated_sale_price": fin_input.estimated_sale_price,
+            "comissao_venda_pct": fin_input.comissao_venda_pct,
+            "comissao_compra_pct": fin_input.comissao_compra_pct,
+            "monthly_condominio": fin_input.monthly_condominio,
+            "monthly_insurance": round(fin_input.annual_insurance / 12, 2),
+            "monthly_consumos": fin_input.monthly_consumos,
+            "financing_type": fin_input.financing_type,
+            "loan_term_months": fin_input.loan_term_months,
+            "country": fin_input.country,
+            "entity_structure": fin_input.entity_structure,
+            "imt_resale_regime": fin_input.imt_resale_regime,
+            "roi_target_pct": fin_input.roi_target_pct,
         }
         supa.save_financial_model(model_row)
 
