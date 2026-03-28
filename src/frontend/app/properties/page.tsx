@@ -217,7 +217,7 @@ export default function PropertiesPage() {
   });
 
   async function pollPipelineStatus() {
-    const MAX_POLLS = 90; // 90 x 2s = 3 minutos max
+    const MAX_POLLS = 150; // 150 x 2s = 5 minutos max
     for (let i = 0; i < MAX_POLLS; i++) {
       await new Promise((r) => setTimeout(r, 2000));
       try {
