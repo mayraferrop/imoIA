@@ -161,15 +161,26 @@ def _build_entries(
     model_id: str,
     project_name: str,
     dates: Dict[str, Any],
+    tranches: Optional[List[Dict]] = None,
 ) -> List[Dict[str, Any]]:
     """Converte flows do M3 em entries para o Cash Flow Pro.
 
     Cada componente vira um lancamento separado (IMT, IS, Notario, etc.).
     Juros e amortizacao sao lancamentos separados.
+    Tranches de tipo "escritura" sao ignoradas como CPCV — a Escritura 1
+    ja gera os entries correctos com equity, IMT, IS, etc.
     """
     entries: List[Dict[str, Any]] = []
     mes_idx = 0
     cpcv_idx = 0  # indice para datas individuais das tranches CPCV
+
+    # Determinar quantas tranches CPCV sao sinais (nao escritura)
+    # A tranche de escritura nao gera entry CPCV — a Escritura 1 ja cobre
+    num_sinal_tranches = 0
+    if tranches:
+        for t in tranches:
+            if t.get("tipo") != "escritura":
+                num_sinal_tranches += 1
 
     for f in flows:
         label = f.get("label", "")
@@ -208,6 +219,7 @@ def _build_entries(
         if cat == "aquisicao":
             componentes = f.get("componentes", [])
             if componentes:
+                # Escritura 1/2 com componentes (IMT, IS, Notario, Equity, etc.)
                 for j, comp in enumerate(componentes):
                     nome = comp["nome"]
                     cat_key = _COMP_NAME_MAP.get(nome, "sinal")
@@ -220,11 +232,27 @@ def _build_entries(
                         project_name=project_name,
                         external_ref=f"{ref_base}:{j}",
                     ))
+            elif label.startswith("CPCV"):
+                # CPCV sem componentes = parcela de sinal
+                # Ignorar a tranche de escritura (a Escritura 1 ja gera os entries)
+                is_escritura_tranche = (
+                    num_sinal_tranches > 0 and cpcv_idx > num_sinal_tranches
+                )
+                if not is_escritura_tranche:
+                    entries.append(_make_entry(
+                        entry_type="expense",
+                        description=f"{label} — Sinal",
+                        amount=f.get("aquisicao", 0),
+                        cat_key="sinal",
+                        entry_date_str=entry_date_str,
+                        project_name=project_name,
+                        external_ref=ref_base,
+                    ))
             else:
-                # CPCV sem componentes = sinal
+                # Aquisicao sem componentes e sem label CPCV
                 entries.append(_make_entry(
                     entry_type="expense",
-                    description=f"{label} — Sinal",
+                    description=f"{label} — Aquisição",
                     amount=f.get("aquisicao", 0),
                     cat_key="sinal",
                     entry_date_str=entry_date_str,
@@ -490,7 +518,7 @@ def export_to_cashflow_pro(
     )
 
     # Montar entries
-    entries = _build_entries(flows, model_id, project_name, dates)
+    entries = _build_entries(flows, model_id, project_name, dates, tranches=tranches)
     if not entries:
         return {"inserted_count": 0, "updated_count": 0, "skipped_count": 0, "total_entries": 0}
 
