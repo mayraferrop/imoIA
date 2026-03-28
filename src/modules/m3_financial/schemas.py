@@ -4,13 +4,34 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class FinancialModelCreateRequest(BaseModel):
     """Request para criar um modelo financeiro."""
 
     purchase_price: float = Field(gt=0, description="Preco de compra")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _replace_none_with_defaults(cls, values: dict) -> dict:
+        """Converte None para defaults — frontend pode enviar null."""
+        defaults = {
+            "renovation_budget": 0, "renovation_contingency_pct": 0,
+            "renovation_duration_months": 6, "loan_amount": 0,
+            "loan_pct_purchase": 0, "loan_pct_renovation": 0,
+            "interest_rate_pct": 0, "spread_pct": 0, "loan_term_months": 240,
+            "estimated_sale_price": 0, "comissao_venda_pct": 6.15,
+            "additional_holding_months": 3, "monthly_condominio": 50,
+            "annual_insurance": 300, "monthly_consumos": 80,
+            "comissao_compra_pct": 0, "estimated_annual_income": 0,
+            "renovation_with_invoice_pct": 100, "roi_target_pct": 15,
+        }
+        if isinstance(values, dict):
+            for k, default in defaults.items():
+                if values.get(k) is None:
+                    values[k] = default
+        return values
     country: str = Field(default="PT", pattern="^(PT|BR)$")
     scenario_name: str = Field(default="base")
 
