@@ -116,7 +116,8 @@ async def list_by_property(property_id: str) -> list:
 async def delete_financial_model(model_id: str) -> Dict[str, Any]:
     """Exclui modelo financeiro e dados associados (condições, projecções)."""
     try:
-        result = service.delete_model(model_id)
+        from src.database.supabase_rest import delete_model as supa_delete
+        result = supa_delete(model_id)
         if not result:
             raise HTTPException(status_code=404, detail="Modelo não encontrado")
         return {"deleted": True, "model_id": model_id}
