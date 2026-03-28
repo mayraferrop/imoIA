@@ -99,6 +99,63 @@ async def trigger_pipeline() -> Dict[str, Any]:
     return {"status": "started", "started_at": _pipeline_state["started_at"]}
 
 
+@router.post("/reprocess", summary="Reprocessar mensagens dos ultimos N dias")
+async def reprocess_pipeline(days: int = Query(10, ge=1, le=30)) -> Dict[str, Any]:
+    """Reprocessa mensagens ja lidas com a estrategia activa. Nao marca como lido nem arquiva."""
+    global _pipeline_state
+
+    with _pipeline_lock:
+        if _pipeline_state["status"] == "running":
+            return {
+                "status": "already_running",
+                "started_at": _pipeline_state["started_at"],
+            }
+
+        _pipeline_state = {
+            "status": "running",
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "finished_at": None,
+            "messages_fetched": 0,
+            "opportunities_found": 0,
+            "groups_processed": 0,
+            "errors": [],
+        }
+
+    def _run_reprocess():
+        global _pipeline_state
+        from src.modules.m1_ingestor.service import reprocess_pipeline as _reprocess
+        try:
+            result = _reprocess(days=days)
+            with _pipeline_lock:
+                _pipeline_state = {
+                    "status": "done",
+                    "started_at": _pipeline_state["started_at"],
+                    "finished_at": datetime.now(timezone.utc).isoformat(),
+                    "messages_fetched": result.messages_fetched,
+                    "opportunities_found": result.opportunities_found,
+                    "groups_processed": result.groups_processed,
+                    "errors": result.errors,
+                }
+            logger.info(f"Reprocess concluido: {result.opportunities_found} oportunidades")
+        except Exception as e:
+            with _pipeline_lock:
+                _pipeline_state = {
+                    "status": "error",
+                    "started_at": _pipeline_state["started_at"],
+                    "finished_at": datetime.now(timezone.utc).isoformat(),
+                    "messages_fetched": 0,
+                    "opportunities_found": 0,
+                    "groups_processed": 0,
+                    "errors": [str(e)],
+                }
+            logger.error(f"Reprocess falhou: {e}")
+
+    thread = threading.Thread(target=_run_reprocess, daemon=True)
+    thread.start()
+    logger.info(f"Reprocess disparado: ultimos {days} dias")
+    return {"status": "started", "started_at": _pipeline_state["started_at"], "days": days}
+
+
 @router.get("/status", summary="Estado do pipeline")
 async def get_pipeline_status() -> Dict[str, Any]:
     """Retorna estado atual do pipeline (polling endpoint)."""

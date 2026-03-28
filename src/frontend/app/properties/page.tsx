@@ -274,6 +274,31 @@ export default function PropertiesPage() {
     }
   }
 
+  async function handleReprocess() {
+    setTriggerLoading(true);
+    setTriggerMsg("A reprocessar ultimos 10 dias...");
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/ingest/reprocess?days=10`, { method: "POST" });
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        setTriggerMsg(`Erro ao reprocessar. ${detail}`);
+        setTriggerLoading(false);
+        return;
+      }
+      const data = await res.json();
+      if (data.status === "already_running") {
+        setTriggerMsg("Pipeline ja esta a correr. A acompanhar...");
+      } else {
+        setTriggerMsg(`Reprocessamento iniciado (ultimos ${data.days} dias). A acompanhar...`);
+      }
+      await pollPipelineStatus();
+    } catch {
+      setTriggerMsg("Erro de comunicacao com a API (offline?).");
+    } finally {
+      setTriggerLoading(false);
+    }
+  }
+
   async function handleCreateProperty(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setCreateLoading(true);
@@ -386,6 +411,13 @@ export default function PropertiesPage() {
             className="px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
           >
             + Nova propriedade
+          </button>
+          <button
+            onClick={handleReprocess}
+            disabled={triggerLoading}
+            className="px-4 py-2.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50 transition-colors"
+          >
+            {triggerLoading ? "A executar..." : "Reprocessar 10 dias"}
           </button>
           <button
             onClick={handleTriggerPipeline}
