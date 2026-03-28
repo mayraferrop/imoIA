@@ -378,6 +378,29 @@ async def save_scenario(request: ScenarioSaveRequest) -> Dict[str, Any]:
         model_id = str(uuid4())
 
         # Persistir no Supabase via REST
+        # Colunas validas na tabela financial_models do Supabase
+        _FM_COLS = {
+            "id", "tenant_id", "property_id", "scenario_name", "is_primary", "country",
+            "entity_structure", "imt_resale_regime", "purchase_price", "imt", "imposto_selo",
+            "notario_registo", "comissao_compra", "comissao_compra_pct", "imt_2", "imt_2_original",
+            "is_2", "escritura_2", "total_acquisition_cost_2", "itbi", "itbi_pct",
+            "escritura_registro_br", "total_acquisition_cost", "renovation_budget",
+            "renovation_contingency_pct", "renovation_total", "renovation_duration_months",
+            "financing_type", "loan_amount", "ltv_pct", "interest_rate_pct", "spread_pct",
+            "euribor_pct", "loan_term_months", "monthly_payment", "total_interest", "bank_fees",
+            "holding_months", "monthly_condominio", "monthly_insurance", "monthly_consumos",
+            "monthly_imi_proportional", "other_monthly_costs", "total_holding_cost",
+            "estimated_sale_price", "comissao_venda_pct", "comissao_venda", "other_sale_costs",
+            "total_sale_costs", "devaluation_coefficient", "deductible_expenses",
+            "taxable_gain_50pct", "estimated_irs_rate_pct", "capital_gains_tax_pt",
+            "capital_gain_br", "capital_gains_tax_br", "capital_gains_tax_rate_br",
+            "capital_gains_tax", "irc_taxable_income", "irc_rate_pct", "irc_estimated",
+            "derrama_estimated", "total_corporate_tax", "total_investment", "total_costs",
+            "gross_profit", "net_profit", "roi_pct", "roi_simple_pct", "roi_annualized_pct",
+            "tir_anual_pct", "cash_on_cash_return_pct", "moic", "payoff_at_sale",
+            "caixa_closing", "mao", "floor_price", "margin_of_safety_pct", "roi_target_pct",
+            "meets_criteria", "go_nogo", "status",
+        }
         model_row = {
             "id": model_id,
             "tenant_id": tenant_id,
@@ -385,8 +408,7 @@ async def save_scenario(request: ScenarioSaveRequest) -> Dict[str, Any]:
             "scenario_name": data.get("scenario_name", "base"),
             "status": "calculated",
             **{k: v for k, v in result_dict.items()
-               if k not in ("warnings", "holding_detail", "bank_fees_detail")
-               and not isinstance(v, (dict, list))},
+               if k in _FM_COLS and not isinstance(v, (dict, list))},
         }
         supa.save_financial_model(model_row)
 
