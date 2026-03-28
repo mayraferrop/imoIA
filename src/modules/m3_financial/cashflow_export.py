@@ -127,21 +127,23 @@ def _calc_dates(
     for m in range(holding_months):
         meses.append(esc + timedelta(days=30 * (m + 1)))
 
-    venda = sale_date or (esc + timedelta(days=30 * (holding_months + 1)))
+    venda = sale_date or (esc + timedelta(days=30 * holding_months))
 
     # Escritura 2: 1 mes antes da venda
     escritura_2 = venda - timedelta(days=30)
 
-    # Datas individuais das tranches CPCV (se disponivel)
+    # Datas individuais das tranches CPCV (todas, incluindo escritura)
     cpcv_dates: List[date] = []
     if tranches:
         for t in tranches:
             t_date_str = t.get("data")
-            if t_date_str and t.get("tipo") != "escritura":
+            if t_date_str:
                 try:
                     cpcv_dates.append(date.fromisoformat(t_date_str[:10]))
                 except (ValueError, TypeError):
                     cpcv_dates.append(cpcv_date)
+            else:
+                cpcv_dates.append(cpcv_date)
 
     return {
         "cpcv": cpcv_date,
