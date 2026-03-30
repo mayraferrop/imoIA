@@ -109,7 +109,7 @@ class CasafariClient:
             filters["area_max"] = int(area_m2 * 1.3)
 
         # Tentar endpoints conhecidos
-        for endpoint in ["/v1/properties/search", "/v1/properties", "/v1/search"]:
+        for endpoint in ["/api/v1/properties/search", "/api/v1/properties", "/api/v1/search"]:
             data = self._request("POST", endpoint, json_body=filters)
             if data is None:
                 data = self._request("GET", endpoint, params=filters)

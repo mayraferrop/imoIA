@@ -350,13 +350,13 @@ async def search_locations(data: LocationSearchRequest) -> Dict[str, Any]:
         loc_id = client.resolve_location(data.name)
         # Retornar resultado completo da API
         result = client._request(
-            "POST", "/v1/references/locations", json_body={"name": data.name}
+            "POST", "/api/v1/references/locations", json_body={"name": data.name}
         )
         return result or {"locations": []}
     elif data.zip_codes:
         result = client._request(
             "POST",
-            "/v1/references/locations",
+            "/api/v1/references/locations",
             json_body={"zip_codes": data.zip_codes},
         )
         return result or {"locations": []}

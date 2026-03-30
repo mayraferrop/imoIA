@@ -1,18 +1,18 @@
 """Cliente para a CASAFARI API v1.
 
-Base URL: https://api.casafari.com/v1
-Autenticacao: Token API (preferido) ou JWT Bearer via POST /login.
+Base URL: https://api.casafari.com
+Autenticacao: JWT Bearer (preferido) ou API Token via header Authorization.
 
-Endpoints principais:
-- POST /v1/references/locations — resolver nomes para location_id
-- POST /v1/listing-alerts/search — pesquisa ad-hoc de listagens
-- POST /v1/listing-alerts/feeds — criar/gerir feeds de alertas
-- GET  /v1/properties/search/{property_id} — detalhe completo
-- POST /v1/valuation/comparables-prices — AVM nativo CASAFARI
-- POST /v1/comparables/search — comparaveis dedicados
-- GET  /v1/references/types, conditions, features — referencias
-- GET  /v1/references/agents, agencies, sources — referencias
-- POST /v1/references/zipcode-boundary — boundaries de codigo postal
+Endpoints principais (prefixo /api/v1):
+- POST /api/v1/references/locations — resolver nomes para location_id
+- POST /api/v1/listing-alerts/search — pesquisa ad-hoc de listagens
+- POST /api/v1/listing-alerts/feeds — criar/gerir feeds de alertas
+- GET  /api/v1/properties/search/{property_id} — detalhe completo
+- POST /api/v1/valuation/comparables-prices — AVM nativo CASAFARI
+- POST /api/v1/comparables/search — comparaveis dedicados
+- GET  /api/v1/references/types, conditions, features — referencias
+- GET  /api/v1/references/agents, agencies, sources — referencias
+- POST /api/v1/references/zipcode-boundary — boundaries de codigo postal
 """
 
 from __future__ import annotations
@@ -96,25 +96,27 @@ class CasafariClient:
 
         data = self._request(
             "POST",
-            "/v1/listing-alerts/search",
+            "/api/v1/listing-alerts/search",
             params={"limit": 1},
             json_body={"operation": "sale", "location_ids": [1600]},  # Lisboa
         )
         return data is not None
 
     def _get_auth_headers(self) -> Dict[str, str]:
-        """Retorna headers com autenticacao (JWT ou API Token)."""
+        """Retorna headers com autenticacao (JWT preferido, API Token como fallback)."""
         headers = {"Content-Type": "application/json"}
 
-        # Preferir API Token (mais simples)
+        # Preferir JWT (recomendado pelo suporte Casafari)
+        if self._username and self._password:
+            token = self._get_jwt_token()
+            if token:
+                headers["Authorization"] = f"Bearer {token}"
+                return headers
+
+        # Fallback: API Token
         if self._api_token:
             headers["Authorization"] = f"Token {self._api_token}"
             return headers
-
-        # Fallback: JWT via login
-        token = self._get_jwt_token()
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
 
         return headers
 
@@ -276,7 +278,7 @@ class CasafariClient:
         if key in _location_cache and (time.time() - _location_cache_ts) < _LOCATION_CACHE_TTL:
             return _location_cache[key]
 
-        data = self._request("POST", "/v1/references/locations", json_body={"name": name})
+        data = self._request("POST", "/api/v1/references/locations", json_body={"name": name})
         if not data:
             return None
 
@@ -323,7 +325,7 @@ class CasafariClient:
         """
         data = self._request(
             "GET",
-            "/v1/references/locations/by-coordinates",
+            "/api/v1/references/locations/by-coordinates",
             params={"latitude": latitude, "longitude": longitude},
         )
         return data
@@ -334,18 +336,18 @@ class CasafariClient:
 
     def get_property_types(self) -> Optional[List[Dict[str, Any]]]:
         """Retorna lista de tipos de imovel CASAFARI."""
-        return self._request("GET", "/v1/references/types")
+        return self._request("GET", "/api/v1/references/types")
 
     def get_conditions(self) -> Optional[List[str]]:
         """Retorna lista de condicoes possiveis."""
-        data = self._request("GET", "/v1/references/conditions")
+        data = self._request("GET", "/api/v1/references/conditions")
         if data and "conditions" in data:
             return data["conditions"]
         return data
 
     def get_features(self) -> Optional[List[Dict[str, Any]]]:
         """Retorna lista de features possiveis."""
-        return self._request("GET", "/v1/references/features")
+        return self._request("GET", "/api/v1/references/features")
 
     def get_sources(self, location_id: int) -> Optional[Dict[str, Any]]:
         """Retorna fontes/dominios disponiveis para uma localizacao.
@@ -357,7 +359,7 @@ class CasafariClient:
             Dict com lista de sources.
         """
         return self._request(
-            "GET", "/v1/references/sources", params={"locationId": location_id}
+            "GET", "/api/v1/references/sources", params={"locationId": location_id}
         )
 
     def search_agencies(self, name: str) -> Optional[Dict[str, Any]]:
@@ -370,7 +372,7 @@ class CasafariClient:
             Dict com lista de agencias encontradas.
         """
         return self._request(
-            "GET", "/v1/references/agencies", params={"name": name}
+            "GET", "/api/v1/references/agencies", params={"name": name}
         )
 
     def search_agents(self, name: str) -> Optional[Dict[str, Any]]:
@@ -383,7 +385,7 @@ class CasafariClient:
             Dict com lista de agentes encontrados.
         """
         return self._request(
-            "GET", "/v1/references/agents", params={"name": name}
+            "GET", "/api/v1/references/agents", params={"name": name}
         )
 
     def get_zipcode_boundary(
@@ -399,7 +401,7 @@ class CasafariClient:
         """
         return self._request(
             "POST",
-            "/v1/references/zipcode-boundary",
+            "/api/v1/references/zipcode-boundary",
             json_body={"zip_code": zip_code},
         )
 
@@ -455,7 +457,7 @@ class CasafariClient:
         offset: int = 0,
         order_by: str = "-alert_date",
     ) -> Optional[Dict[str, Any]]:
-        """Pesquisa ad-hoc de listagens via POST /v1/listing-alerts/search.
+        """Pesquisa ad-hoc de listagens via POST /api/v1/listing-alerts/search.
 
         Este e o endpoint principal para buscar comparaveis e alertas.
         Suporta todos os filtros da API CASAFARI v1.
@@ -590,7 +592,7 @@ class CasafariClient:
 
         data = self._request(
             "POST",
-            "/v1/listing-alerts/search",
+            "/api/v1/listing-alerts/search",
             params=params,
             json_body=body,
         )
@@ -602,7 +604,7 @@ class CasafariClient:
 
     def list_feeds(self) -> Optional[List[Dict[str, Any]]]:
         """Lista todos os feeds de alertas do utilizador."""
-        return self._request("GET", "/v1/listing-alerts/feeds")
+        return self._request("GET", "/api/v1/listing-alerts/feeds")
 
     def create_feed(
         self,
@@ -619,7 +621,7 @@ class CasafariClient:
             Dict com id, name, filter do feed criado.
         """
         body = {"name": name, "filter": filter_config}
-        return self._request("POST", "/v1/listing-alerts/feeds", json_body=body)
+        return self._request("POST", "/api/v1/listing-alerts/feeds", json_body=body)
 
     def get_feed_alerts(
         self,
@@ -656,7 +658,7 @@ class CasafariClient:
         if created_at_from:
             params["created_at_from"] = created_at_from
 
-        return self._request("GET", f"/v1/listing-alerts/feeds/{feed_id}", params=params)
+        return self._request("GET", f"/api/v1/listing-alerts/feeds/{feed_id}", params=params)
 
     def update_feed(
         self,
@@ -680,12 +682,12 @@ class CasafariClient:
         if filter_config:
             body["filter"] = filter_config
         return self._request(
-            "PUT", f"/v1/listing-alerts/feeds/{feed_id}/update", json_body=body
+            "PUT", f"/api/v1/listing-alerts/feeds/{feed_id}/update", json_body=body
         )
 
     def delete_feed(self, feed_id: int) -> bool:
         """Remove um feed de alertas."""
-        data = self._request("DELETE", f"/v1/listing-alerts/feeds/{feed_id}")
+        data = self._request("DELETE", f"/api/v1/listing-alerts/feeds/{feed_id}")
         if data and data.get("success"):
             return True
         return data is not None
@@ -707,7 +709,7 @@ class CasafariClient:
         """
         return self._request(
             "POST",
-            "/v1/properties/match-by-listings",
+            "/api/v1/properties/match-by-listings",
             json_body={"listing_ids": listing_ids},
         )
 
@@ -729,7 +731,7 @@ class CasafariClient:
         Returns:
             Dict completo da propriedade ou None.
         """
-        return self._request("GET", f"/v1/properties/search/{property_id}")
+        return self._request("GET", f"/api/v1/properties/search/{property_id}")
 
     # ------------------------------------------------------------------
     # Valuation: AVM nativo CASAFARI
@@ -758,7 +760,7 @@ class CasafariClient:
         max_price: Optional[int] = None,
         sold_or_rented_after: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
-        """AVM nativo CASAFARI via POST /v1/valuation/comparables-prices.
+        """AVM nativo CASAFARI via POST /api/v1/valuation/comparables-prices.
 
         Estima preco com base em comparaveis vendidos/arrendados na zona.
 
@@ -833,7 +835,7 @@ class CasafariClient:
 
         return self._request(
             "POST",
-            "/v1/valuation/comparables-prices",
+            "/api/v1/valuation/comparables-prices",
             json_body=body,
             timeout=60.0,
         )
@@ -857,7 +859,7 @@ class CasafariClient:
         limit: int = 20,
         offset: int = 0,
     ) -> Optional[Dict[str, Any]]:
-        """Pesquisa de comparaveis via POST /v1/comparables/search.
+        """Pesquisa de comparaveis via POST /api/v1/comparables/search.
 
         Endpoint dedicado para comparaveis (separado de listing-alerts).
 
@@ -897,7 +899,7 @@ class CasafariClient:
 
         return self._request(
             "POST",
-            "/v1/comparables/search",
+            "/api/v1/comparables/search",
             params={"limit": min(limit, 100), "offset": offset},
             json_body=body,
         )
