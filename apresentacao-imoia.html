@@ -1882,11 +1882,12 @@ const T = {
   }
 };
 
-let currentLang = localStorage.getItem('imoia-lang') || 'pt-BR';
+let currentLang = 'pt-BR';
+try { currentLang = localStorage.getItem('imoia-lang') || 'pt-BR'; } catch(e) {}
 
 function setLang(lang) {
   currentLang = lang;
-  localStorage.setItem('imoia-lang', lang);
+  try { localStorage.setItem('imoia-lang', lang); } catch(e) {}
   document.documentElement.lang = lang;
 
   // Update lang buttons
