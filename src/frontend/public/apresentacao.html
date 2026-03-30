@@ -134,13 +134,10 @@
 
     /* ===== SECTIONS ===== */
     section {
-      padding: 80px 1.25rem 4rem;
+      padding: 60px 1rem 3rem;
       max-width: 1200px;
       margin: 0 auto;
       width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
       text-align: center;
     }
 
@@ -199,21 +196,6 @@
     /* ===== HERO ===== */
     #hero {
       text-align: center;
-      align-items: center;
-      position: relative;
-    }
-
-    #hero::before {
-      content: '';
-      position: absolute;
-      top: -20%;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(99, 102, 241, 0.15), transparent 70%);
-      border-radius: 50%;
-      pointer-events: none;
     }
 
     .hero-badge {
@@ -418,32 +400,9 @@
       background: var(--bg-card);
       border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 20px;
-      padding: 2rem;
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
+      padding: 1.5rem;
       text-align: left;
     }
-
-    .module-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: var(--gradient-1);
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    .module-card:hover {
-      border-color: rgba(99, 102, 241, 0.2);
-      transform: translateY(-2px);
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
-    }
-
-    .module-card:hover::before { opacity: 1; }
 
     .module-header {
       display: flex;
@@ -509,23 +468,13 @@
       background: var(--bg-card);
       border: 1px solid rgba(99, 102, 241, 0.15);
       border-radius: 20px;
-      padding: 2.5rem;
+      padding: 1.5rem;
       margin-top: 2rem;
-      position: relative;
-      overflow: hidden;
-      width: 100%;
       text-align: left;
     }
 
     .ai-demo::after {
-      content: '';
-      position: absolute;
-      top: -50%;
-      right: -30%;
-      width: 400px;
-      height: 400px;
-      background: radial-gradient(circle, rgba(139, 92, 246, 0.06), transparent 70%);
-      pointer-events: none;
+      display: none;
     }
 
     .chat-bubble {
@@ -636,46 +585,31 @@
 
     /* ===== FLOW VERTICAL ===== */
     .flow-vertical {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
       margin-top: 2rem;
-      position: relative;
-      width: 100%;
       text-align: left;
     }
 
     .flow-vertical::before {
-      content: '';
-      position: absolute;
-      left: 28px;
-      top: 40px;
-      bottom: 40px;
-      width: 2px;
-      background: linear-gradient(to bottom, var(--primary), var(--accent), var(--success));
-      z-index: 0;
+      display: none;
     }
 
     .flow-step {
       display: flex;
       align-items: flex-start;
-      gap: 1.5rem;
-      padding: 1.25rem 0;
+      gap: 1rem;
+      padding: 1rem 0;
     }
 
     .flow-number {
-      width: 56px;
-      height: 56px;
+      width: 48px;
+      height: 48px;
       border-radius: 50%;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.25rem;
+      font-size: 1.2rem;
       font-weight: 800;
       flex-shrink: 0;
-      position: relative;
-      z-index: 2;
-      outline: 5px solid var(--bg);
     }
 
     .flow-content {
@@ -698,9 +632,7 @@
       background: var(--bg-card);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 20px;
-      overflow: hidden;
       margin-top: 2rem;
-      width: 100%;
       text-align: left;
     }
 
