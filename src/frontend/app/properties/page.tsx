@@ -450,13 +450,6 @@ export default function PropertiesPage() {
             + Nova propriedade
           </button>
           <button
-            onClick={handleReprocess}
-            disabled={triggerLoading}
-            className="px-4 py-2.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50 transition-colors"
-          >
-            {triggerLoading ? "A executar..." : "Reprocessar 10 dias"}
-          </button>
-          <button
             onClick={handleTriggerPipeline}
             disabled={triggerLoading}
             className="px-4 py-2.5 bg-teal-700 text-white rounded-lg text-sm font-medium hover:bg-teal-800 disabled:opacity-50 transition-colors"
