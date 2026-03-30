@@ -99,6 +99,8 @@ interface SIRSearchResult {
   price_m2?: number;
   volume?: number;
   period?: string;
+  operation?: string;
+  price_label?: string;
   source?: string;
   note?: string;
 }
@@ -260,6 +262,7 @@ export default function MarketPage() {
   // Market Prices (SIR + BPstat)
   const [sirResult, setSirResult] = useState<SIRSearchResult | null>(null);
   const [bpstatIndex, setBpstatIndex] = useState<BPstatIndex | null>(null);
+  const [operation, setOperation] = useState<"sale" | "rent">("sale");
 
   /* --- Load overview + alerts on mount --- */
   const loadData = useCallback(async () => {
@@ -385,9 +388,10 @@ export default function MarketPage() {
     setSirResult(null);
     const fd = new FormData(e.currentTarget);
     const q = encodeURIComponent((fd.get("mp_query") as string) || "Lisboa");
+    const op = (fd.get("mp_operation") as string) || operation;
 
     const [sir, bpstat] = await Promise.all([
-      api<SIRSearchResult>(`/api/v1/market/sir/search?q=${q}`),
+      api<SIRSearchResult>(`/api/v1/market/sir/search?q=${q}&operation=${op}`),
       api<BPstatIndex>(`/api/v1/market/bpstat/index`),
     ]);
 
@@ -754,17 +758,45 @@ export default function MarketPage() {
             <p className="text-sm text-slate-500 mb-4">
               Pesquisa por morada, código postal ou concelho. Resolve automaticamente a localização.
             </p>
-            <form onSubmit={handleMarketSearch} className="flex gap-4 items-end">
-              <div className="flex-1">
-                <Field name="mp_query" label="Morada, CEP ou Concelho" placeholder="Ex: 1050-001, Rua Augusta Lisboa, Porto" defaultValue="" />
+            <form onSubmit={handleMarketSearch} className="space-y-4">
+              {/* Toggle venda / arrendamento */}
+              <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
+                <button
+                  type="button"
+                  onClick={() => setOperation("sale")}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    operation === "sale"
+                      ? "bg-white text-teal-700 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Venda
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOperation("rent")}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    operation === "rent"
+                      ? "bg-white text-teal-700 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Arrendamento
+                </button>
               </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="bg-teal-700 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-teal-800 disabled:opacity-50 transition-colors"
-              >
-                {loading ? "A pesquisar..." : "Pesquisar"}
-              </button>
+              <input type="hidden" name="mp_operation" value={operation} />
+              <div className="flex gap-4 items-end">
+                <div className="flex-1">
+                  <Field name="mp_query" label="Morada, CEP ou Concelho" placeholder="Ex: 1050-001, Rua Augusta Lisboa, Porto" defaultValue="" />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="bg-teal-700 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-teal-800 disabled:opacity-50 transition-colors"
+                >
+                  {loading ? "A pesquisar..." : "Pesquisar"}
+                </button>
+              </div>
             </form>
           </div>
 
@@ -786,16 +818,18 @@ export default function MarketPage() {
                 <div className="bg-white rounded-xl border border-slate-200 p-6">
                   <div className="flex items-center gap-2 mb-3">
                     <span className={`w-2.5 h-2.5 rounded-full ${sirResult.price_m2 ? "bg-green-500" : "bg-slate-300"}`} />
-                    <h3 className="text-sm font-semibold text-slate-700">Preço Médio de Transação</h3>
+                    <h3 className="text-sm font-semibold text-slate-700">
+                      {sirResult.operation === "rent" ? "Renda Média Contratada" : "Preço Médio de Transação"}
+                    </h3>
                   </div>
                   {sirResult.price_m2 ? (
                     <>
                       <p className="text-3xl font-bold text-slate-900">
-                        {sirResult.price_m2.toLocaleString("pt-PT")} <span className="text-base font-normal text-slate-500">EUR/m2</span>
+                        {sirResult.price_m2.toLocaleString("pt-PT")} <span className="text-base font-normal text-slate-500">EUR/m2{sirResult.operation === "rent" ? "/mês" : ""}</span>
                       </p>
                       <div className="mt-3 space-y-1">
                         <p className="text-xs text-slate-500">
-                          Volume: {sirResult.volume?.toLocaleString("pt-PT") ?? "—"} fogos vendidos
+                          Volume: {sirResult.volume?.toLocaleString("pt-PT") ?? "—"} {sirResult.operation === "rent" ? "contratos" : "fogos vendidos"}
                         </p>
                         <p className="text-xs text-slate-500">
                           Período: {sirResult.period ?? "—"}

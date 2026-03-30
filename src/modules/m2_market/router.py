@@ -289,19 +289,23 @@ async def get_ine_housing_prices(
 )
 async def sir_search_by_address(
     q: str = Query(..., description="Morada, CEP ou concelho (ex: '1050-001', 'Rua Augusta Lisboa', 'Porto')"),
+    operation: str = Query("sale", description="'sale' (venda) ou 'rent' (arrendamento)"),
 ) -> Dict[str, Any]:
-    """Resolve morada/CEP para concelho e retorna preço SIR.
+    """Resolve morada/CEP para concelho e retorna preço SIR (venda ou arrendamento).
 
     Usa Nominatim (OpenStreetMap) para geocoding gratuito.
     """
     import httpx as _httpx
+
+    if operation not in ("sale", "rent"):
+        raise HTTPException(status_code=400, detail="operation deve ser 'sale' ou 'rent'")
 
     try:
         from src.modules.m2_market.sir_client import SIRClient, CONCELHO_MAP
 
         # 1. Tentar como concelho directo
         client = SIRClient()
-        direct = client.get_price_m2(q)
+        direct = client.get_price_m2(q, operation=operation)
         if direct:
             return {**direct, "query": q, "resolved_via": "direct"}
 
@@ -331,8 +335,8 @@ async def sir_search_by_address(
         if not municipality:
             raise HTTPException(status_code=404, detail=f"Não foi possível resolver concelho para: '{q}'")
 
-        # 3. Buscar preço SIR
-        sir_data = client.get_price_m2(municipality)
+        # 3. Buscar preço SIR (venda ou arrendamento)
+        sir_data = client.get_price_m2(municipality, operation=operation)
         result: Dict[str, Any] = {
             "query": q,
             "resolved_via": "geocoding",
@@ -347,7 +351,8 @@ async def sir_search_by_address(
             result.update(sir_data)
         else:
             result["price_m2"] = None
-            result["note"] = f"Concelho '{municipality}' sem dados SIR"
+            result["operation"] = operation
+            result["note"] = f"Concelho '{municipality}' sem dados SIR para {operation}"
 
         return result
 

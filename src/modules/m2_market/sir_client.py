@@ -179,27 +179,37 @@ class SIRClient:
     # API: Dados de mercado
     # ------------------------------------------------------------------
 
+    # Mapa de subjects por operação
+    _SUBJECT_MAP = {
+        "sale": "sir_venda",
+        "rent": "siral_venda",
+    }
+
     def get_transaction_prices(
         self,
         concelho_id: int,
+        operation: str = "sale",
         variables: Optional[List[int]] = None,
         aggregation: int = 12,  # 12=anual, 3=trimestral, 6=semestral
     ) -> Optional[Dict[str, Any]]:
-        """Obtém preços de transação para um concelho.
+        """Obtém preços de transação/arrendamento para um concelho.
 
         Args:
             concelho_id: ID do concelho no SIR (ex: 110600 = Lisboa).
+            operation: 'sale' (venda) ou 'rent' (arrendamento).
             variables: Lista de IDs de variáveis (default: preço/m2 + volume).
             aggregation: Agregação temporal (12=anual, 3=trimestral).
 
         Returns:
-            Dict com price_m2, volume, area, period, source.
+            Dict com price_m2, volume, period, operation, source.
         """
         if variables is None:
             variables = [VAR_PRECO_M2, VAR_FOGOS_VENDIDOS]
 
+        subject = self._SUBJECT_MAP.get(operation, "sir_venda")
+
         # Cache
-        cache_key = f"{concelho_id}:{aggregation}:{','.join(map(str, variables))}"
+        cache_key = f"{concelho_id}:{operation}:{aggregation}:{','.join(map(str, variables))}"
         cached = _data_cache.get(cache_key)
         if cached and (time.time() - cached["ts"]) < _DATA_CACHE_TTL:
             return cached["data"]
@@ -211,7 +221,7 @@ class SIRClient:
         try:
             csrf = client.cookies.get("csrftoken", domain="sir.confidencialimobiliario.com")
             r = client.post(
-                f"{self._BASE_URL}/subject/sir_venda/data/",
+                f"{self._BASE_URL}/subject/{subject}/data/",
                 json={
                     "concelho": [concelho_id],
                     "var": variables,
@@ -224,29 +234,35 @@ class SIRClient:
             )
 
             if r.status_code != 200:
-                logger.warning(f"SIR: HTTP {r.status_code} para concelho {concelho_id}")
+                logger.warning(f"SIR: HTTP {r.status_code} para concelho {concelho_id} ({operation})")
                 return None
 
             data = r.json()
             result = self._parse_venda_response(data, concelho_id)
 
             if result:
+                result["operation"] = operation
+                label = "Renda contratada" if operation == "rent" else "Preço de venda"
+                result["price_label"] = label
                 _data_cache[cache_key] = {"data": result, "ts": time.time()}
 
             return result
 
         except Exception as e:
-            logger.error(f"SIR: erro ao buscar dados: {e}")
+            logger.error(f"SIR: erro ao buscar dados ({operation}): {e}")
             return None
 
-    def get_price_m2(self, municipality: str) -> Optional[Dict[str, Any]]:
-        """Obtém preço médio de transação por m2 para um concelho.
+    def get_price_m2(
+        self, municipality: str, operation: str = "sale"
+    ) -> Optional[Dict[str, Any]]:
+        """Obtém preço médio por m2 para um concelho (venda ou arrendamento).
 
         Args:
             municipality: Nome do concelho (ex: 'Lisboa', 'Porto').
+            operation: 'sale' ou 'rent'.
 
         Returns:
-            Dict com price_m2, volume, period, source ou None.
+            Dict com price_m2, volume, period, operation, source ou None.
         """
         key = self._normalize(municipality)
         concelho_id = CONCELHO_MAP.get(key)
@@ -255,16 +271,16 @@ class SIRClient:
             logger.info(f"SIR: concelho '{municipality}' não mapeado")
             return None
 
-        return self.get_transaction_prices(concelho_id)
+        return self.get_transaction_prices(concelho_id, operation=operation)
 
     def get_multiple_prices(
-        self, municipalities: List[str]
+        self, municipalities: List[str], operation: str = "sale"
     ) -> Dict[str, Optional[Dict[str, Any]]]:
         """Obtém preços para múltiplos concelhos."""
         results: Dict[str, Optional[Dict[str, Any]]] = {}
         for name in municipalities:
-            results[name] = self.get_price_m2(name)
-            time.sleep(0.2)  # respeitar rate limit
+            results[name] = self.get_price_m2(name, operation=operation)
+            time.sleep(0.2)
         return results
 
     # ------------------------------------------------------------------
