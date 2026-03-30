@@ -239,8 +239,8 @@ export default function FinancialPage() {
       comissao_venda_pct: num("comissao_venda_pct", 6.15),
       comissao_compra_pct: numOrZero("comissao_compra_pct"),
       renovation_contingency_pct: numOrZero("renovation_contingency_pct"),
-      monthly_condominio: num("monthly_condominio", 50),
-      annual_insurance: num("annual_insurance", 300),
+      monthly_condominio: numOrZero("monthly_condominio"),
+      annual_insurance: numOrZero("annual_insurance"),
       monthly_consumos: num("monthly_consumos", 80),
       roi_target_pct: num("roi_target_pct", 15),
       scenario_name: "simulacao",
@@ -687,8 +687,8 @@ export default function FinancialPage() {
                   </div>
                   <div className="grid grid-cols-4 gap-3 mt-3">
                     <Field name="comissao_venda_pct" label="Com. venda %" placeholder="6.15" />
-                    <Field name="monthly_condominio" label="Condomínio (€)" placeholder="50" />
-                    <Field name="annual_insurance" label="Seguro anual (€)" placeholder="300" />
+                    <Field name="monthly_condominio" label="Condomínio (€/mês)" placeholder="0" />
+                    <Field name="annual_insurance" label="Seguro anual (€)" placeholder="0" />
                     <Field name="monthly_consumos" label="Consumos (€/mês)" placeholder="80" />
                   </div>
                 </div>
