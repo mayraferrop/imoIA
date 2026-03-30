@@ -1134,6 +1134,110 @@ def run_pipeline() -> PipelineResult:
     return result
 
 
+def get_reprocess_groups(days: int = 10) -> List[str]:
+    """Retorna lista de IDs de grupos com actividade nos últimos N dias.
+
+    Usado pelo endpoint /reprocess para preparar o batch processing.
+    """
+    wa_client = _get_whatsapp_client()
+    all_groups = wa_client.list_active_groups()
+
+    # Filtrar desactivados
+    init_db()
+    with get_session() as session:
+        all_inactive = session.execute(
+            select(Group.whatsapp_group_id).where(Group.is_active == False)  # noqa: E712
+        ).scalars().all()
+        disabled_ids = set(all_inactive)
+
+    since_ts = int((datetime.now(tz=timezone.utc) - timedelta(days=days)).timestamp())
+
+    group_ids = []
+    for g in all_groups:
+        gid = g.get("id", "")
+        if gid in disabled_ids:
+            continue
+        last_ts = g.get("last_message_ts", 0) or 0
+        if last_ts >= since_ts:
+            group_ids.append(gid)
+
+    logger.info(f"Reprocess: {len(group_ids)} grupos com actividade nos últimos {days} dias")
+    return group_ids
+
+
+def reprocess_group_batch(
+    group_ids: List[str],
+    days: int = 10,
+) -> Dict[str, Any]:
+    """Reprocessa um batch de grupos (chamado repetidamente pelo endpoint).
+
+    Cada chamada processa N grupos, classifica, e persiste. Sem threads.
+
+    Args:
+        group_ids: Lista de IDs de grupos WhatsApp para processar.
+        days: Número de dias para trás.
+
+    Returns:
+        Dict com métricas: groups_processed, messages_fetched, opportunities_found, errors.
+    """
+    init_db()
+    wa_client = _get_whatsapp_client()
+    classifier = _get_classifier()
+    market_services = _get_market_services()
+    since = datetime.now(tz=timezone.utc) - timedelta(days=days)
+
+    total_messages = 0
+    total_opportunities = 0
+    groups_processed = 0
+    errors: List[str] = []
+
+    for gid in group_ids:
+        groups_processed += 1
+        try:
+            messages = wa_client.fetch_unread_messages(gid, since)
+            total_messages += len(messages)
+
+            if not messages:
+                continue
+
+            filtered = _filter_noise(messages)
+            if not filtered:
+                continue
+
+            # Classificar
+            classifier_messages = [
+                {"index": i, "text": msg.get("content", ""), "group": gid}
+                for i, msg in enumerate(filtered)
+            ]
+            classifications = classifier.classify_batch(classifier_messages)
+
+            # Persistir oportunidades
+            group_info = {"id": gid, "name": gid}
+            for i, classification in enumerate(classifications):
+                if i >= len(filtered):
+                    break
+                if not classification.is_opportunity or classification.confidence < 0.5:
+                    continue
+
+                enrichment = _enrich_opportunity(classification, market_services)
+                with get_session() as session:
+                    opps = _save_results(session, group_info, [filtered[i]], [classification], [enrichment])
+                    total_opportunities += opps
+
+        except Exception as e:
+            errors.append(f"{gid}: {str(e)[:80]}")
+            logger.error(f"Reprocess batch erro {gid}: {e}")
+
+    logger.info(f"Batch reprocess: {groups_processed} grupos, {total_messages} msgs, {total_opportunities} opps")
+
+    return {
+        "groups_processed": groups_processed,
+        "messages_fetched": total_messages,
+        "opportunities_found": total_opportunities,
+        "errors": errors,
+    }
+
+
 def reprocess_pipeline(
     days: int = 10,
     progress_callback: Any = None,

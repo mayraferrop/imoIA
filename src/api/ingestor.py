@@ -99,69 +99,101 @@ async def trigger_pipeline() -> Dict[str, Any]:
     return {"status": "started", "started_at": _pipeline_state["started_at"]}
 
 
-@router.post("/reprocess", summary="Reprocessar mensagens dos ultimos N dias")
-async def reprocess_pipeline(days: int = Query(10, ge=1, le=30)) -> Dict[str, Any]:
-    """Reprocessa mensagens ja lidas com a estrategia activa. Nao marca como lido nem arquiva."""
-    global _pipeline_state
+# Estado do reprocess (batch-based, sem background threads)
+_reprocess_state: Dict[str, Any] = {
+    "pending_groups": [],       # IDs dos grupos por processar
+    "total_groups": 0,
+    "groups_processed": 0,
+    "messages_fetched": 0,
+    "opportunities_found": 0,
+    "errors": [],
+    "days": 10,
+    "active": False,
+}
 
-    with _pipeline_lock:
-        if _pipeline_state["status"] == "running":
-            return {
-                "status": "already_running",
-                "started_at": _pipeline_state["started_at"],
-            }
 
-        _pipeline_state = {
-            "status": "running",
-            "started_at": datetime.now(timezone.utc).isoformat(),
-            "finished_at": None,
-            "messages_fetched": 0,
-            "opportunities_found": 0,
-            "groups_processed": 0,
-            "errors": [],
+@router.post("/reprocess", summary="Iniciar reprocessamento dos ultimos N dias")
+async def start_reprocess(days: int = Query(10, ge=1, le=30)) -> Dict[str, Any]:
+    """Prepara a lista de grupos para reprocessar. Chamar /reprocess/batch para processar."""
+    global _reprocess_state
+    from src.modules.m1_ingestor.service import get_reprocess_groups
+
+    try:
+        group_ids = get_reprocess_groups(days=days)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    _reprocess_state = {
+        "pending_groups": group_ids,
+        "total_groups": len(group_ids),
+        "groups_processed": 0,
+        "messages_fetched": 0,
+        "opportunities_found": 0,
+        "errors": [],
+        "days": days,
+        "active": True,
+    }
+
+    logger.info(f"Reprocess preparado: {len(group_ids)} grupos, ultimos {days} dias")
+    return {
+        "status": "ready",
+        "total_groups": len(group_ids),
+        "days": days,
+    }
+
+
+@router.post("/reprocess/batch", summary="Processar proximo batch de grupos")
+async def reprocess_batch(batch_size: int = Query(10, ge=1, le=20)) -> Dict[str, Any]:
+    """Processa os proximos N grupos. Chamar repetidamente ate done=true."""
+    global _reprocess_state
+    from src.modules.m1_ingestor.service import reprocess_group_batch
+
+    if not _reprocess_state["active"]:
+        raise HTTPException(status_code=400, detail="Nenhum reprocess activo. Chamar POST /reprocess primeiro.")
+
+    pending = _reprocess_state["pending_groups"]
+    if not pending:
+        _reprocess_state["active"] = False
+        return {
+            "done": True,
+            "groups_processed": _reprocess_state["groups_processed"],
+            "messages_fetched": _reprocess_state["messages_fetched"],
+            "opportunities_found": _reprocess_state["opportunities_found"],
+            "errors": _reprocess_state["errors"],
         }
 
-    def _run_reprocess():
-        global _pipeline_state
-        from src.modules.m1_ingestor.service import reprocess_pipeline as _reprocess
+    # Tirar os proximos N grupos
+    batch = pending[:batch_size]
+    _reprocess_state["pending_groups"] = pending[batch_size:]
 
-        def _progress_callback(groups_done, total_msgs, total_opps):
-            """Actualiza estado in-memory a cada grupo processado."""
-            with _pipeline_lock:
-                _pipeline_state["groups_processed"] = groups_done
-                _pipeline_state["messages_fetched"] = total_msgs
-                _pipeline_state["opportunities_found"] = total_opps
+    try:
+        result = reprocess_group_batch(
+            group_ids=batch,
+            days=_reprocess_state["days"],
+        )
+        _reprocess_state["groups_processed"] += result["groups_processed"]
+        _reprocess_state["messages_fetched"] += result["messages_fetched"]
+        _reprocess_state["opportunities_found"] += result["opportunities_found"]
+        _reprocess_state["errors"].extend(result.get("errors", []))
+    except Exception as e:
+        _reprocess_state["errors"].append(str(e))
+        logger.error(f"Batch reprocess falhou: {e}")
 
-        try:
-            result = _reprocess(days=days, progress_callback=_progress_callback)
-            with _pipeline_lock:
-                _pipeline_state = {
-                    "status": "done",
-                    "started_at": _pipeline_state["started_at"],
-                    "finished_at": datetime.now(timezone.utc).isoformat(),
-                    "messages_fetched": result.messages_fetched,
-                    "opportunities_found": result.opportunities_found,
-                    "groups_processed": result.groups_processed,
-                    "errors": result.errors,
-                }
-            logger.info(f"Reprocess concluido: {result.opportunities_found} oportunidades")
-        except Exception as e:
-            with _pipeline_lock:
-                _pipeline_state = {
-                    "status": "error",
-                    "started_at": _pipeline_state["started_at"],
-                    "finished_at": datetime.now(timezone.utc).isoformat(),
-                    "messages_fetched": _pipeline_state.get("messages_fetched", 0),
-                    "opportunities_found": _pipeline_state.get("opportunities_found", 0),
-                    "groups_processed": _pipeline_state.get("groups_processed", 0),
-                    "errors": [str(e)],
-                }
-            logger.error(f"Reprocess falhou: {e}")
+    remaining = len(_reprocess_state["pending_groups"])
+    done = remaining == 0
+    if done:
+        _reprocess_state["active"] = False
 
-    thread = threading.Thread(target=_run_reprocess, daemon=True)
-    thread.start()
-    logger.info(f"Reprocess disparado: ultimos {days} dias")
-    return {"status": "started", "started_at": _pipeline_state["started_at"], "days": days}
+    return {
+        "done": done,
+        "remaining": remaining,
+        "batch_processed": len(batch),
+        "groups_processed": _reprocess_state["groups_processed"],
+        "total_groups": _reprocess_state["total_groups"],
+        "messages_fetched": _reprocess_state["messages_fetched"],
+        "opportunities_found": _reprocess_state["opportunities_found"],
+        "errors": _reprocess_state["errors"][-3:] if _reprocess_state["errors"] else [],
+    }
 
 
 @router.get("/status", summary="Estado do pipeline")

@@ -282,22 +282,53 @@ export default function PropertiesPage() {
 
   async function handleReprocess() {
     setTriggerLoading(true);
-    setTriggerMsg("A reprocessar ultimos 10 dias...");
+    setTriggerMsg("A preparar reprocessamento...");
     try {
-      const res = await fetch(`${API_BASE}/api/v1/ingest/reprocess?days=10`, { method: "POST" });
-      if (!res.ok) {
-        const detail = await res.text().catch(() => "");
-        setTriggerMsg(`Erro ao reprocessar. ${detail}`);
+      // Passo 1: Preparar lista de grupos
+      const initRes = await fetch(`${API_BASE}/api/v1/ingest/reprocess?days=10`, { method: "POST" });
+      if (!initRes.ok) {
+        const detail = await initRes.text().catch(() => "");
+        setTriggerMsg(`Erro ao preparar reprocessamento. ${detail}`);
         setTriggerLoading(false);
         return;
       }
-      const data = await res.json();
-      if (data.status === "already_running") {
-        setTriggerMsg("Pipeline ja esta a correr. A acompanhar...");
-      } else {
-        setTriggerMsg(`Reprocessamento iniciado (ultimos ${data.days} dias). A acompanhar...`);
+      const initData = await initRes.json();
+      const totalGroups = initData.total_groups || 0;
+      if (totalGroups === 0) {
+        setTriggerMsg("Nenhum grupo com actividade nos ultimos 10 dias.");
+        setTriggerLoading(false);
+        return;
       }
-      await pollPipelineStatus();
+
+      // Passo 2: Processar em batches de 10 grupos
+      let done = false;
+      let totalMsgs = 0;
+      let totalOpps = 0;
+      let groupsDone = 0;
+      let batchNum = 0;
+
+      while (!done) {
+        batchNum++;
+        setTriggerMsg(
+          `A reprocessar... batch ${batchNum} | ${groupsDone}/${totalGroups} grupos | ${totalMsgs} msgs | ${totalOpps} oportunidades`
+        );
+
+        const batchRes = await fetch(`${API_BASE}/api/v1/ingest/reprocess/batch?batch_size=10`, { method: "POST" });
+        if (!batchRes.ok) {
+          setTriggerMsg(`Erro no batch ${batchNum}. A tentar continuar...`);
+          break;
+        }
+        const batchData = await batchRes.json();
+        done = batchData.done;
+        totalMsgs = batchData.messages_fetched || 0;
+        totalOpps = batchData.opportunities_found || 0;
+        groupsDone = batchData.groups_processed || 0;
+      }
+
+      setTriggerMsg(
+        `Reprocessamento concluido: ${groupsDone} grupos, ${totalMsgs} mensagens, ${totalOpps} oportunidades`
+      );
+      fetchData();
     } catch {
       setTriggerMsg("Erro de comunicacao com a API (offline?).");
     } finally {
