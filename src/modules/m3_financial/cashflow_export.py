@@ -333,9 +333,11 @@ def _build_entries(
                 ))
 
             if manut_sem_consumos > 0:
+                # Se o valor é só IMI (cond=0 e seg=0), renomear
+                desc_manut = f"{label} — IMI proporcional" if manut_sem_consumos < 60 else f"{label} — Condomínio, seguro e IMI"
                 entries.append(_make_entry(
                     entry_type="expense",
-                    description=f"{label} — Condomínio e seguro",
+                    description=desc_manut,
                     amount=round(manut_sem_consumos, 2),
                     cat_key="condominio",
                     entry_date_str=entry_date_str,
@@ -356,19 +358,18 @@ def _build_entries(
                 ))
 
         elif cat == "venda":
-            venda_liq = f.get("venda_liquida", 0)
+            venda_bruta = f.get("venda_bruta", 0)
             comissao = f.get("comissao_venda", 0)
             payoff = f.get("payoff", 0)
 
             entries.append(_make_entry(
                 entry_type="income",
-                description="Venda — Receita líquida",
-                amount=venda_liq,
+                description="Venda — Receita bruta",
+                amount=venda_bruta,
                 cat_key="receita",
                 entry_date_str=entry_date_str,
                 project_name=project_name,
                 external_ref=f"{ref_base}:receita",
-                notes=f"{project_name} | Bruto: {f.get('venda_bruta', 0):,.0f}",
             ))
 
             if comissao > 0:
