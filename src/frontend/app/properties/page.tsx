@@ -177,18 +177,28 @@ export default function PropertiesPage() {
         setDataSource("supabase");
         setTotal(props.length);
       } catch {
-        const propsRes = await fetch(`${API_BASE}/api/v1/properties/?limit=200`);
-        if (propsRes.ok) {
-          const data = await propsRes.json();
-          props = data.items ?? [];
-          setTotal(data.total ?? 0);
+        try {
+          const c = new AbortController();
+          const t = setTimeout(() => c.abort(), 8000);
+          const propsRes = await fetch(`${API_BASE}/api/v1/properties/?limit=200`, { signal: c.signal });
+          clearTimeout(t);
+          if (propsRes.ok) {
+            const data = await propsRes.json();
+            props = data.items ?? [];
+            setTotal(data.total ?? 0);
+          }
+          setDataSource("fastapi");
+        } catch {
+          setDataSource("fastapi");
         }
-        setDataSource("fastapi");
       }
       setProperties(props);
 
       try {
-        const statsRes = await fetch(`${API_BASE}/api/v1/ingest/stats`);
+        const c = new AbortController();
+        const t = setTimeout(() => c.abort(), 8000);
+        const statsRes = await fetch(`${API_BASE}/api/v1/ingest/stats`, { signal: c.signal });
+        clearTimeout(t);
         if (statsRes.ok) {
           setStats(await statsRes.json());
         }

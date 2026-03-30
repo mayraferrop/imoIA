@@ -84,7 +84,12 @@ async function fetchSupabaseOpportunities(): Promise<Opportunity[]> {
 
 async function fetchDealStats(): Promise<DealStats> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/deals/stats`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`${API_BASE}/api/v1/deals/stats`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
     if (!res.ok) return {};
     return res.json();
   } catch {
@@ -134,7 +139,12 @@ export default function DashboardPage() {
         setDataSource("supabase");
       } catch {
         try {
-          const res = await fetch(`${API_BASE}/api/v1/properties/?limit=500`);
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 8000);
+          const res = await fetch(`${API_BASE}/api/v1/properties/?limit=500`, {
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
           if (res.ok) {
             const data = await res.json();
             props = data.items ?? [];
