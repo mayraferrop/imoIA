@@ -233,11 +233,8 @@ export default function PropertiesPage() {
 
   // Poll em background — não bloqueia a interface
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
-  const retriggerRef = React.useRef(false);
-
   function startBackgroundPoll() {
     if (pollRef.current) return;
-    retriggerRef.current = true; // permitir 1 re-trigger se idle
     pollRef.current = setInterval(async () => {
       try {
         const c = new AbortController();
@@ -263,17 +260,11 @@ export default function PropertiesPage() {
           if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
           return;
         }
-        if (data.status === "idle" && retriggerRef.current) {
-          // Servidor acordou mas pipeline não arrancou — re-disparar
-          retriggerRef.current = false;
-          setTriggerMsg("Servidor acordou. A disparar pipeline...");
-          triggerPipelineOnServer().then((ok) => {
-            if (ok) setTriggerMsg("Pipeline iniciado. A correr em background...");
-          });
+        if (data.status === "idle") {
+          // Pipeline ainda não arrancou ou já terminou antes
           return;
         }
         if (data.status === "running") {
-          retriggerRef.current = false;
           const elapsed = data.started_at
             ? Math.round((Date.now() - new Date(data.started_at).getTime()) / 1000)
             : 0;
@@ -296,10 +287,26 @@ export default function PropertiesPage() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
-  async function triggerPipelineOnServer(): Promise<boolean> {
+  async function wakeAndTrigger(): Promise<boolean> {
+    // Passo 1: Acordar servidor (health check com retry)
+    for (let attempt = 0; attempt < 6; attempt++) {
+      try {
+        setTriggerMsg(`A acordar servidor... (tentativa ${attempt + 1}/6)`);
+        const c = new AbortController();
+        const t = setTimeout(() => c.abort(), 30000);
+        const res = await fetch(`${API_BASE}/health`, { signal: c.signal });
+        clearTimeout(t);
+        if (res.ok) break;
+      } catch {
+        if (attempt < 5) await new Promise((r) => setTimeout(r, 5000));
+      }
+    }
+
+    // Passo 2: Disparar pipeline
     try {
+      setTriggerMsg("Servidor acordado. A disparar pipeline...");
       const c = new AbortController();
-      const t = setTimeout(() => c.abort(), 90000);
+      const t = setTimeout(() => c.abort(), 15000);
       const res = await fetch(`${API_BASE}/api/v1/ingest/trigger`, { method: "POST", signal: c.signal });
       clearTimeout(t);
       if (res.ok) {
@@ -307,20 +314,20 @@ export default function PropertiesPage() {
         return data.status === "started" || data.status === "already_running";
       }
     } catch {
-      // servidor pode estar a acordar
+      // fallback
     }
     return false;
   }
 
   async function handleTriggerPipeline() {
     setTriggerLoading(true);
-    setTriggerMsg("A acordar servidor e iniciar pipeline... (pode demorar ate 60s)");
-
-    const triggered = await triggerPipelineOnServer();
+    const triggered = await wakeAndTrigger();
     if (triggered) {
       setTriggerMsg("Pipeline iniciado. A correr em background — pode continuar a usar o site.");
     } else {
-      setTriggerMsg("Servidor a acordar... a tentar novamente em 10s.");
+      setTriggerMsg("Nao foi possivel contactar o servidor. Tente novamente em 1 minuto.");
+      setTriggerLoading(false);
+      return;
     }
     startBackgroundPoll();
   }
