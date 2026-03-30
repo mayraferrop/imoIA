@@ -558,34 +558,21 @@ class WhatsAppClient:
             return False
 
     def _archive_whapi(self, group_id: str) -> bool:
-        """Arquiva grupo via Whapi.Cloud. Tenta PATCH primeiro, depois POST.
+        """Arquiva grupo via Whapi.Cloud usando POST (conforme documentação oficial).
 
-        Nota: A API Whapi retorna 200 mas nem sempre sincroniza com o
-        telemovel (bug Whapi conhecido). Nao bloqueia o pipeline.
+        Endpoint: POST /chats/{ChatID} com {"archive": true}
+        Ref: https://whapi.readme.io/reference/archivechat
         """
         self.ensure_chat_read(group_id)
 
-        # Tentar PATCH primeiro
-        try:
-            self._do_request(
-                "PATCH",
-                f"/chats/{group_id}",
-                json_body={"archive": True},
-            )
-            logger.info(f"Grupo {group_id} arquivado via PATCH (Whapi)")
-            return True
-        except Exception as e:
-            logger.debug(f"PATCH archive falhou para {group_id}: {e}")
-
-        # Fallback: POST
         try:
             self._do_request(
                 "POST",
                 f"/chats/{group_id}",
                 json_body={"archive": True},
             )
-            logger.info(f"Grupo {group_id} arquivado via POST fallback (Whapi)")
+            logger.info(f"Grupo {group_id} arquivado via POST (Whapi)")
             return True
         except Exception as e:
-            logger.warning(f"Archive falhou para {group_id}: {e}")
+            logger.warning(f"Archive POST falhou para {group_id}: {e}")
             return False
