@@ -27,9 +27,26 @@ from loguru import logger
 from src.config import get_settings
 
 # Cache de localizacoes: nome_lower -> location_id
-_location_cache: Dict[str, int] = {}
+# Pré-populado com concelhos estratégicos PT (validado 2026-03-30)
+_STATIC_LOCATIONS: Dict[str, int] = {
+    "lisboa": 1600, "cascais": 2942, "sintra": 1670, "oeiras": 1861,
+    "amadora": 1859, "loures": 2836, "odivelas": 2868,
+    "vila franca de xira": 2730, "mafra": 1870, "almada": 1875,
+    "seixal": 3094, "setubal": 1873, "barreiro": 3086, "montijo": 2767,
+    "sesimbra": 1669, "palmela": 3073,
+    "porto": 25254, "vila nova de gaia": 3249, "matosinhos": 3054,
+    "maia": 3052, "gondomar": 3045, "valongo": 3061,
+    "vila do conde": 3062, "povoa de varzim": 3058,
+    "faro": 1876, "loule": 2918, "albufeira": 1602, "lagos": 1611,
+    "portimao": 1879, "tavira": 2920, "olhao": 2922, "silves": 1878,
+    "vila real de santo antonio": 3067,
+    "braga": 4823, "coimbra": 4474, "aveiro": 1784, "funchal": 4116,
+    "ponta delgada": 5056, "evora": 10018, "viseu": 4941,
+    "leiria": 4493, "guimaraes": 4840, "viana do castelo": 4785,
+}
+_location_cache: Dict[str, int] = {**_STATIC_LOCATIONS}
 _LOCATION_CACHE_TTL = 7 * 24 * 3600  # 7 dias
-_location_cache_ts: float = 0
+_location_cache_ts: float = time.time()  # cache estatico valido desde o inicio
 
 # Cache do JWT token
 _jwt_token: Optional[str] = None
