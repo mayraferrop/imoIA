@@ -233,13 +233,15 @@ export default function PropertiesPage() {
 
   // Poll em background — não bloqueia a interface
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const retriggerRef = React.useRef(false);
 
   function startBackgroundPoll() {
     if (pollRef.current) return;
+    retriggerRef.current = true; // permitir 1 re-trigger se idle
     pollRef.current = setInterval(async () => {
       try {
         const c = new AbortController();
-        const t = setTimeout(() => c.abort(), 8000);
+        const t = setTimeout(() => c.abort(), 10000);
         const res = await fetch(`${API_BASE}/api/v1/ingest/status`, { signal: c.signal });
         clearTimeout(t);
         if (!res.ok) return;
@@ -261,7 +263,17 @@ export default function PropertiesPage() {
           if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
           return;
         }
+        if (data.status === "idle" && retriggerRef.current) {
+          // Servidor acordou mas pipeline não arrancou — re-disparar
+          retriggerRef.current = false;
+          setTriggerMsg("Servidor acordou. A disparar pipeline...");
+          triggerPipelineOnServer().then((ok) => {
+            if (ok) setTriggerMsg("Pipeline iniciado. A correr em background...");
+          });
+          return;
+        }
         if (data.status === "running") {
+          retriggerRef.current = false;
           const elapsed = data.started_at
             ? Math.round((Date.now() - new Date(data.started_at).getTime()) / 1000)
             : 0;
@@ -271,10 +283,10 @@ export default function PropertiesPage() {
           const progress = groups > 0
             ? ` | ${groups} grupos, ${msgs} msgs, ${opps} oportunidades`
             : "";
-          setTriggerMsg(`Pipeline a correr em background... (${elapsed}s${progress})`);
+          setTriggerMsg(`Pipeline a correr... (${elapsed}s${progress})`);
         }
       } catch {
-        // falha de rede — continuar
+        // falha de rede — continuar a tentar
       }
     }, 10000); // poll a cada 10s
   }
@@ -284,31 +296,33 @@ export default function PropertiesPage() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
-  async function handleTriggerPipeline() {
-    setTriggerLoading(true);
-    setTriggerMsg("A iniciar pipeline...");
+  async function triggerPipelineOnServer(): Promise<boolean> {
     try {
       const c = new AbortController();
-      const t = setTimeout(() => c.abort(), 15000);
+      const t = setTimeout(() => c.abort(), 90000);
       const res = await fetch(`${API_BASE}/api/v1/ingest/trigger`, { method: "POST", signal: c.signal });
       clearTimeout(t);
-      if (!res.ok) {
-        const detail = await res.text().catch(() => "");
-        setTriggerMsg(`Erro ao disparar pipeline. ${detail}`);
-        setTriggerLoading(false);
-        return;
+      if (res.ok) {
+        const data = await res.json();
+        return data.status === "started" || data.status === "already_running";
       }
-      const data = await res.json();
-      if (data.status === "already_running") {
-        setTriggerMsg("Pipeline ja esta a correr. A acompanhar em background...");
-      } else {
-        setTriggerMsg("Pipeline iniciado. A correr em background — pode continuar a usar o site.");
-      }
-      startBackgroundPoll();
     } catch {
-      setTriggerMsg("Pipeline disparado (servidor pode estar a acordar). A verificar em background...");
-      startBackgroundPoll();
+      // servidor pode estar a acordar
     }
+    return false;
+  }
+
+  async function handleTriggerPipeline() {
+    setTriggerLoading(true);
+    setTriggerMsg("A acordar servidor e iniciar pipeline... (pode demorar ate 60s)");
+
+    const triggered = await triggerPipelineOnServer();
+    if (triggered) {
+      setTriggerMsg("Pipeline iniciado. A correr em background — pode continuar a usar o site.");
+    } else {
+      setTriggerMsg("Servidor a acordar... a tentar novamente em 10s.");
+    }
+    startBackgroundPoll();
   }
 
   async function handleReprocess() {
