@@ -216,11 +216,15 @@ export default function PropertiesPage() {
     fetchData();
   }, [fetchData]);
 
-  // Client-side filtering
+  // Client-side filtering (exclui descartados por default)
   const filtered = properties.filter((p) => {
     if (filterMunicipality && !p.municipality?.toLowerCase().includes(filterMunicipality.toLowerCase())) return false;
     if (filterType && p.property_type !== filterType) return false;
-    if (filterStatus && p.status !== filterStatus) return false;
+    if (filterStatus) {
+      if (p.status !== filterStatus) return false;
+    } else {
+      if (p.status === "descartado") return false;
+    }
     if (filterGrade && p.deal_grade !== filterGrade) return false;
     if (filterMinPrice && (p.asking_price ?? 0) < Number(filterMinPrice)) return false;
     if (filterMaxPrice && (p.asking_price ?? 0) > Number(filterMaxPrice)) return false;
