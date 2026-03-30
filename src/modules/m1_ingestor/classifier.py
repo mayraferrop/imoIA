@@ -66,8 +66,13 @@ class OpportunityClassifier:
         )
         self._system_prompt = build_system_prompt(tenant_id)
 
+    MAX_PARALLEL = 3  # chamadas simultâneas à API Anthropic
+
     def classify_batch(self, messages: List[Dict[str, Any]]) -> List[OpportunityResult]:
-        """Classifica um lote de mensagens.
+        """Classifica um lote de mensagens em paralelo.
+
+        Divide em chunks de BATCH_SIZE e processa até MAX_PARALLEL em
+        simultâneo para reduzir o tempo total de classificação.
 
         Args:
             messages: Lista de dicts com keys 'index', 'text', 'group'.
@@ -78,12 +83,27 @@ class OpportunityClassifier:
         if not messages:
             return []
 
-        results: List[OpportunityResult] = []
+        from concurrent.futures import ThreadPoolExecutor, as_completed
 
+        chunks = []
         for i in range(0, len(messages), self.BATCH_SIZE):
-            chunk = messages[i : i + self.BATCH_SIZE]
-            chunk_results = self._classify_chunk(chunk)
-            results.extend(chunk_results)
+            chunks.append(messages[i : i + self.BATCH_SIZE])
+
+        # Classificar chunks em paralelo (até MAX_PARALLEL simultâneos)
+        results_map: Dict[int, List[OpportunityResult]] = {}
+        with ThreadPoolExecutor(max_workers=self.MAX_PARALLEL) as executor:
+            future_to_idx = {
+                executor.submit(self._classify_chunk, chunk): idx
+                for idx, chunk in enumerate(chunks)
+            }
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                results_map[idx] = future.result()
+
+        # Reconstituir na ordem original
+        results: List[OpportunityResult] = []
+        for idx in range(len(chunks)):
+            results.extend(results_map.get(idx, []))
 
         return results
 
