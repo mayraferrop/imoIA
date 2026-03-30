@@ -1,59 +1,59 @@
-"""Construtor dinâmico de system prompt para classificação de oportunidades.
+"""Construtor dinamico de system prompt para classificacao de oportunidades.
 
-Monta o prompt a partir dos sinais configurados na estratégia ativa do
-utilizador, permitindo critérios personalizados por tenant/utilizador.
-Quando não existe estratégia ativa, usa o SYSTEM_PROMPT hardcoded (fallback).
+Monta o prompt a partir dos sinais configurados na estrategia ativa do
+utilizador, permitindo criterios personalizados por tenant/utilizador.
+Quando nao existe estrategia ativa, usa o SYSTEM_PROMPT hardcoded (fallback).
+
+Migrado para Supabase REST (sem SQLAlchemy).
 """
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
-from sqlalchemy import select
 
-from src.database.db import get_session
-from src.database.models_v2 import ClassificationSignal, InvestmentStrategy
+from src.database import supabase_rest as db
 from src.modules.m1_ingestor.prompts import SYSTEM_PROMPT
 
-# Parte estrutural do prompt que NÃO muda — definição de papel, formato, extração
-_PROMPT_PREAMBLE = """És um analista especializado em detetar oportunidades de investimento imobiliário em Portugal.
+# Parte estrutural do prompt que NAO muda
+_PROMPT_PREAMBLE = """Es um analista especializado em detetar oportunidades de investimento imobiliario em Portugal.
 
-Recebes mensagens de grupos de WhatsApp de consultores, investidores e mediadores imobiliários. A tua tarefa é classificar cada mensagem como oportunidade ou não, e extrair dados relevantes.
+Recebes mensagens de grupos de WhatsApp de consultores, investidores e mediadores imobiliarios. A tua tarefa e classificar cada mensagem como oportunidade ou nao, e extrair dados relevantes.
 
-## REGRA FUNDAMENTAL — Só imóveis À VENDA
-APENAS classifica como oportunidade mensagens de alguém que ESTÁ A VENDER ou PARTILHAR um imóvel concreto. Ignora SEMPRE:
-- Mensagens de quem PROCURA imóveis ("procuro", "procura-se", "estou à procura", "cliente procura", "procuramos")
-- Pedidos genéricos ("alguém tem?", "alguém conhece?", "alguém com cliente para isto?")
-Estas mensagens são PEDIDOS de compra, NÃO ofertas de venda — nunca são oportunidades.
+## REGRA FUNDAMENTAL — So imoveis A VENDA
+APENAS classifica como oportunidade mensagens de alguem que ESTA A VENDER ou PARTILHAR um imovel concreto. Ignora SEMPRE:
+- Mensagens de quem PROCURA imoveis ("procuro", "procura-se", "estou a procura", "cliente procura", "procuramos")
+- Pedidos genericos ("alguem tem?", "alguem conhece?", "alguem com cliente para isto?")
+Estas mensagens sao PEDIDOS de compra, NAO ofertas de venda — nunca sao oportunidades.
 
-## Modelo de Negócio do Utilizador
+## Modelo de Negocio do Utilizador
 {business_model}"""
 
 _PROMPT_SUFFIX = """
 ## Dados a Extrair
 Para cada mensagem classificada como oportunidade, extrai:
-- **location**: localização geral (texto livre)
+- **location**: localizacao geral (texto livre)
 - **parish**: freguesia (se mencionada)
 - **municipality**: concelho
 - **district**: distrito
-- **price**: preço em euros (número)
-- **property_type**: tipo de imóvel (apartamento, moradia, terreno, prédio, loja, escritório, armazém, quinta, outro)
+- **price**: preco em euros (numero)
+- **property_type**: tipo de imovel (apartamento, moradia, terreno, predio, loja, escritorio, armazem, quinta, outro)
 - **typology**: tipologia (T0, T1, T2, T3, T4, T5+)
-- **area_m2**: área em m2 (número)
-- **bedrooms**: número de quartos (número inteiro)
+- **area_m2**: area em m2 (numero)
+- **bedrooms**: numero de quartos (numero inteiro)
 - **opportunity_type**: tipo de oportunidade (abaixo_mercado, venda_urgente, off_market, reabilitacao, leilao, predio_inteiro, terreno_viabilidade, yield_alto, outro)
 
-## Regras de Confiança
-- **> 0.8**: Dados concretos completos (preço + localização + tipologia/área) + sinais CLAROS de oportunidade
-- **0.6 - 0.8**: Imóvel interessante mas faltam alguns dados (sem preço, sem área, localização vaga) OU sinais moderados de oportunidade
-- **< 0.6**: Faltam dados essenciais ou a mensagem é muito ambígua
-- NUNCA dar confiança > 0.0 a mensagens de quem PROCURA imóveis
+## Regras de Confianca
+- **> 0.8**: Dados concretos completos (preco + localizacao + tipologia/area) + sinais CLAROS de oportunidade
+- **0.6 - 0.8**: Imovel interessante mas faltam alguns dados (sem preco, sem area, localizacao vaga) OU sinais moderados de oportunidade
+- **< 0.6**: Faltam dados essenciais ou a mensagem e muito ambigua
+- NUNCA dar confianca > 0.0 a mensagens de quem PROCURA imoveis
 
-SÊ GENEROSO na classificação de imóveis que se encaixam nos critérios — é melhor incluir uma oportunidade duvidosa (0.6) do que perder uma boa.
+SE GENEROSO na classificacao de imoveis que se encaixam nos criterios — e melhor incluir uma oportunidade duvidosa (0.6) do que perder uma boa.
 
 ## Formato de Resposta
-Responde APENAS com um array JSON válido. Cada elemento deve ter esta estrutura:
+Responde APENAS com um array JSON valido. Cada elemento deve ter esta estrutura:
 ```json
 {
   "message_index": <int>,
@@ -68,86 +68,91 @@ Responde APENAS com um array JSON válido. Cada elemento deve ter esta estrutura
   "price": <float ou null>,
   "area_m2": <float ou null>,
   "bedrooms": <int ou null>,
-  "reasoning": <string com justificação curta em português>
+  "reasoning": <string com justificacao curta em portugues>
 }
 ```
 
-NÃO incluas texto fora do JSON. NÃO uses markdown code blocks. Responde APENAS com o array JSON."""
+NAO incluas texto fora do JSON. NAO uses markdown code blocks. Responde APENAS com o array JSON."""
 
 
-def _build_criteria_section(positive_signals: list[ClassificationSignal]) -> str:
-    """Constrói a secção de critérios a partir dos sinais positivos."""
+def _build_criteria_section(positive_signals: List[Dict[str, Any]]) -> str:
+    """Constroi a seccao de criterios a partir dos sinais positivos."""
     if not positive_signals:
         return ""
 
     lines = [
-        "\n## Critérios de Oportunidade",
-        "Considera como oportunidade mensagens que OFEREÇAM para venda um imóvel com pelo menos um destes sinais:",
+        "\n## Criterios de Oportunidade",
+        "Considera como oportunidade mensagens que OFERECAM para venda um imovel com pelo menos um destes sinais:",
     ]
     for s in positive_signals:
-        lines.append(f"- {s.signal_text}")
+        lines.append(f"- {s['signal_text']}")
     return "\n".join(lines)
 
 
-def _build_ignore_section(negative_signals: list[ClassificationSignal]) -> str:
-    """Constrói a secção de exclusão a partir dos sinais negativos."""
+def _build_ignore_section(negative_signals: List[Dict[str, Any]]) -> str:
+    """Constroi a seccao de exclusao a partir dos sinais negativos."""
     if not negative_signals:
         return ""
 
     lines = [
-        "\n## O Que Ignorar (NÃO é oportunidade)",
+        "\n## O Que Ignorar (NAO e oportunidade)",
         "Estas mensagens NUNCA devem ser classificadas como oportunidade:",
     ]
     for s in negative_signals:
-        lines.append(f"- {s.signal_text}")
+        lines.append(f"- {s['signal_text']}")
     return "\n".join(lines)
 
 
 def build_system_prompt(tenant_id: Optional[str] = None) -> str:
-    """Constrói o system prompt dinâmico com base na estratégia ativa.
+    """Constroi o system prompt dinamico com base na estrategia ativa.
+
+    Tenta Supabase REST primeiro. Se falhar, usa o prompt hardcoded.
 
     Args:
-        tenant_id: ID do tenant. Se None ou sem estratégia ativa, usa o prompt hardcoded.
+        tenant_id: ID do tenant. Se None ou sem estrategia ativa, usa fallback.
 
     Returns:
         System prompt completo para o classificador.
     """
-    if not tenant_id:
-        return SYSTEM_PROMPT
-
+    # Tentar buscar estrategia ativa via Supabase REST (funciona no Render)
     try:
-        with get_session() as session:
-            strategy = session.execute(
-                select(InvestmentStrategy)
-                .where(
-                    InvestmentStrategy.tenant_id == tenant_id,
-                    InvestmentStrategy.is_active.is_(True),
-                )
-                .limit(1)
-            ).scalar_one_or_none()
+        strategies = db.list_rows(
+            "investment_strategies",
+            filters="is_active=eq.true",
+            order="created_at.desc",
+            limit=1,
+        )
 
-            if not strategy:
-                logger.debug(f"Sem estratégia ativa para tenant {tenant_id} — a usar prompt padrão")
-                return SYSTEM_PROMPT
+        if not strategies:
+            logger.debug("Sem estrategia ativa no Supabase — a usar prompt padrao")
+            return SYSTEM_PROMPT
 
-            # Separar sinais positivos e negativos
-            positive = [s for s in strategy.signals if s.is_positive]
-            negative = [s for s in strategy.signals if not s.is_positive]
+        strategy = strategies[0]
 
-            # Descrição do modelo de negócio do utilizador
-            business_model = strategy.description or "Investimento imobiliário em Portugal."
+        # Buscar sinais desta estrategia
+        signals = db.list_rows(
+            "classification_signals",
+            filters=f"strategy_id=eq.{strategy['id']}",
+            order="priority.asc",
+            limit=200,
+        )
 
-            prompt = _PROMPT_PREAMBLE.format(business_model=business_model)
-            prompt += _build_criteria_section(positive)
-            prompt += _build_ignore_section(negative)
-            prompt += _PROMPT_SUFFIX
+        positive = [s for s in signals if s.get("is_positive", True)]
+        negative = [s for s in signals if not s.get("is_positive", True)]
 
-            logger.info(
-                f"Prompt dinâmico gerado para tenant {tenant_id}: "
-                f"estratégia '{strategy.name}', {len(positive)} sinais positivos, {len(negative)} negativos"
-            )
-            return prompt
+        business_model = strategy.get("description") or "Investimento imobiliario em Portugal."
+
+        prompt = _PROMPT_PREAMBLE.format(business_model=business_model)
+        prompt += _build_criteria_section(positive)
+        prompt += _build_ignore_section(negative)
+        prompt += _PROMPT_SUFFIX
+
+        logger.info(
+            f"Prompt dinamico gerado: estrategia '{strategy['name']}', "
+            f"{len(positive)} sinais positivos, {len(negative)} negativos"
+        )
+        return prompt
 
     except Exception as e:
-        logger.error(f"Erro ao construir prompt dinâmico: {e} — a usar prompt padrão")
+        logger.warning(f"Supabase REST falhou para prompt builder: {e} — a usar prompt padrao")
         return SYSTEM_PROMPT
