@@ -237,11 +237,17 @@ export default function PropertiesPage() {
           setTriggerMsg(`Erro no pipeline: ${data.errors?.[0] ?? "erro desconhecido"}`);
           return;
         }
-        // ainda running — atualizar mensagem com tempo decorrido
+        // ainda running — mostrar progresso
         const elapsed = data.started_at
           ? Math.round((Date.now() - new Date(data.started_at).getTime()) / 1000)
           : i * 2;
-        setTriggerMsg(`Pipeline a correr... (${elapsed}s)`);
+        const groups = data.groups_processed || 0;
+        const msgs = data.messages_fetched || 0;
+        const opps = data.opportunities_found || 0;
+        const progress = groups > 0
+          ? ` | ${groups} grupos, ${msgs} msgs, ${opps} oportunidades`
+          : "";
+        setTriggerMsg(`Pipeline a correr... (${elapsed}s${progress})`);
       } catch {
         // falha de rede no poll — continuar a tentar
       }

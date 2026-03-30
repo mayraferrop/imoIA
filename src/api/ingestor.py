@@ -124,8 +124,16 @@ async def reprocess_pipeline(days: int = Query(10, ge=1, le=30)) -> Dict[str, An
     def _run_reprocess():
         global _pipeline_state
         from src.modules.m1_ingestor.service import reprocess_pipeline as _reprocess
+
+        def _progress_callback(groups_done, total_msgs, total_opps):
+            """Actualiza estado in-memory a cada grupo processado."""
+            with _pipeline_lock:
+                _pipeline_state["groups_processed"] = groups_done
+                _pipeline_state["messages_fetched"] = total_msgs
+                _pipeline_state["opportunities_found"] = total_opps
+
         try:
-            result = _reprocess(days=days)
+            result = _reprocess(days=days, progress_callback=_progress_callback)
             with _pipeline_lock:
                 _pipeline_state = {
                     "status": "done",
@@ -143,9 +151,9 @@ async def reprocess_pipeline(days: int = Query(10, ge=1, le=30)) -> Dict[str, An
                     "status": "error",
                     "started_at": _pipeline_state["started_at"],
                     "finished_at": datetime.now(timezone.utc).isoformat(),
-                    "messages_fetched": 0,
-                    "opportunities_found": 0,
-                    "groups_processed": 0,
+                    "messages_fetched": _pipeline_state.get("messages_fetched", 0),
+                    "opportunities_found": _pipeline_state.get("opportunities_found", 0),
+                    "groups_processed": _pipeline_state.get("groups_processed", 0),
                     "errors": [str(e)],
                 }
             logger.error(f"Reprocess falhou: {e}")

@@ -1134,14 +1134,19 @@ def run_pipeline() -> PipelineResult:
     return result
 
 
-def reprocess_pipeline(days: int = 10) -> PipelineResult:
+def reprocess_pipeline(
+    days: int = 10,
+    progress_callback: Any = None,
+) -> PipelineResult:
     """Reprocessa mensagens dos últimos N dias com a estratégia activa.
 
-    Processa grupo a grupo sequencialmente para evitar exceder memória
-    no Render free. Persiste resultados após cada grupo.
+    Processa grupo a grupo sequencialmente. Só processa grupos com
+    actividade recente para não desperdiçar tempo em grupos parados.
+    Reporta progresso via callback para o frontend não dar timeout.
 
     Args:
         days: Número de dias para trás a reprocessar (default 10).
+        progress_callback: Função(groups_done, total_msgs, total_opps) chamada após cada grupo.
 
     Returns:
         PipelineResult com métricas de execução.
@@ -1157,10 +1162,13 @@ def reprocess_pipeline(days: int = 10) -> PipelineResult:
 
     init_db()
 
-    # Buscar grupos activos
+    since = datetime.now(tz=timezone.utc) - timedelta(days=days)
+    since_ts = int(since.timestamp())
+
+    # Buscar grupos activos e filtrar só os com actividade recente
     wa_client = _get_whatsapp_client()
     try:
-        active_groups = wa_client.list_active_groups()
+        all_groups = wa_client.list_active_groups()
     except Exception as e:
         return PipelineResult(
             messages_fetched=0, opportunities_found=0,
@@ -1174,14 +1182,21 @@ def reprocess_pipeline(days: int = 10) -> PipelineResult:
         ).scalars().all()
         disabled_ids = set(all_inactive)
 
-    active_groups = [g for g in active_groups if g.get("id") not in disabled_ids]
-    logger.info(f"Reprocessar {len(active_groups)} grupos activos")
+    # Só processar grupos com última mensagem nos últimos N dias
+    active_groups = []
+    for g in all_groups:
+        if g.get("id") in disabled_ids:
+            continue
+        last_ts = g.get("last_message_ts", 0) or 0
+        if last_ts >= since_ts:
+            active_groups.append(g)
+
+    logger.info(f"Reprocessar {len(active_groups)} grupos com actividade (de {len(all_groups)} total)")
 
     classifier = _get_classifier()
     market_services = _get_market_services()
-    since = datetime.now(tz=timezone.utc) - timedelta(days=days)
 
-    # Processar grupo a grupo (evita crash por memória no Render free)
+    # Processar grupo a grupo
     for group in active_groups:
         gid = group.get("id", "unknown")
         gname = group.get("name", "Desconhecido")
@@ -1192,10 +1207,14 @@ def reprocess_pipeline(days: int = 10) -> PipelineResult:
             total_messages += len(messages)
 
             if not messages:
+                if progress_callback:
+                    progress_callback(groups_processed, total_messages, total_opportunities)
                 continue
 
             filtered = _filter_noise(messages)
             if not filtered:
+                if progress_callback:
+                    progress_callback(groups_processed, total_messages, total_opportunities)
                 continue
 
             total_filtered += len(filtered)
@@ -1228,6 +1247,10 @@ def reprocess_pipeline(days: int = 10) -> PipelineResult:
         except Exception as e:
             errors.append(f"Erro {gname}: {str(e)[:100]}")
             logger.error(f"Reprocess erro {gname}: {e}")
+
+        # Reportar progresso ao frontend
+        if progress_callback:
+            progress_callback(groups_processed, total_messages, total_opportunities)
 
     pipeline_elapsed = time.monotonic() - pipeline_start
 
