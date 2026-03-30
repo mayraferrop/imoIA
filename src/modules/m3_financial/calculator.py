@@ -489,8 +489,11 @@ class FinancialCalculator:
 
             cost_of_renovation = inp.renovation_budget
             cost_of_sale = res.comissao_venda
-            cost_of_financing = res.monthly_payment * res.holding_months
-            cost_of_maintenance = inp.monthly_condominio * res.holding_months
+            cost_of_financing = res.total_interest  # juros exactos (amort nao é custo)
+            cost_of_maintenance = (
+                (inp.monthly_condominio + inp.annual_insurance / 12 + inp.monthly_consumos)
+                * res.holding_months
+            )
 
             total_costs_jp = (
                 cost_of_acquisition
@@ -649,14 +652,42 @@ class FinancialCalculator:
 
         custos_compra_2 = res.total_acquisition_cost_2
 
-        # Manutencao mensal = condominio + seguro + IMI (PT)
-        monthly_imi = 0.0
-        if inp.country == "PT":
-            vpt_estimate = inp.purchase_price * VPT_ESTIMATE_PCT
-            monthly_imi = (vpt_estimate * IMI_RATE_DEFAULT) / 12
+        # Manutencao mensal = condominio + seguro + consumos (SEM IMI)
         monthly_maintenance = (
-            inp.monthly_condominio + inp.annual_insurance / 12 + monthly_imi
+            inp.monthly_condominio + inp.annual_insurance / 12 + inp.monthly_consumos
         )
+
+        # Juros e amortizacao calculados mes a mes (exacto, nao simplificado)
+        monthly_rate = (
+            (res.interest_rate_pct / 100) / 12
+            if res.interest_rate_pct > 0
+            else 0
+        )
+        saldo = res.loan_amount
+        total_juros_exacto = 0.0
+        total_amort_exacto = 0.0
+        for _ in range(res.holding_months):
+            if saldo <= 0:
+                break
+            juros = saldo * monthly_rate
+            amort = res.monthly_payment - juros
+            total_juros_exacto += juros
+            total_amort_exacto += amort
+            saldo = max(saldo - amort, 0)
+        res.payoff_at_sale = round(saldo, 2)
+        res.total_interest = round(total_juros_exacto, 2)
+
+        # IMI pontual (anual, nao mensal)
+        imi_total = 0.0
+        if inp.country == "PT":
+            vpt = inp.vpt if inp.vpt > 0 else inp.purchase_price * 0.7
+            taxa_imi = inp.taxa_imi_pct / 100
+            imi_anual = vpt * taxa_imi
+            # Contar 31/Dez no periodo (estimativa baseada em holding_months)
+            num_dez = max(res.holding_months // 12, 0)
+            if res.holding_months >= 6:
+                num_dez = max(num_dez, 1)  # Se > 6 meses, pelo menos 1 x 31/Dez
+            imi_total = imi_anual * num_dez
 
         # total_investment = custo total do projecto (preco COMPLETO, nao equity)
         res.total_investment = round(
@@ -665,25 +696,12 @@ class FinancialCalculator:
             + custos_compra_2
             + res.bank_fees
             + res.renovation_total
-            + (res.monthly_payment * res.holding_months)
-            + (monthly_maintenance * res.holding_months),
+            + total_juros_exacto
+            + total_amort_exacto
+            + (monthly_maintenance * res.holding_months)
+            + imi_total,
             2,
         )
-
-        # Payoff — saldo devedor no mes da venda
-        monthly_rate = (
-            (res.interest_rate_pct / 100) / 12
-            if res.interest_rate_pct > 0
-            else 0
-        )
-        saldo = res.loan_amount
-        for _ in range(res.holding_months):
-            if saldo <= 0:
-                break
-            juros = saldo * monthly_rate
-            amort = res.monthly_payment - juros
-            saldo = max(saldo - amort, 0)
-        res.payoff_at_sale = round(saldo, 2)
 
         # Venda liquida
         venda_liquida = inp.estimated_sale_price * (
@@ -701,7 +719,9 @@ class FinancialCalculator:
             + res.renovation_total
             + res.total_holding_cost
             + res.total_sale_costs
-            + (res.monthly_payment * res.holding_months),
+            + total_juros_exacto
+            + total_amort_exacto
+            + imi_total,
             2,
         )
 
