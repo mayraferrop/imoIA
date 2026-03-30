@@ -284,6 +284,81 @@ async def get_ine_housing_prices(
 
 
 @router.get(
+    "/sir/search",
+    summary="Pesquisa SIR por morada ou CEP",
+)
+async def sir_search_by_address(
+    q: str = Query(..., description="Morada, CEP ou concelho (ex: '1050-001', 'Rua Augusta Lisboa', 'Porto')"),
+) -> Dict[str, Any]:
+    """Resolve morada/CEP para concelho e retorna preço SIR.
+
+    Usa Nominatim (OpenStreetMap) para geocoding gratuito.
+    """
+    import httpx as _httpx
+
+    try:
+        from src.modules.m2_market.sir_client import SIRClient, CONCELHO_MAP
+
+        # 1. Tentar como concelho directo
+        client = SIRClient()
+        direct = client.get_price_m2(q)
+        if direct:
+            return {**direct, "query": q, "resolved_via": "direct"}
+
+        # 2. Geocoding via Nominatim
+        async_query = f"{q} Portugal" if "portugal" not in q.lower() else q
+        geo_resp = _httpx.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": async_query, "format": "json", "addressdetails": 1, "limit": 1},
+            headers={"User-Agent": "imoIA/1.0 (imoia.vercel.app)"},
+            timeout=10,
+        )
+        if geo_resp.status_code != 200 or not geo_resp.json():
+            raise HTTPException(status_code=404, detail=f"Morada não encontrada: '{q}'")
+
+        geo = geo_resp.json()[0]
+        addr = geo.get("address", {})
+        municipality = (
+            addr.get("city")
+            or addr.get("town")
+            or addr.get("municipality")
+            or addr.get("county")
+            or ""
+        )
+        freguesia = addr.get("suburb") or addr.get("quarter") or addr.get("neighbourhood")
+        district = addr.get("state") or addr.get("state_district")
+
+        if not municipality:
+            raise HTTPException(status_code=404, detail=f"Não foi possível resolver concelho para: '{q}'")
+
+        # 3. Buscar preço SIR
+        sir_data = client.get_price_m2(municipality)
+        result: Dict[str, Any] = {
+            "query": q,
+            "resolved_via": "geocoding",
+            "municipality": municipality,
+            "freguesia": freguesia,
+            "district": district,
+            "latitude": float(geo.get("lat", 0)),
+            "longitude": float(geo.get("lon", 0)),
+            "display_name": geo.get("display_name", ""),
+        }
+        if sir_data:
+            result.update(sir_data)
+        else:
+            result["price_m2"] = None
+            result["note"] = f"Concelho '{municipality}' sem dados SIR"
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"SIR search erro: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
     "/sir/prices",
     summary="Preços de transação SIR",
 )
