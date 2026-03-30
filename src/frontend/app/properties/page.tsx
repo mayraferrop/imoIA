@@ -54,6 +54,7 @@ interface Opportunity {
   area_m2?: number;
   property_type?: string;
   status?: string;
+  messages?: { group_name?: string };
 }
 
 interface IngestStats {
@@ -122,7 +123,7 @@ async function fetchSupabaseProperties(): Promise<Property[]> {
 
 async function fetchSupabaseOpportunities(): Promise<Opportunity[]> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/opportunities?select=id,deal_grade,deal_score,confidence,opportunity_type,original_message,ai_reasoning,location_extracted,price_mentioned,area_m2,property_type,status&is_opportunity=eq.true`,
+    `${SUPABASE_URL}/rest/v1/opportunities?select=id,deal_grade,deal_score,confidence,opportunity_type,original_message,ai_reasoning,location_extracted,price_mentioned,area_m2,property_type,status,messages(group_name)&is_opportunity=eq.true`,
     { headers: SUPA_HEADERS }
   );
   if (!res.ok) return [];
@@ -811,6 +812,14 @@ export default function PropertiesPage() {
                       <div className="bg-white rounded-lg p-3 border border-slate-200">
                         <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Notas</p>
                         <p className="text-sm text-slate-700 whitespace-pre-wrap">{p.notes}</p>
+                      </div>
+                    )}
+
+                    {/* WhatsApp group origin */}
+                    {opp?.messages?.group_name && (
+                      <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                        <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Grupo de origem</p>
+                        <p className="text-sm text-slate-700 font-medium">{opp.messages.group_name}</p>
                       </div>
                     )}
 
