@@ -279,6 +279,120 @@ async def get_ine_housing_prices(
 
 
 # ---------------------------------------------------------------------------
+# SIR (Confidencial Imobiliário — preços reais de transação)
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/sir/prices",
+    summary="Preços de transação SIR",
+)
+async def get_sir_prices(
+    municipality: str = Query(..., description="Município"),
+) -> Dict[str, Any]:
+    """Preço médio de transação por m2 (SIR / Confidencial Imobiliário)."""
+    try:
+        from src.modules.m2_market.sir_client import SIRClient
+        client = SIRClient()
+        if not client.is_configured:
+            raise HTTPException(status_code=503, detail="SIR não configurado")
+        result = client.get_price_m2(municipality)
+        if result:
+            return result
+        raise HTTPException(
+            status_code=404,
+            detail=f"Dados SIR não encontrados para '{municipality}'",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"SIR erro: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post(
+    "/sir/prices/bulk",
+    summary="Preços SIR para múltiplos concelhos",
+)
+async def get_sir_prices_bulk(
+    municipalities: List[str],
+) -> Dict[str, Any]:
+    """Preços de transação para vários concelhos de uma vez."""
+    try:
+        from src.modules.m2_market.sir_client import SIRClient
+        client = SIRClient()
+        if not client.is_configured:
+            raise HTTPException(status_code=503, detail="SIR não configurado")
+        results = client.get_multiple_prices(municipalities)
+        return {"results": {k: v for k, v in results.items() if v is not None}}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"SIR bulk erro: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# BPstat (Banco de Portugal — índices de preços habitação)
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/bpstat/index",
+    summary="Índice de preços habitação (BPstat)",
+)
+async def get_bpstat_index() -> Dict[str, Any]:
+    """Índice de preços de habitação nacional (base 2015=100)."""
+    try:
+        from src.modules.m2_market.bpstat_client import BPstatClient
+        client = BPstatClient()
+        data = client.get_price_index(obs_last_n=20)
+        if data:
+            latest = client.get_latest_index()
+            return {"series": data, "latest": latest}
+        raise HTTPException(status_code=503, detail="BPstat sem dados")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"BPstat erro: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/bpstat/estimate",
+    summary="Estimativa de preço actual (INE + BPstat)",
+)
+async def get_bpstat_estimate(
+    municipality: str = Query(..., description="Município"),
+) -> Dict[str, Any]:
+    """Estima preço actual: preço base INE × variação índice BPstat."""
+    try:
+        from src.modules.m2_market.ine_client import INEClient
+        from src.modules.m2_market.bpstat_client import BPstatClient
+        ine = INEClient()
+        bpstat = BPstatClient()
+        ine_data = ine.get_median_price(municipality)
+        if not ine_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Sem dados INE para '{municipality}'",
+            )
+        estimate = bpstat.estimate_current_price(
+            ine_data["price_m2"], ine_data["quarter"], "existing"
+        )
+        return {
+            "ine": ine_data,
+            "estimate": estimate,
+            "municipality": municipality,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"BPstat estimate erro: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
 # Casafari AVM Nativo
 # ---------------------------------------------------------------------------
 

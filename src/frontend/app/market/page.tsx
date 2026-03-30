@@ -69,6 +69,30 @@ interface INEResult {
   quarter?: string;
 }
 
+interface SIRResult {
+  price_m2?: number;
+  volume?: number;
+  period?: string;
+  source?: string;
+}
+
+interface BPstatEstimate {
+  ine?: INEResult;
+  estimate?: {
+    estimated_price_m2?: number;
+    variation_pct?: number;
+    base_quarter?: string;
+    current_quarter?: string;
+    source?: string;
+  };
+}
+
+interface MarketPrices {
+  sir?: SIRResult | null;
+  bpstat?: BPstatEstimate | null;
+  ine?: INEResult | null;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -194,7 +218,7 @@ const TABS = [
   { id: "comparables", label: "Comparáveis" },
   { id: "valuation", label: "Avaliação AVM" },
   { id: "alerts", label: "Alertas" },
-  { id: "ine", label: "Dados INE" },
+  { id: "prices", label: "Preços de Mercado" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -219,7 +243,8 @@ export default function MarketPage() {
   const [alerts, setAlerts] = useState<MarketAlert[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  // INE
+  // Market Prices (SIR + BPstat + INE)
+  const [marketPrices, setMarketPrices] = useState<MarketPrices>({});
   const [ineResult, setIneResult] = useState<INEResult | null>(null);
 
   /* --- Load overview + alerts on mount --- */
@@ -339,14 +364,21 @@ export default function MarketPage() {
     setLoading(false);
   }
 
-  /* --- INE (FastAPI — external API call) --- */
-  async function handleINE(e: React.FormEvent<HTMLFormElement>) {
+  /* --- Market Prices: SIR + BPstat + INE em paralelo --- */
+  async function handleMarketPrices(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
+    setMarketPrices({});
     const fd = new FormData(e.currentTarget);
-    const mun = fd.get("ine_municipality") || "Lisboa";
-    const result = await api<INEResult>(`/api/v1/market/ine/housing-prices?municipality=${mun}`);
-    if (result) setIneResult(result);
+    const mun = encodeURIComponent((fd.get("mp_municipality") as string) || "Lisboa");
+
+    const [sir, bpstat, ine] = await Promise.all([
+      api<SIRResult>(`/api/v1/market/sir/prices?municipality=${mun}`),
+      api<BPstatEstimate>(`/api/v1/market/bpstat/estimate?municipality=${mun}`),
+      api<INEResult>(`/api/v1/market/ine/housing-prices?municipality=${mun}`),
+    ]);
+
+    setMarketPrices({ sir, bpstat, ine });
     setLoading(false);
   }
 
@@ -368,7 +400,7 @@ export default function MarketPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">M2 — Pesquisa de Mercado</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Comparáveis, avaliações AVM, alertas e dados INE
+          Comparáveis, avaliações AVM, alertas e preços de mercado
         </p>
       </div>
 
@@ -698,18 +730,19 @@ export default function MarketPage() {
       )}
 
       {/* ============================================================ */}
-      {/*  TAB: Dados INE                                               */}
+      {/*  TAB: Preços de Mercado (SIR + BPstat + INE)                   */}
       {/* ============================================================ */}
-      {activeTab === "ine" && (
+      {activeTab === "prices" && (
         <div className="space-y-6">
+          {/* Pesquisar */}
           <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h2 className="text-lg font-semibold mb-1">Preços medianos INE</h2>
+            <h2 className="text-lg font-semibold mb-1">Preços de Mercado por Concelho</h2>
             <p className="text-sm text-slate-500 mb-4">
-              Instituto Nacional de Estatística — sem API key.
+              Consulta 3 fontes em paralelo: SIR (transações reais), BPstat (índice nacional) e INE (mediana histórica).
             </p>
-            <form onSubmit={handleINE} className="flex gap-4 items-end">
+            <form onSubmit={handleMarketPrices} className="flex gap-4 items-end">
               <div className="flex-1">
-                <Field name="ine_municipality" label="Município" placeholder="Lisboa" defaultValue="Lisboa" />
+                <Field name="mp_municipality" label="Município" placeholder="Lisboa" defaultValue="Lisboa" />
               </div>
               <button
                 type="submit"
@@ -721,15 +754,98 @@ export default function MarketPage() {
             </form>
           </div>
 
-          {ineResult && (
-            <div className="bg-white rounded-xl border border-slate-200 p-6">
-              <p className="text-xs text-slate-500">
-                Mediana {ineResult.municipality}
-                {ineResult.quarter && ` — Período: ${ineResult.quarter}`} | Fonte: INE
-              </p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">
-                {ineResult.price_m2?.toLocaleString("pt-PT") ?? "—"} EUR/m2
-              </p>
+          {/* Resultados — 3 cards lado a lado */}
+          {(marketPrices.sir || marketPrices.bpstat || marketPrices.ine) && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* SIR — Preço real de transação */}
+              <div className="bg-white rounded-xl border border-slate-200 p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`w-2.5 h-2.5 rounded-full ${marketPrices.sir ? "bg-green-500" : "bg-slate-300"}`} />
+                  <h3 className="text-sm font-semibold text-slate-700">SIR — Transações Reais</h3>
+                </div>
+                {marketPrices.sir ? (
+                  <>
+                    <p className="text-3xl font-bold text-slate-900">
+                      {marketPrices.sir.price_m2?.toLocaleString("pt-PT")} <span className="text-base font-normal text-slate-500">EUR/m2</span>
+                    </p>
+                    <div className="mt-3 space-y-1">
+                      <p className="text-xs text-slate-500">
+                        Volume: {marketPrices.sir.volume?.toLocaleString("pt-PT") ?? "—"} fogos vendidos
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Período: {marketPrices.sir.period ?? "—"}
+                      </p>
+                    </div>
+                    <Badge variant="success">Confidencial Imobiliário</Badge>
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-400 mt-2">Sem dados para este concelho</p>
+                )}
+              </div>
+
+              {/* BPstat — Estimativa com índice */}
+              <div className="bg-white rounded-xl border border-slate-200 p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`w-2.5 h-2.5 rounded-full ${marketPrices.bpstat?.estimate ? "bg-blue-500" : "bg-slate-300"}`} />
+                  <h3 className="text-sm font-semibold text-slate-700">BPstat — Estimativa Ajustada</h3>
+                </div>
+                {marketPrices.bpstat?.estimate ? (
+                  <>
+                    <p className="text-3xl font-bold text-slate-900">
+                      {marketPrices.bpstat.estimate.estimated_price_m2?.toLocaleString("pt-PT")} <span className="text-base font-normal text-slate-500">EUR/m2</span>
+                    </p>
+                    <div className="mt-3 space-y-1">
+                      <p className="text-xs text-slate-500">
+                        Variação desde {marketPrices.bpstat.estimate.base_quarter}:{" "}
+                        <span className={marketPrices.bpstat.estimate.variation_pct && marketPrices.bpstat.estimate.variation_pct > 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                          {marketPrices.bpstat.estimate.variation_pct != null ? `${marketPrices.bpstat.estimate.variation_pct > 0 ? "+" : ""}${marketPrices.bpstat.estimate.variation_pct}%` : "—"}
+                        </span>
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Até: {marketPrices.bpstat.estimate.current_quarter ?? "—"}
+                      </p>
+                    </div>
+                    <Badge variant="info">INE + Banco de Portugal</Badge>
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-400 mt-2">Sem dados para este concelho</p>
+                )}
+              </div>
+
+              {/* INE — Dados base */}
+              <div className="bg-white rounded-xl border border-slate-200 p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`w-2.5 h-2.5 rounded-full ${marketPrices.ine ? "bg-amber-500" : "bg-slate-300"}`} />
+                  <h3 className="text-sm font-semibold text-slate-700">INE — Mediana Histórica</h3>
+                </div>
+                {marketPrices.ine ? (
+                  <>
+                    <p className="text-3xl font-bold text-slate-900">
+                      {marketPrices.ine.price_m2?.toLocaleString("pt-PT")} <span className="text-base font-normal text-slate-500">EUR/m2</span>
+                    </p>
+                    <div className="mt-3 space-y-1">
+                      <p className="text-xs text-slate-500">
+                        Período: {marketPrices.ine.quarter ?? "—"}
+                      </p>
+                      <p className="text-xs text-amber-600">
+                        Dados desatualizados — usar SIR ou BPstat
+                      </p>
+                    </div>
+                    <Badge variant="warning">INE (desatualizado)</Badge>
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-400 mt-2">Sem dados para este concelho</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Legenda */}
+          {(marketPrices.sir || marketPrices.bpstat || marketPrices.ine) && (
+            <div className="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 text-xs text-slate-500">
+              <strong>SIR:</strong> Preços reais de transação reportados por mediadores e promotores (Confidencial Imobiliário).{" "}
+              <strong>BPstat:</strong> Mediana INE ajustada pelo índice nacional de preços de habitação (Banco de Portugal).{" "}
+              <strong>INE:</strong> Mediana do preço de venda de apartamentos por concelho (último período disponível).
             </div>
           )}
         </div>
