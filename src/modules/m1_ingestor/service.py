@@ -1137,11 +1137,8 @@ def run_pipeline() -> PipelineResult:
 def reprocess_pipeline(days: int = 10) -> PipelineResult:
     """Reprocessa mensagens dos últimos N dias com a estratégia activa.
 
-    Busca mensagens já lidas de TODOS os grupos activos e reclassifica-as.
-    Útil quando a estratégia de investimento muda e se quer reavaliar
-    mensagens que já passaram pelo pipeline anterior.
-
-    Não marca como lido nem arquiva — apenas reclassifica e persiste.
+    Processa grupo a grupo sequencialmente para evitar exceder memória
+    no Render free. Persiste resultados após cada grupo.
 
     Args:
         days: Número de dias para trás a reprocessar (default 10).
@@ -1154,6 +1151,7 @@ def reprocess_pipeline(days: int = 10) -> PipelineResult:
 
     errors: List[str] = []
     total_messages = 0
+    total_filtered = 0
     total_opportunities = 0
     groups_processed = 0
 
@@ -1179,96 +1177,57 @@ def reprocess_pipeline(days: int = 10) -> PipelineResult:
     active_groups = [g for g in active_groups if g.get("id") not in disabled_ids]
     logger.info(f"Reprocessar {len(active_groups)} grupos activos")
 
-    # Obter tenant_id para estratégia personalizada
-    _tenant_id = None
-    try:
-        from sqlalchemy import select as sa_select
-        from src.database.models_v2 import Tenant
-        with get_session() as _s:
-            _t = _s.execute(sa_select(Tenant).limit(1)).scalar_one_or_none()
-            if _t:
-                _tenant_id = _t.id
-    except Exception:
-        pass
-
-    classifier = _get_classifier(tenant_id=_tenant_id)
+    classifier = _get_classifier()
     market_services = _get_market_services()
-
     since = datetime.now(tz=timezone.utc) - timedelta(days=days)
 
-    # Buscar mensagens de todos os grupos em paralelo (incluindo já lidas)
-    def _fetch_all_messages(group: Dict[str, Any]) -> Dict[str, Any]:
+    # Processar grupo a grupo (evita crash por memória no Render free)
+    for group in active_groups:
         gid = group.get("id", "unknown")
         gname = group.get("name", "Desconhecido")
-        entry: Dict[str, Any] = {
-            "group": group, "messages": [], "filtered": [],
-        }
-        try:
-            thread_client = WhatsAppClient()
-            # count alto para buscar mensagens já lidas
-            messages = thread_client.fetch_unread_messages(gid, since)
-            entry["messages"] = messages
-            if messages:
-                filtered = _filter_noise(messages)
-                entry["filtered"] = filtered
-        except Exception as e:
-            logger.error(f"Erro fetch reprocess {gname}: {e}")
-            entry["erro"] = str(e)
-        return entry
-
-    fetch_results: List[Dict[str, Any]] = []
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = {executor.submit(_fetch_all_messages, g): g for g in active_groups}
-        for future in as_completed(futures):
-            fetch_results.append(future.result())
-
-    # Preparar todas as mensagens para classificação
-    all_filtered: List[Dict[str, Any]] = []
-    for fr in fetch_results:
-        group = fr["group"]
-        gid = group.get("id", "unknown")
-        gname = group.get("name", "Desconhecido")
-        messages = fr.get("messages", [])
-        filtered = fr.get("filtered", [])
-
         groups_processed += 1
-        total_messages += len(messages)
 
-        if fr.get("erro"):
-            errors.append(f"Erro {gname}: {fr['erro']}")
+        try:
+            messages = wa_client.fetch_unread_messages(gid, since)
+            total_messages += len(messages)
 
-        for msg in filtered:
-            all_filtered.append({
-                **msg, "_group_id": gid, "_group_name": gname, "_group_info": group,
-            })
-
-    logger.info(f"Reprocess: {total_messages} msgs buscadas, {len(all_filtered)} após filtro de ruído")
-
-    # Classificar
-    if all_filtered:
-        classifier_messages = [
-            {"index": i, "text": msg.get("content", ""), "group": msg.get("_group_name", "?")}
-            for i, msg in enumerate(all_filtered)
-        ]
-
-        logger.info(f"A classificar {len(classifier_messages)} mensagens (reprocess)")
-        all_classifications = classifier.classify_batch(classifier_messages)
-
-        for i, classification in enumerate(all_classifications):
-            if i >= len(all_filtered):
-                break
-            msg = all_filtered[i]
-            group_info = msg["_group_info"]
-
-            if not classification.is_opportunity or classification.confidence < 0.5:
+            if not messages:
                 continue
 
-            enrichment = _enrich_opportunity(classification, market_services)
-            clean_msg = {k: v for k, v in msg.items() if not k.startswith("_")}
+            filtered = _filter_noise(messages)
+            if not filtered:
+                continue
 
-            with get_session() as session:
-                opps = _save_results(session, group_info, [clean_msg], [classification], [enrichment])
-                total_opportunities += opps
+            total_filtered += len(filtered)
+
+            # Classificar este grupo
+            classifier_messages = [
+                {"index": i, "text": msg.get("content", ""), "group": gname}
+                for i, msg in enumerate(filtered)
+            ]
+
+            classifications = classifier.classify_batch(classifier_messages)
+
+            # Persistir oportunidades encontradas
+            for i, classification in enumerate(classifications):
+                if i >= len(filtered):
+                    break
+                if not classification.is_opportunity or classification.confidence < 0.5:
+                    continue
+
+                enrichment = _enrich_opportunity(classification, market_services)
+                with get_session() as session:
+                    opps = _save_results(session, group, [filtered[i]], [classification], [enrichment])
+                    total_opportunities += opps
+
+            logger.info(
+                f"Reprocess [{groups_processed}/{len(active_groups)}] {gname}: "
+                f"{len(messages)} msgs, {len(filtered)} filtradas"
+            )
+
+        except Exception as e:
+            errors.append(f"Erro {gname}: {str(e)[:100]}")
+            logger.error(f"Reprocess erro {gname}: {e}")
 
     pipeline_elapsed = time.monotonic() - pipeline_start
 
@@ -1279,8 +1238,10 @@ def reprocess_pipeline(days: int = 10) -> PipelineResult:
         errors=errors,
     )
 
-    logger.info(f"REPROCESS concluído: {total_messages} msgs, {len(all_filtered)} filtradas, "
-                f"{total_opportunities} oportunidades em {pipeline_elapsed:.1f}s")
+    logger.info(
+        f"REPROCESS concluído: {groups_processed} grupos, {total_messages} msgs, "
+        f"{total_filtered} filtradas, {total_opportunities} oportunidades em {pipeline_elapsed:.1f}s"
+    )
 
     return result
 
