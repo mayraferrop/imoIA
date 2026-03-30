@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { formatEUR, GRADE_COLORS } from "@/lib/utils";
 import {
   BarChart,
@@ -231,50 +231,67 @@ export default function PropertiesPage() {
     return true;
   });
 
-  async function pollPipelineStatus() {
-    const MAX_POLLS = 300; // 300 x 2s = 10 minutos max
-    for (let i = 0; i < MAX_POLLS; i++) {
-      await new Promise((r) => setTimeout(r, 2000));
+  // Poll em background — não bloqueia a interface
+  const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function startBackgroundPoll() {
+    if (pollRef.current) return;
+    pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/v1/ingest/status`);
-        if (!res.ok) continue;
+        const c = new AbortController();
+        const t = setTimeout(() => c.abort(), 8000);
+        const res = await fetch(`${API_BASE}/api/v1/ingest/status`, { signal: c.signal });
+        clearTimeout(t);
+        if (!res.ok) return;
         const data = await res.json();
 
         if (data.status === "done") {
           const erros = data.errors?.length ? ` | ${data.errors.length} erro(s)` : "";
           setTriggerMsg(
-            `Pipeline concluído: ${data.groups_processed ?? 0} grupos, ${data.messages_fetched ?? 0} mensagens, ${data.opportunities_found ?? 0} oportunidades${erros}`
+            `Pipeline concluido: ${data.groups_processed ?? 0} grupos, ${data.messages_fetched ?? 0} mensagens, ${data.opportunities_found ?? 0} oportunidades${erros}`
           );
+          setTriggerLoading(false);
           fetchData();
+          if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
           return;
         }
         if (data.status === "error") {
           setTriggerMsg(`Erro no pipeline: ${data.errors?.[0] ?? "erro desconhecido"}`);
+          setTriggerLoading(false);
+          if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
           return;
         }
-        // ainda running — mostrar progresso
-        const elapsed = data.started_at
-          ? Math.round((Date.now() - new Date(data.started_at).getTime()) / 1000)
-          : i * 2;
-        const groups = data.groups_processed || 0;
-        const msgs = data.messages_fetched || 0;
-        const opps = data.opportunities_found || 0;
-        const progress = groups > 0
-          ? ` | ${groups} grupos, ${msgs} msgs, ${opps} oportunidades`
-          : "";
-        setTriggerMsg(`Pipeline a correr... (${elapsed}s${progress})`);
+        if (data.status === "running") {
+          const elapsed = data.started_at
+            ? Math.round((Date.now() - new Date(data.started_at).getTime()) / 1000)
+            : 0;
+          const groups = data.groups_processed || 0;
+          const msgs = data.messages_fetched || 0;
+          const opps = data.opportunities_found || 0;
+          const progress = groups > 0
+            ? ` | ${groups} grupos, ${msgs} msgs, ${opps} oportunidades`
+            : "";
+          setTriggerMsg(`Pipeline a correr em background... (${elapsed}s${progress})`);
+        }
       } catch {
-        // falha de rede no poll — continuar a tentar
+        // falha de rede — continuar
       }
-    }
-    setTriggerMsg("Pipeline demorou demasiado. Verifique os logs do servidor.");
+    }, 10000); // poll a cada 10s
   }
+
+  // Cleanup interval on unmount
+  React.useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
 
   async function handleTriggerPipeline() {
     setTriggerLoading(true);
     setTriggerMsg("A iniciar pipeline...");
     try {
-      const res = await fetch(`${API_BASE}/api/v1/ingest/trigger`, { method: "POST" });
+      const c = new AbortController();
+      const t = setTimeout(() => c.abort(), 15000);
+      const res = await fetch(`${API_BASE}/api/v1/ingest/trigger`, { method: "POST", signal: c.signal });
+      clearTimeout(t);
       if (!res.ok) {
         const detail = await res.text().catch(() => "");
         setTriggerMsg(`Erro ao disparar pipeline. ${detail}`);
@@ -283,15 +300,14 @@ export default function PropertiesPage() {
       }
       const data = await res.json();
       if (data.status === "already_running") {
-        setTriggerMsg("Pipeline já está a correr. A acompanhar...");
+        setTriggerMsg("Pipeline ja esta a correr. A acompanhar em background...");
       } else {
-        setTriggerMsg("Pipeline iniciado. A acompanhar...");
+        setTriggerMsg("Pipeline iniciado. A correr em background — pode continuar a usar o site.");
       }
-      await pollPipelineStatus();
+      startBackgroundPoll();
     } catch {
-      setTriggerMsg("Erro de comunicação com a API (offline?).");
-    } finally {
-      setTriggerLoading(false);
+      setTriggerMsg("Pipeline disparado (servidor pode estar a acordar). A verificar em background...");
+      startBackgroundPoll();
     }
   }
 
