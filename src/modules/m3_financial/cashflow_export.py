@@ -162,6 +162,7 @@ def _build_entries(
     project_name: str,
     dates: Dict[str, Any],
     tranches: Optional[List[Dict]] = None,
+    loan_amount: float = 0,
 ) -> List[Dict[str, Any]]:
     """Converte flows do M3 em entries para o Cash Flow Pro.
 
@@ -220,6 +221,32 @@ def _build_entries(
             componentes = f.get("componentes", [])
             if componentes:
                 # Escritura 1/2 com componentes (IMT, IS, Notario, Equity, etc.)
+                # Se nao tem "Equity restante" nos componentes mas estamos na
+                # Escritura 1 e saltamos o CPCV da escritura, adicionar equity
+                has_equity = any(c["nome"] == "Equity restante" for c in componentes)
+                if not has_equity and "Escritura 1" in label and num_sinal_tranches > 0:
+                    # Equity = preco compra - emprestimo - sinais pagos
+                    sinais_total = sum(
+                        t.get("valor", 0) for t in (tranches or [])
+                        if t.get("tipo") != "escritura"
+                    )
+                    loan = loan_amount
+                    # Tentar calcular equity a partir do aquisicao do flow
+                    # aquisicao no flow Escritura 1 = equity - cpcv_total + custos
+                    # Mas é mais fiável calcular directamente
+                    purchase = sum(t.get("valor", 0) for t in (tranches or []))
+                    equity_val = purchase - loan - sinais_total
+                    if equity_val > 0:
+                        entries.append(_make_entry(
+                            entry_type="expense",
+                            description=f"{label} — Equity restante",
+                            amount=round(equity_val, 2),
+                            cat_key="equity",
+                            entry_date_str=entry_date_str,
+                            project_name=project_name,
+                            external_ref=f"{ref_base}:equity",
+                        ))
+
                 for j, comp in enumerate(componentes):
                     nome = comp["nome"]
                     cat_key = _COMP_NAME_MAP.get(nome, "sinal")
@@ -458,6 +485,7 @@ def export_to_cashflow_pro(
     renovation_duration_months: int = 3,
     holding_months: int = 9,
     tranches: Optional[List[Dict]] = None,
+    loan_amount: float = 0,
 ) -> Dict[str, Any]:
     """Exporta fluxo de caixa M3 para o Cash Flow Pro via edge function.
 
@@ -518,7 +546,7 @@ def export_to_cashflow_pro(
     )
 
     # Montar entries
-    entries = _build_entries(flows, model_id, project_name, dates, tranches=tranches)
+    entries = _build_entries(flows, model_id, project_name, dates, tranches=tranches, loan_amount=loan_amount)
     if not entries:
         return {"inserted_count": 0, "updated_count": 0, "skipped_count": 0, "total_entries": 0}
 

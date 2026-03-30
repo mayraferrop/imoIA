@@ -201,7 +201,7 @@ export default function FinancialPage() {
       const raw = fd.get(name);
       if (!raw || raw === "") return fallback;
       const v = Number(raw);
-      return isNaN(v) || v === 0 ? fallback : v;
+      return isNaN(v) ? fallback : v;
     };
     const numOrZero = (name: string) => {
       const raw = fd.get(name);

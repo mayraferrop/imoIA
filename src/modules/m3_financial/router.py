@@ -285,11 +285,19 @@ async def export_to_cashflow_pro(
         # Buscar payment conditions (precisa das tranches para o cash flow)
         projections = supa_get_proj(model_id)
 
-        # Reconstruir input — forcar loan_term_months e cpcv_parcelas
+        # Reconstruir input — forcar campos que nao existem no modelo
         valid_fields = {f.name for f in dataclasses.fields(FinancialInput)}
         filtered = {k: v for k, v in model_data.items() if k in valid_fields and v is not None}
         if filtered.get("loan_term_months", 0) == 0 and model_data.get("financing_type") == "mortgage":
             filtered["loan_term_months"] = 240
+        # Reconstruir additional_holding_months (nao existe no modelo)
+        holding = model_data.get("holding_months", 0) or 0
+        reno = model_data.get("renovation_duration_months", 0) or 0
+        filtered["additional_holding_months"] = max(holding - reno, 0)
+        filtered["renovation_duration_months"] = reno
+        # Reconstruir annual_insurance a partir de monthly_insurance
+        monthly_ins = model_data.get("monthly_insurance", 0) or 0
+        filtered["annual_insurance"] = monthly_ins * 12
 
         # Injectar cpcv_parcelas a partir das tranches do payment_condition
         if projections and projections.get("payment_condition"):
@@ -331,6 +339,7 @@ async def export_to_cashflow_pro(
             renovation_duration_months=fin_input.renovation_duration_months,
             holding_months=result.holding_months,
             tranches=tranches_data,
+            loan_amount=result.loan_amount,
         )
         return export_result
     except ValueError as e:
