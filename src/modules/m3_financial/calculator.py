@@ -73,6 +73,10 @@ class FinancialInput:
     annual_insurance: float = SEGURO_DEFAULT_ANNUAL
     monthly_consumos: float = CONSUMOS_DEFAULT_MONTHLY
 
+    # IMI (anual, nao mensal)
+    vpt: float = 0  # Valor Patrimonial Tributario (0 = estimar como preco × 0.7)
+    taxa_imi_pct: float = 0.3  # Taxa IMI do concelho (default 0.3%)
+
     # Comissao de compra
     comissao_compra_pct: float = 0
 
@@ -423,16 +427,11 @@ class FinancialCalculator:
             inp.renovation_duration_months + inp.additional_holding_months
         )
 
-        monthly_imi = 0.0
-        if inp.country == "PT":
-            vpt_estimate = inp.purchase_price * VPT_ESTIMATE_PCT
-            monthly_imi = (vpt_estimate * IMI_RATE_DEFAULT) / 12
-
+        # Manutencao mensal: condominio + seguro + consumos (SEM IMI)
         monthly_total = (
             inp.monthly_condominio
             + (inp.annual_insurance / 12)
             + inp.monthly_consumos
-            + monthly_imi
         )
 
         res.total_holding_cost = round(monthly_total * res.holding_months, 2)
@@ -441,7 +440,6 @@ class FinancialCalculator:
             "condominio_mensal": inp.monthly_condominio,
             "seguro_mensal": round(inp.annual_insurance / 12, 2),
             "consumos_mensal": inp.monthly_consumos,
-            "imi_mensal": round(monthly_imi, 2),
             "total_mensal": round(monthly_total, 2),
         }
 
@@ -852,12 +850,8 @@ class FinancialCalculator:
             (res.interest_rate_pct / 100) / 12 if res.interest_rate_pct > 0 else 0
         )
         saldo = res.loan_amount
-        # Manutencao mensal inclui IMI (consistente com _calc_holding)
-        monthly_imi_cf = 0.0
-        if inp.country == "PT":
-            vpt_est = inp.purchase_price * VPT_ESTIMATE_PCT
-            monthly_imi_cf = (vpt_est * IMI_RATE_DEFAULT) / 12
-        manut_mensal = inp.monthly_condominio + inp.annual_insurance / 12 + inp.monthly_consumos + monthly_imi_cf
+        # Manutencao mensal: condominio + seguro + consumos (SEM IMI — IMI é anual/pontual)
+        manut_mensal = inp.monthly_condominio + inp.annual_insurance / 12 + inp.monthly_consumos
 
         for m in range(1, res.holding_months + 1):
             obra_val = reno_per_month if m <= inp.renovation_duration_months else 0

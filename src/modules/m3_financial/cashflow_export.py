@@ -333,11 +333,9 @@ def _build_entries(
                 ))
 
             if manut_sem_consumos > 0:
-                # Se o valor é só IMI (cond=0 e seg=0), renomear
-                desc_manut = f"{label} — IMI proporcional" if manut_sem_consumos < 60 else f"{label} — Condomínio, seguro e IMI"
                 entries.append(_make_entry(
                     entry_type="expense",
-                    description=desc_manut,
+                    description=f"{label} — Condomínio e seguro",
                     amount=round(manut_sem_consumos, 2),
                     cat_key="condominio",
                     entry_date_str=entry_date_str,
@@ -406,6 +404,65 @@ def _build_entries(
                     project_name=project_name,
                     external_ref=f"{ref_base}:{j}",
                 ))
+
+    # --- IMI pontual (anual, nao mensal) ---
+    # Verificar quantos 31/Dez caem entre escritura e venda
+    escritura_d = dates.get("escritura")
+    venda_d = dates.get("venda")
+    if escritura_d and venda_d:
+        # VPT: usar input ou estimar como preco × 0.7
+        # Extrair do primeiro flow que tenha purchase_price info
+        purchase_price = 0
+        for fl in flows:
+            aq = fl.get("aquisicao", 0)
+            if aq > 0 and fl.get("categoria") == "aquisicao" and fl.get("componentes"):
+                # Escritura 1 — somar todos os componentes nao da o preco
+                pass
+        # Fallback: somar todos os CPCV + equity = purchase_price
+        purchase_price = sum(t.get("valor", 0) for t in (tranches or []))
+        if purchase_price == 0:
+            # Tentar do primeiro CPCV
+            for fl in flows:
+                if fl.get("label", "").startswith("CPCV"):
+                    purchase_price += fl.get("aquisicao", 0)
+
+        vpt = purchase_price * 0.7 if purchase_price > 0 else 0
+        taxa_imi = 0.003  # 0.3% default
+        imi_anual = round(vpt * taxa_imi, 2)
+
+        if imi_anual > 0:
+            # Contar 31/Dez entre escritura e venda
+            year_start = escritura_d.year
+            year_end = venda_d.year
+            for y in range(year_start, year_end + 1):
+                dec31 = date(y, 12, 31)
+                if escritura_d <= dec31 <= venda_d:
+                    # IMI pago em Maio do ano seguinte (ou 3 prestacoes se > 500€)
+                    ref_imi = f"imoia:{model_id}:imi_{y}"
+                    if imi_anual <= 500:
+                        # Pagamento unico em Maio
+                        entries.append(_make_entry(
+                            entry_type="expense",
+                            description=f"IMI {y} — pagamento único",
+                            amount=imi_anual,
+                            cat_key="condominio",
+                            entry_date_str=date(y + 1, 5, 15).isoformat(),
+                            project_name=project_name,
+                            external_ref=ref_imi,
+                        ))
+                    else:
+                        # 3 prestacoes: Maio, Agosto, Novembro
+                        prestacao = round(imi_anual / 3, 2)
+                        for idx_p, mes_p in enumerate([(5, 15), (8, 15), (11, 15)]):
+                            entries.append(_make_entry(
+                                entry_type="expense",
+                                description=f"IMI {y} — prestação {idx_p + 1}/3",
+                                amount=prestacao,
+                                cat_key="condominio",
+                                entry_date_str=date(y + 1, mes_p[0], mes_p[1]).isoformat(),
+                                project_name=project_name,
+                                external_ref=f"{ref_imi}:{idx_p}",
+                            ))
 
     return entries
 
