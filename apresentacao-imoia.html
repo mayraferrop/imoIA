@@ -978,7 +978,8 @@
   <h2 class="fade-in" data-i18n-html="fontes_title"></h2>
   <p class="subtitle fade-in" data-i18n="fontes_subtitle"></p>
 
-  <div class="sources-grid fade-in">
+  <!-- Fontes comuns (WhatsApp + Facebook) -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 2rem;" class="fade-in">
     <div class="source-card">
       <div class="source-icon">&#128172;</div>
       <h3>WhatsApp</h3>
@@ -997,20 +998,52 @@
         <span class="source-country-tag">&#127463;&#127479; Brasil</span>
       </div>
     </div>
-    <div class="source-card">
-      <div class="source-icon">&#127968;</div>
-      <h3 data-i18n="fonte_portais_title"></h3>
-      <p data-i18n="fonte_portais_pt"></p>
-      <div class="source-countries">
-        <span class="source-country-tag">&#127477;&#127481; Portugal</span>
+  </div>
+
+  <!-- PORTUGAL -->
+  <div style="margin-top: 3rem;" class="fade-in">
+    <h3 style="font-size: 1.1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+      <span style="font-size: 1.4rem;">&#127477;&#127481;</span> Portugal
+    </h3>
+    <div class="sources-grid">
+      <div class="source-card">
+        <div class="source-icon">&#127968;</div>
+        <h3 data-i18n="fonte_pt_captacao_title"></h3>
+        <p data-i18n="fonte_pt_captacao"></p>
+      </div>
+      <div class="source-card">
+        <div class="source-icon">&#128200;</div>
+        <h3 data-i18n="fonte_pt_mercado_title"></h3>
+        <p data-i18n="fonte_pt_mercado"></p>
+      </div>
+      <div class="source-card">
+        <div class="source-icon">&#128227;</div>
+        <h3 data-i18n="fonte_pt_portais_title"></h3>
+        <p data-i18n="fonte_pt_portais"></p>
       </div>
     </div>
-    <div class="source-card">
-      <div class="source-icon">&#127961;</div>
-      <h3 data-i18n="fonte_portais_br_title"></h3>
-      <p data-i18n="fonte_portais_br"></p>
-      <div class="source-countries">
-        <span class="source-country-tag">&#127463;&#127479; Brasil</span>
+  </div>
+
+  <!-- BRASIL -->
+  <div style="margin-top: 3rem;" class="fade-in">
+    <h3 style="font-size: 1.1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+      <span style="font-size: 1.4rem;">&#127463;&#127479;</span> Brasil
+    </h3>
+    <div class="sources-grid">
+      <div class="source-card">
+        <div class="source-icon">&#128269;</div>
+        <h3 data-i18n="fonte_br_captacao_title"></h3>
+        <p data-i18n-html="fonte_br_captacao"></p>
+      </div>
+      <div class="source-card">
+        <div class="source-icon">&#128200;</div>
+        <h3 data-i18n="fonte_br_mercado_title"></h3>
+        <p data-i18n-html="fonte_br_mercado"></p>
+      </div>
+      <div class="source-card">
+        <div class="source-icon">&#128227;</div>
+        <h3 data-i18n="fonte_br_portais_title"></h3>
+        <p data-i18n-html="fonte_br_portais"></p>
       </div>
     </div>
   </div>
@@ -1426,12 +1459,12 @@
     <div class="tech-category">
       <h3 data-i18n="tech_integracoes"></h3>
       <div class="tech-item">
-        <div class="tech-icon">&#127968;</div>
-        <div><div class="tech-name">Casafari + Idealista</div><div class="tech-role" data-i18n="tech_casafari"></div></div>
+        <div class="tech-icon">&#127477;&#127481;</div>
+        <div><div class="tech-name">Casafari + INE + SIR</div><div class="tech-role" data-i18n="tech_casafari"></div></div>
       </div>
       <div class="tech-item">
-        <div class="tech-icon">&#128202;</div>
-        <div><div class="tech-name">INE + SIR</div><div class="tech-role" data-i18n="tech_ine"></div></div>
+        <div class="tech-icon">&#127463;&#127479;</div>
+        <div><div class="tech-name">DataZAP + FipeZAP + Homer</div><div class="tech-role" data-i18n="tech_br_data"></div></div>
       </div>
       <div class="tech-item">
         <div class="tech-icon">&#128279;</div>
@@ -1477,8 +1510,8 @@ const T = {
     hero_badge: 'Plataforma de Inteligência Imobiliária',
     hero_title: 'Da captação ao<br><span class="highlight">negócio fechado</span>,<br>com <span class="highlight-gold">inteligência artificial</span>.',
     hero_subtitle: 'O imoIA automatiza a captação, análise financeira, gestão de pipeline e marketing de oportunidades de investimento imobiliário em Portugal e no Brasil.',
-    country_pt_detail: 'Mercado ativo — Casafari, INE, SIR, Idealista',
-    country_br_detail: 'Em expansão — OLX, ZAP, VivaReal, portais regionais',
+    country_pt_detail: 'Casafari, INE, SIR, Idealista, Imovirtual',
+    country_br_detail: 'Homer, Órulo, DataZAP, FipeZAP, ZAP/VivaReal/OLX',
     stat_modulos: 'Módulos integrados',
     stat_estrategias: 'Estratégias de investimento',
     stat_paises: 'Países suportados',
@@ -1496,14 +1529,24 @@ const T = {
 
     // Fontes
     fontes_label: 'Fontes de Captação',
-    fontes_title: '3 canais, <span class="highlight">2 países</span>',
-    fontes_subtitle: 'A mesma lógica de classificação por IA aplicada a múltiplas fontes de oportunidades, com cobertura em Portugal e no Brasil.',
-    fonte_whatsapp: 'Monitorização de grupos de investidores imobiliários. Extração automática de mensagens com classificação por IA em lote.',
+    fontes_title: 'Múltiplas fontes, <span class="highlight">2 países</span>',
+    fontes_subtitle: 'A mesma lógica de classificação por IA aplicada a múltiplas fontes de oportunidades, com cobertura dedicada em Portugal e no Brasil.',
+    fonte_whatsapp: 'Monitorização de grupos de investidores imobiliários (Interimobiliárias, grupos regionais). Extração automática com classificação por IA em lote.',
     fonte_facebook: 'Captação de oportunidades em grupos de compra/venda de imóveis. Mesma lógica de classificação do WhatsApp aplicada ao Facebook.',
-    fonte_portais_title: 'Portais PT',
-    fonte_portais_pt: 'Casafari, Idealista, Imovirtual, OLX Portugal — scraping e comparação de preços automatizada.',
-    fonte_portais_br_title: 'Portais BR',
-    fonte_portais_br: 'OLX Brasil, ZAP Imóveis, VivaReal, QuintoAndar — adaptação da mesma lógica para o mercado brasileiro.',
+    // PT
+    fonte_pt_captacao_title: 'Captação / Deal Flow',
+    fonte_pt_captacao: 'Casafari, Idealista, Imovirtual, OLX Portugal — scraping automatizado de listings com matching de oportunidades.',
+    fonte_pt_mercado_title: 'Pesquisa de Mercado',
+    fonte_pt_mercado: 'Casafari (comparáveis + AVM), INE (preços medianos por município), SIR/Confidencial Imobiliário (transacções reais).',
+    fonte_pt_portais_title: 'Publicação em Portais',
+    fonte_pt_portais: 'Idealista, Imovirtual, OLX Portugal, Casa Sapo — publicação e sincronização de anúncios.',
+    // BR
+    fonte_br_captacao_title: 'Captação / Deal Flow',
+    fonte_br_captacao: '<strong>Homer</strong> — matching automático entre corretores, 80k+ registados<br><strong>Órulo</strong> — 100% dos lançamentos/imóveis novos com tabelas actualizadas<br><strong>WhatsApp regional</strong> — Interimobiliárias, Corretores no Brasil',
+    fonte_br_mercado_title: 'Pesquisa de Mercado',
+    fonte_br_mercado: '<strong>DataZAP</strong> (Quanto Vale + Geoimovel + Onde Vale) — maior base, AVM referência<br><strong>Índice FipeZAP</strong> — benchmark nacional de preços (oferta)<br><strong>ITBImap.com.br</strong> — preços REAIS de transacção (SP por agora)',
+    fonte_br_portais_title: 'Publicação em Portais',
+    fonte_br_portais: '<strong>ZAP + VivaReal + OLX</strong> (Grupo OLX) — pacote unificado, maior alcance<br><strong>QuintoAndar + Imovelweb</strong> — 2.º ecossistema, Imovelweb a crescer +35%/ano<br><strong>Chaves na Mão</strong> — bom custo-benefício, em crescimento',
 
     // Fluxo
     fluxo_label: 'Como Funciona',
@@ -1511,7 +1554,7 @@ const T = {
     fluxo_1_title: 'Captação automática (M1 — Ingestor)',
     fluxo_1_desc: 'O sistema monitoriza grupos de WhatsApp, Facebook e portais imobiliários 24/7. Mensagens e anúncios são extraídos, filtrados (removendo ruído) e enviados para classificação por IA em lote. Oportunidades reais recebem grau A–F com score de confiança.',
     fluxo_2_title: 'Pesquisa de mercado (M2 — Market Research)',
-    fluxo_2_desc: 'Cada oportunidade é enriquecida automaticamente com dados de Casafari, INE, SIR e Idealista (PT) ou OLX/ZAP/VivaReal (BR). Comparáveis, preços medianos por zona e tendências de mercado são cruzados para validar o potencial.',
+    fluxo_2_desc: 'Cada oportunidade é enriquecida automaticamente com dados de Casafari, INE, SIR e Idealista (PT) ou DataZAP, FipeZAP e ITBImap (BR). Comparáveis, preços medianos por zona e tendências de mercado são cruzados para validar o potencial.',
     fluxo_3_title: 'Simulação financeira (M3 — Financial Calculator)',
     fluxo_3_desc: 'Modelo financeiro completo: IMT/ITBI, imposto de selo/ITCMD, custos de obra, cenários (base/optimista/pessimista), MAO, ROI, TIR, MOIC, yield, cash flow mensal. Adaptado à legislação fiscal de cada país.',
     fluxo_4_title: 'Pipeline de negócios (M4 — Deal Pipeline)',
@@ -1540,9 +1583,9 @@ const T = {
     m1_f4: 'Scoring A–F com confiança 0.0–1.0',
     m1_f5: 'Enriquecimento automático com dados de mercado PT e BR',
     m2_desc: 'Pesquisa de comparáveis, AVM, estatísticas de zona e alertas de preço.',
-    m2_f1: 'Casafari API para comparáveis e tendências (PT)',
-    m2_f2: 'INE para preços medianos por município',
-    m2_f3: 'Integração com portais brasileiros (em expansão)',
+    m2_f1: 'PT: Casafari (comparáveis + AVM), INE, SIR',
+    m2_f2: 'BR: DataZAP (AVM referência), FipeZAP (benchmark preços)',
+    m2_f3: 'BR: ITBImap.com.br — preços reais de transacção (SP)',
     m2_f4: 'Cache de 7–30 dias para optimizar chamadas',
     m3_desc: 'Modelo financeiro completo com cenários, impostos e cash flow — adaptado a PT e BR.',
     m3_f1: 'IMT/ITBI, Imposto de Selo/ITCMD, custos notariais',
@@ -1627,8 +1670,9 @@ const T = {
     tech_supabase: 'Base de dados principal',
     tech_claude: 'Classificação & conteúdo IA',
     tech_integracoes: 'Integrações',
-    tech_casafari: 'Comparáveis & AVM',
+    tech_casafari: 'Comparáveis, AVM & estatísticas PT',
     tech_ine: 'Dados estatísticos',
+    tech_br_data: 'AVM, precificação & deal flow BR',
 
     // Footer
     footer_tagline: 'Inteligência Imobiliária',
@@ -1649,7 +1693,7 @@ const T = {
     hero_title: 'Da captação ao<br><span class="highlight">negócio fechado</span>,<br>com <span class="highlight-gold">inteligência artificial</span>.',
     hero_subtitle: 'O imoIA automatiza a captação, análise financeira, gestão de pipeline e marketing de oportunidades de investimento imobiliário no Brasil e em Portugal.',
     country_pt_detail: 'Mercado ativo — Casafari, INE, SIR, Idealista',
-    country_br_detail: 'Em expansão — OLX, ZAP, VivaReal, portais regionais',
+    country_br_detail: 'Homer, Órulo, DataZAP, FipeZAP, ZAP/VivaReal/OLX',
     stat_modulos: 'Módulos integrados',
     stat_estrategias: 'Estratégias de investimento',
     stat_paises: 'Países suportados',
@@ -1667,14 +1711,24 @@ const T = {
 
     // Fontes
     fontes_label: 'Fontes de Captação',
-    fontes_title: '3 canais, <span class="highlight">2 países</span>',
-    fontes_subtitle: 'A mesma lógica de classificação por IA aplicada a múltiplas fontes de oportunidades, com cobertura no Brasil e em Portugal.',
-    fonte_whatsapp: 'Monitoramento de grupos de investidores imobiliários. Extração automática de mensagens com classificação por IA em lote.',
+    fontes_title: 'Múltiplas fontes, <span class="highlight">2 países</span>',
+    fontes_subtitle: 'A mesma lógica de classificação por IA aplicada a múltiplas fontes de oportunidades, com cobertura dedicada no Brasil e em Portugal.',
+    fonte_whatsapp: 'Monitoramento de grupos de investidores imobiliários (Interimobiliárias, Corretores no Brasil, grupos regionais). Extração automática com classificação por IA em lote.',
     fonte_facebook: 'Captação de oportunidades em grupos de compra/venda de imóveis. Mesma lógica de classificação do WhatsApp aplicada ao Facebook.',
-    fonte_portais_title: 'Portais PT',
-    fonte_portais_pt: 'Casafari, Idealista, Imovirtual, OLX Portugal — scraping e comparação de preços automatizada.',
-    fonte_portais_br_title: 'Portais BR',
-    fonte_portais_br: 'OLX Brasil, ZAP Imóveis, VivaReal, QuintoAndar — adaptação da mesma lógica para o mercado brasileiro.',
+    // PT
+    fonte_pt_captacao_title: 'Captação / Deal Flow',
+    fonte_pt_captacao: 'Casafari, Idealista, Imovirtual, OLX Portugal — scraping automatizado de listings com matching de oportunidades.',
+    fonte_pt_mercado_title: 'Pesquisa de Mercado',
+    fonte_pt_mercado: 'Casafari (comparáveis + AVM), INE (preços médios por município), SIR/Confidencial Imobiliário (transações reais).',
+    fonte_pt_portais_title: 'Publicação em Portais',
+    fonte_pt_portais: 'Idealista, Imovirtual, OLX Portugal, Casa Sapo — publicação e sincronização de anúncios.',
+    // BR
+    fonte_br_captacao_title: 'Captação / Deal Flow',
+    fonte_br_captacao: '<strong>Homer</strong> — matching automático entre corretores, 80k+ cadastrados<br><strong>Órulo</strong> — 100% dos lançamentos/imóveis novos com tabelas atualizadas<br><strong>WhatsApp regional</strong> — Interimobiliárias, Corretores no Brasil',
+    fonte_br_mercado_title: 'Pesquisa de Mercado',
+    fonte_br_mercado: '<strong>DataZAP</strong> (Quanto Vale + Geoimovel + Onde Vale) — maior base, AVM referência<br><strong>Índice FipeZAP</strong> — benchmark nacional de preços (oferta)<br><strong>ITBImap.com.br</strong> — preços REAIS de transação (SP por enquanto)',
+    fonte_br_portais_title: 'Publicação em Portais',
+    fonte_br_portais: '<strong>ZAP + VivaReal + OLX</strong> (Grupo OLX) — pacote unificado, maior alcance<br><strong>QuintoAndar + Imovelweb</strong> — 2º ecossistema, Imovelweb crescendo +35%/ano<br><strong>Chaves na Mão</strong> — bom custo-benefício, em crescimento',
 
     // Fluxo
     fluxo_label: 'Como Funciona',
@@ -1682,7 +1736,7 @@ const T = {
     fluxo_1_title: 'Captação automática (M1 — Ingestor)',
     fluxo_1_desc: 'O sistema monitora grupos de WhatsApp, Facebook e portais imobiliários 24/7. Mensagens e anúncios são extraídos, filtrados (removendo ruído) e enviados para classificação por IA em lote. Oportunidades reais recebem grau A–F com score de confiança.',
     fluxo_2_title: 'Pesquisa de mercado (M2 — Market Research)',
-    fluxo_2_desc: 'Cada oportunidade é enriquecida automaticamente com dados de Casafari, INE, SIR e Idealista (PT) ou OLX/ZAP/VivaReal (BR). Comparáveis, preços médios por região e tendências de mercado são cruzados para validar o potencial.',
+    fluxo_2_desc: 'Cada oportunidade é enriquecida automaticamente com dados de Casafari, INE, SIR e Idealista (PT) ou DataZAP, FipeZAP e ITBImap (BR). Comparáveis, preços médios por região e tendências de mercado são cruzados para validar o potencial.',
     fluxo_3_title: 'Simulação financeira (M3 — Financial Calculator)',
     fluxo_3_desc: 'Modelo financeiro completo: ITBI/IMT, ITCMD/Imposto de Selo, custos de obra, cenários (base/otimista/pessimista), MAO, ROI, TIR, MOIC, yield, fluxo de caixa mensal. Adaptado à legislação fiscal de cada país.',
     fluxo_4_title: 'Pipeline de negócios (M4 — Deal Pipeline)',
@@ -1711,9 +1765,9 @@ const T = {
     m1_f4: 'Scoring A–F com confiança 0.0–1.0',
     m1_f5: 'Enriquecimento automático com dados de mercado PT e BR',
     m2_desc: 'Pesquisa de comparáveis, AVM, estatísticas de zona e alertas de preço.',
-    m2_f1: 'Casafari API para comparáveis e tendências (PT)',
-    m2_f2: 'INE para preços médios por município',
-    m2_f3: 'Integração com portais brasileiros (em expansão)',
+    m2_f1: 'PT: Casafari (comparáveis + AVM), INE, SIR',
+    m2_f2: 'BR: DataZAP (AVM referência), FipeZAP (benchmark preços)',
+    m2_f3: 'BR: ITBImap.com.br — preços reais de transação (SP)',
     m2_f4: 'Cache de 7–30 dias para otimizar chamadas',
     m3_desc: 'Modelo financeiro completo com cenários, impostos e fluxo de caixa — adaptado a PT e BR.',
     m3_f1: 'ITBI/IMT, ITCMD/Imposto de Selo, custos de cartório',
@@ -1798,8 +1852,9 @@ const T = {
     tech_supabase: 'Banco de dados principal',
     tech_claude: 'Classificação & conteúdo IA',
     tech_integracoes: 'Integrações',
-    tech_casafari: 'Comparáveis & AVM',
+    tech_casafari: 'Comparáveis, AVM & estatísticas PT',
     tech_ine: 'Dados estatísticos',
+    tech_br_data: 'AVM, precificação & deal flow BR',
 
     // Footer
     footer_tagline: 'Inteligência Imobiliária',
