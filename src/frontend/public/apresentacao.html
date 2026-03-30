@@ -134,9 +134,10 @@
 
     /* ===== SECTIONS ===== */
     section {
-      padding: 80px 2rem 4rem;
+      padding: 80px 1.25rem 4rem;
       max-width: 1200px;
       margin: 0 auto;
+      width: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -652,6 +653,7 @@
       bottom: 40px;
       width: 2px;
       background: linear-gradient(to bottom, var(--primary), var(--accent), var(--success));
+      z-index: 0;
     }
 
     .flow-step {
@@ -672,7 +674,8 @@
       font-weight: 800;
       flex-shrink: 0;
       position: relative;
-      z-index: 1;
+      z-index: 2;
+      outline: 5px solid var(--bg);
     }
 
     .flow-content {
