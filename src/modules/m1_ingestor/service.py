@@ -1074,9 +1074,13 @@ def run_pipeline() -> PipelineResult:
         except Exception:
             return False
 
-    groups_to_archive = [g.get("id") for g in active_groups if g.get("id")]
+    groups_to_archive = [
+        g.get("id") for g in active_groups
+        if g.get("id") and not g.get("is_archived", False)
+    ]
+    logger.info(f"FASE 4: {len(groups_to_archive)} grupos por arquivar (de {len(active_groups)} activos)")
     if groups_to_archive:
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=5) as executor:
             archive_futures = [executor.submit(_archive_group_task, gid) for gid in groups_to_archive]
             archive_results = [f.result() for f in archive_futures]
             archive_count = sum(1 for r in archive_results if r)
