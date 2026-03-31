@@ -166,7 +166,7 @@ class WhatsAppClient:
         Tenta varios tamanhos de pagina se a API estiver instavel.
         """
         # Tentar com page sizes diferentes — a API pode rejeitar counts altos
-        for page_size in [100, 50, 20, 10, 5]:
+        for page_size in [500, 100, 50, 20, 10, 5]:
             groups = self._fetch_all_group_chats(page_size)
             if groups:
                 logger.info(f"Encontrados {len(groups)} grupos (Whapi, page_size={page_size})")
@@ -220,11 +220,12 @@ class WhatsAppClient:
                 if chat_id in seen_ids:
                     continue
                 seen_ids.add(chat_id)
+                is_archived = bool(chat.get("archive"))
                 last_msg = chat.get("last_message", {})
                 all_groups.append({
                     "id": chat_id,
                     "name": chat.get("name", "Desconhecido"),
-                    "is_archived": chat.get("archive", False),
+                    "is_archived": is_archived,
                     "unread": chat.get("unread", 0) or 0,
                     "last_message_ts": last_msg.get("timestamp", 0) if isinstance(last_msg, dict) else 0,
                 })
