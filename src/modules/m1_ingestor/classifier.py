@@ -66,7 +66,7 @@ class OpportunityClassifier:
         )
         self._system_prompt = build_system_prompt(tenant_id)
 
-    MAX_PARALLEL = 3  # chamadas simultâneas à API Anthropic
+    MAX_PARALLEL = 2  # chamadas simultâneas à API Anthropic (2 para caber em 512MB)
 
     def classify_batch(self, messages: List[Dict[str, Any]]) -> List[OpportunityResult]:
         """Classifica um lote de mensagens em paralelo.

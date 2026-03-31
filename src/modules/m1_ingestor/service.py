@@ -642,7 +642,7 @@ def _deduplicate_opportunities(
     """Remove mensagens cujo conteudo ja existe na BD (cross-grupo).
 
     Consultores frequentemente postam a mesma mensagem em varios grupos.
-    Compara o conteudo normalizado (sem espacos extras) para detetar duplicados.
+    Usa query individual por mensagem em vez de carregar toda a BD na memória.
 
     Args:
         session: Sessao SQLAlchemy.
@@ -654,16 +654,30 @@ def _deduplicate_opportunities(
     if not messages:
         return messages
 
-    # Buscar conteudos ja na BD
-    existing = session.execute(select(Message.content)).scalars().all()
-    existing_normalized = {c.strip().lower() for c in existing if c}
+    import hashlib
 
+    # Deduplicar dentro do batch actual (sem tocar na BD)
+    seen: set = set()
     unique: List[Dict[str, Any]] = []
     for msg in messages:
-        content = msg.get("content", "").strip().lower()
-        if content and content not in existing_normalized:
+        content = msg.get("content", "").strip()
+        if not content:
+            continue
+        # Usar hash para comparação rápida
+        content_hash = hashlib.md5(content.lower().encode()).hexdigest()
+        if content_hash in seen:
+            continue
+        seen.add(content_hash)
+
+        # Verificar se já existe na BD (query leve, sem carregar tudo)
+        exists = session.execute(
+            select(Message.id).where(
+                Message.content == content
+            ).limit(1)
+        ).scalar_one_or_none()
+
+        if exists is None:
             unique.append(msg)
-            existing_normalized.add(content)
 
     removed = len(messages) - len(unique)
     if removed > 0:
@@ -857,15 +871,17 @@ def run_pipeline() -> PipelineResult:
     classifier = _get_classifier(tenant_id=_tenant_id)
     market_services = _get_market_services()
 
-    # Carregar last_processed_at de todos os grupos de uma vez
+    # Carregar last_processed_at só dos grupos activos (não todos)
     db_groups_map: Dict[str, Any] = {}
-    with get_session() as session:
-        all_db_groups = session.execute(select(Group)).scalars().all()
-        for dbg in all_db_groups:
-            if dbg.whatsapp_group_id:
-                db_groups_map[dbg.whatsapp_group_id] = {
-                    "last_processed_at": dbg.last_processed_at,
-                }
+    active_gids = [g.get("id", "") for g in active_with_unread]
+    if active_gids:
+        with get_session() as session:
+            for gid in active_gids:
+                dbg = session.execute(
+                    select(Group).where(Group.whatsapp_group_id == gid)
+                ).scalar_one_or_none()
+                if dbg:
+                    db_groups_map[gid] = {"last_processed_at": dbg.last_processed_at}
 
     # --- FASE 1: Fetch + filter + mark_as_read em paralelo ---
     phase1_start = time.monotonic()
@@ -957,6 +973,7 @@ def run_pipeline() -> PipelineResult:
     total_filtered = 0
     all_filtered: List[Dict[str, Any]] = []
     group_filtered_map: Dict[str, List[Dict[str, Any]]] = {}
+    group_info_map: Dict[str, Dict[str, Any]] = {}  # gid → group info (sem duplicar)
 
     for fr in fetch_results:
         group = fr["group"]
@@ -993,12 +1010,13 @@ def run_pipeline() -> PipelineResult:
         group_log["mensagens_filtradas"] = len(filtered)
         total_filtered += len(filtered)
         group_filtered_map[gid] = filtered
+        group_info_map[gid] = group
         group_logs.append(group_log)
 
         for msg in filtered:
-            all_filtered.append({
-                **msg, "_group_id": gid, "_group_name": gname, "_group_info": group,
-            })
+            msg["_group_id"] = gid
+            msg["_group_name"] = gname
+            all_filtered.append(msg)
 
     phase2_elapsed = time.monotonic() - phase2_start
     logger.info(f"FASE 2 (dedup): {total_filtered} unicas de {total_messages} buscadas em {phase2_elapsed:.1f}s")
@@ -1019,8 +1037,8 @@ def run_pipeline() -> PipelineResult:
             if i >= len(all_filtered):
                 break
             msg = all_filtered[i]
-            gid = msg["_group_id"]
-            group_info = msg["_group_info"]
+            gid = msg.get("_group_id", "unknown")
+            group_info = group_info_map.get(gid, {"id": gid, "name": gid})
 
             enrichment = _enrich_opportunity(classification, market_services)
             clean_msg = {k: v for k, v in msg.items() if not k.startswith("_")}
