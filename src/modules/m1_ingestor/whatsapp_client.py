@@ -480,16 +480,16 @@ class WhatsAppClient:
         return True
 
     def _patch_chat_read(self, chat_id: str) -> bool:
-        """Fallback: marca chat como lido via PATCH (pode nao sincronizar)."""
+        """Marca chat como lido via PATCH (sincroniza com device)."""
         try:
             self._do_request(
                 "PATCH",
                 f"/chats/{chat_id}",
-                json_body={"mark_unread": False},
+                json_body={"read": True},
             )
             return True
         except Exception as e:
-            logger.warning(f"PATCH fallback falhou para {chat_id}: {e}")
+            logger.warning(f"PATCH read falhou para {chat_id}: {e}")
             return False
 
     def ensure_chat_read(self, chat_id: str) -> bool:
@@ -513,8 +513,8 @@ class WhatsAppClient:
     def mark_chat_as_read(self, chat_id: str) -> bool:
         """Marca todas as mensagens de um chat como lidas.
 
-        Usa PATCH /chats/{id} com {"mark_unread": false} conforme
-        documentacao oficial da API Whapi.
+        Usa PATCH /chats/{id} com {"read": true} para sincronizar
+        com o device principal.
 
         Args:
             chat_id: ID do chat/grupo.
@@ -529,9 +529,9 @@ class WhatsAppClient:
             self._do_request(
                 "PATCH",
                 f"/chats/{chat_id}",
-                json_body={"mark_unread": False},
+                json_body={"read": True},
             )
-            logger.info(f"Chat {chat_id} marcado como lido (PATCH mark_unread=false)")
+            logger.info(f"Chat {chat_id} marcado como lido (PATCH read=true)")
             return True
         except Exception as e:
             logger.warning(f"Erro ao marcar chat {chat_id} como lido: {e}")
