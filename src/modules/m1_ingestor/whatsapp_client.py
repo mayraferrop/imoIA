@@ -564,12 +564,14 @@ class WhatsAppClient:
             return False
 
     def _archive_whapi(self, group_id: str) -> bool:
-        """Arquiva grupo via Whapi.Cloud usando POST (conforme documentação oficial).
+        """Arquiva grupo via Whapi.Cloud.
 
-        Endpoint: POST /chats/{ChatID} com {"archive": true}
-        Ref: https://whapi.readme.io/reference/archivechat
+        Usa PATCH read=true + POST archive=true para sincronizar
+        com o device principal. NÃO marca mensagens individualmente
+        com PUT (interfere com o sync do device).
         """
-        self.ensure_chat_read(group_id)
+        # Marcar como lido no device (sem PUT individual)
+        self._patch_chat_read(group_id)
 
         try:
             self._do_request(

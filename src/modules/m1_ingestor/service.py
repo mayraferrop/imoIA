@@ -871,9 +871,9 @@ def run_pipeline() -> PipelineResult:
     classifier = _get_classifier(tenant_id=_tenant_id)
     market_services = _get_market_services()
 
-    # Carregar last_processed_at só dos grupos activos (não todos)
+    # Carregar last_processed_at de TODOS os grupos activos
     db_groups_map: Dict[str, Any] = {}
-    active_gids = [g.get("id", "") for g in active_with_unread]
+    active_gids = [g.get("id", "") for g in active_groups]
     if active_gids:
         with get_session() as session:
             for gid in active_gids:
@@ -924,15 +924,14 @@ def run_pipeline() -> PipelineResult:
 
     fetch_results: List[Dict[str, Any]] = []
     with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = {executor.submit(_fetch_group, g): g for g in active_with_unread}
+        futures = {executor.submit(_fetch_group, g): g for g in active_groups}
         for future in as_completed(futures):
             fetch_results.append(future.result())
 
     phase1_elapsed = time.monotonic() - phase1_start
     logger.info(f"FASE 1 (fetch paralelo): {len(fetch_results)} grupos em {phase1_elapsed:.1f}s")
 
-    # --- FASE 1a: Marcar TODOS os grupos com unread como lidos (sequencial) ---
-    # Sequencial porque a Whapi nao sincroniza com o dispositivo em paralelo
+    # --- FASE 1a: Marcar grupos com unread como lidos (PATCH read=true) ---
     phase1a_start = time.monotonic()
     read_client = WhatsAppClient()
     active_read = 0
@@ -940,12 +939,12 @@ def run_pipeline() -> PipelineResult:
         gid = group.get("id", "")
         if gid:
             try:
-                read_client.mark_group_as_read(gid)
+                read_client.mark_chat_as_read(gid)
                 active_read += 1
             except Exception as e:
                 logger.warning(f"Falha mark_as_read {group.get('name', '?')}: {e}")
     phase1a_elapsed = time.monotonic() - phase1a_start
-    logger.info(f"FASE 1a (mark_as_read sequencial): {active_read}/{len(active_with_unread)} em {phase1a_elapsed:.1f}s")
+    logger.info(f"FASE 1a (mark_as_read): {active_read}/{len(active_with_unread)} em {phase1a_elapsed:.1f}s")
 
     # --- FASE 1b: Marcar inativos com unread como lidos (paralelo) ---
     phase1b_start = time.monotonic()
