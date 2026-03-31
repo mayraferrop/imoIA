@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -812,45 +812,32 @@
 <nav>
   <div class="nav-inner">
     <div class="nav-logo">imoIA</div>
-    <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')">&#9776;</button>
+    <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
     <ul class="nav-links">
-      <li><a href="#hero" data-i18n="nav_inicio">Início</a></li>
-      <li><a href="#visao" data-i18n="nav_visao">Visão Geral</a></li>
+      <li><a href="#hero" data-i18n="nav_inicio">Inicio</a></li>
+      <li><a href="#visao" data-i18n="nav_visao">Visao Geral</a></li>
       <li><a href="#fontes" data-i18n="nav_fontes">Fontes</a></li>
       <li><a href="#fluxo" data-i18n="nav_fluxo">Fluxo</a></li>
-      <li><a href="#modulos" data-i18n="nav_modulos">Módulos</a></li>
+      <li><a href="#modulos" data-i18n="nav_modulos">Modulos</a></li>
       <li><a href="#ia">IA</a></li>
       <li><a href="#dashboard">Dashboard</a></li>
       <li><a href="#stack">Stack</a></li>
-      <li>
-        <div class="lang-switcher">
-          <button class="lang-btn" onclick="setLang('pt-PT')">PT</button>
-          <button class="lang-btn" onclick="setLang('pt-BR')">BR</button>
-        </div>
-      </li>
     </ul>
   </div>
 </nav>
 
 <!-- HERO -->
 <section id="hero">
-  <div class="hero-badge" data-i18n="hero_badge">Plataforma de Inteligência Imobiliária</div>
-  <h1 class="fade-in" data-i18n-html="hero_title">Da captação ao<br><span class="highlight">negócio fechado</span>,<br>com <span class="highlight-gold">inteligência artificial</span>.</h1>
-  <p class="subtitle fade-in" data-i18n="hero_subtitle">O imoIA automatiza a captação, análise financeira, gestão de pipeline e marketing de oportunidades de investimento imobiliário no Brasil e em Portugal.</p>
+  <div class="hero-badge" data-i18n="hero_badge">Plataforma de Inteligencia Imobiliaria</div>
+  <h1 class="fade-in" data-i18n-html="hero_title">Da captacao ao<br><span class="highlight">negocio fechado</span>,<br>com <span class="highlight-gold">inteligencia artificial</span>.</h1>
+  <p class="subtitle fade-in" data-i18n="hero_subtitle">O imoIA automatiza a captacao, analise financeira, gestao de pipeline e marketing de oportunidades de investimento imobiliario no Brasil.</p>
 
   <div class="countries-banner fade-in">
     <div class="country-item">
-      <div class="country-flag">&#127477;&#127481;</div>
-      <div>
-        <div class="country-name">Portugal</div>
-        <div class="country-detail" data-i18n="country_pt_detail">Casafari, INE, SIR, Idealista, Imovirtual</div>
-      </div>
-    </div>
-    <div class="country-item">
-      <div class="country-flag">&#127463;&#127479;</div>
+      <div class="country-flag">BR</div>
       <div>
         <div class="country-name">Brasil</div>
-        <div class="country-detail" data-i18n="country_br_detail">Homer, Órulo, DataZAP, FipeZAP, ZAP/VivaReal/OLX</div>
+        <div class="country-detail" data-i18n="country_br_detail">Homer, Orulo, DataZAP, FipeZAP, ZAP/VivaReal/OLX</div>
       </div>
     </div>
   </div>
@@ -858,7 +845,7 @@
   <div class="hero-stats fade-in">
     <div class="stat-card">
       <div class="stat-number">9</div>
-      <div class="stat-label" data-i18n="stat_modulos">Módulos integrados</div>
+      <div class="stat-label" data-i18n="stat_modulos">Modulos integrados</div>
     </div>
     <div class="stat-card">
       <div class="stat-number">60+</div>
@@ -866,25 +853,25 @@
     </div>
     <div class="stat-card">
       <div class="stat-number">10</div>
-      <div class="stat-label" data-i18n="stat_estrategias">Estratégias de investimento</div>
+      <div class="stat-label" data-i18n="stat_estrategias">Estrategias de investimento</div>
     </div>
     <div class="stat-card">
-      <div class="stat-number">2</div>
-      <div class="stat-label" data-i18n="stat_paises">Países suportados</div>
+      <div class="stat-number">6+</div>
+      <div class="stat-label" data-i18n="stat_fontes">Fontes de dados integradas</div>
     </div>
   </div>
 </section>
 
-<!-- VISÃO GERAL -->
+<!-- VISAO GERAL -->
 <section id="visao">
-  <div class="section-label fade-in" data-i18n="visao_label">Visão Geral</div>
+  <div class="section-label fade-in" data-i18n="visao_label">Visao Geral</div>
   <h2 class="fade-in" data-i18n="visao_title">O problema que a gente resolve</h2>
-  <p class="subtitle fade-in" style="margin-bottom: 2rem;" data-i18n="visao_subtitle">Investidores perdem oportunidades porque o fluxo de informação é manual, espalhado e lento. O imoIA centraliza tudo em um único sistema inteligente — no Brasil e em Portugal.</p>
+  <p class="subtitle fade-in" style="margin-bottom: 2rem;" data-i18n="visao_subtitle">Investidores perdem oportunidades porque o fluxo de informacao e manual, espalhado e lento. O imoIA centraliza tudo em um unico sistema inteligente.</p>
 
   <div class="pipeline-flow fade-in">
     <div class="pipeline-step">
-      <div class="pipeline-icon" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3);">&#128172;</div>
-      <div class="pipeline-label" data-i18n="pipe_captacao">Captação</div>
+      <div class="pipeline-icon" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+      <div class="pipeline-label" data-i18n="pipe_captacao">Captacao</div>
     </div>
     <div class="pipeline-arrow">&#8594;</div>
     <div class="pipeline-step">
@@ -892,7 +879,7 @@
     </div>
     <div class="pipeline-arrow">&#8594;</div>
     <div class="pipeline-step">
-      <div class="pipeline-label" data-i18n="pipe_analise">Análise</div>
+      <div class="pipeline-label" data-i18n="pipe_analise">Analise</div>
     </div>
     <div class="pipeline-arrow">&#8594;</div>
     <div class="pipeline-step">
@@ -909,54 +896,28 @@
   </div>
 </section>
 
-<!-- FONTES DE CAPTAÇÃO -->
+<!-- FONTES DE CAPTACAO -->
 <section id="fontes">
-  <div class="section-label fade-in" data-i18n="fontes_label">Fontes de Captação</div>
-  <h2 class="fade-in" data-i18n-html="fontes_title">Múltiplas fontes, <span class="highlight">2 países</span></h2>
-  <p class="subtitle fade-in" data-i18n="fontes_subtitle">A mesma lógica de classificação por IA aplicada a múltiplas fontes de oportunidades, com cobertura dedicada no Brasil e em Portugal.</p>
+  <div class="section-label fade-in" data-i18n="fontes_label">Fontes de Captacao</div>
+  <h2 class="fade-in" data-i18n-html="fontes_title">Multiplas fontes, <span class="highlight">um sistema</span></h2>
+  <p class="subtitle fade-in" data-i18n="fontes_subtitle">A mesma logica de classificacao por IA aplicada a multiplas fontes de oportunidades, com cobertura dedicada no mercado brasileiro.</p>
 
   <!-- Fontes comuns (WhatsApp + Facebook) -->
   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 2rem; width: 100%;" class="fade-in">
     <div class="source-card">
-      <div class="source-icon">&#128172;</div>
+      <div class="source-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
       <h3>WhatsApp</h3>
-      <p data-i18n="fonte_whatsapp">Monitoramento de grupos de investidores imobiliários (Interimobiliárias, Corretores no Brasil, grupos regionais). Extração automática com classificação por IA em lote.</p>
+      <p data-i18n="fonte_whatsapp">Monitoramento de grupos de investidores imobiliarios (Interimobiliarias, Corretores no Brasil, grupos regionais). Extracao automatica com classificacao por IA em lote.</p>
       <div class="source-countries">
-        <span class="source-country-tag">&#127477;&#127481; Portugal</span>
-        <span class="source-country-tag">&#127463;&#127479; Brasil</span>
+        <span class="source-country-tag">BR Brasil</span>
       </div>
     </div>
     <div class="source-card">
-      <div class="source-icon">&#128101;</div>
+      <div class="source-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
       <h3>Facebook Groups</h3>
-      <p data-i18n="fonte_facebook">Captação de oportunidades em grupos de compra/venda de imóveis. Mesma lógica de classificação do WhatsApp aplicada ao Facebook.</p>
+      <p data-i18n="fonte_facebook">Captacao de oportunidades em grupos de compra/venda de imoveis. Mesma logica de classificacao do WhatsApp aplicada ao Facebook.</p>
       <div class="source-countries">
-        <span class="source-country-tag">&#127477;&#127481; Portugal</span>
-        <span class="source-country-tag">&#127463;&#127479; Brasil</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- PORTUGAL -->
-  <div style="margin-top: 3rem; width: 100%;" class="fade-in">
-    <h3 style="font-size: 1.1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-      <span style="font-size: 1.4rem;">&#127477;&#127481;</span> Portugal
-    </h3>
-    <div class="sources-grid">
-      <div class="source-card">
-        <div class="source-icon">&#127968;</div>
-        <h3 data-i18n="fonte_pt_captacao_title">Captação / Deal Flow</h3>
-        <p data-i18n="fonte_pt_captacao">Casafari, Idealista, Imovirtual, OLX Portugal — scraping automatizado de listings com matching de oportunidades.</p>
-      </div>
-      <div class="source-card">
-        <div class="source-icon">&#128200;</div>
-        <h3 data-i18n="fonte_pt_mercado_title">Pesquisa de Mercado</h3>
-        <p data-i18n="fonte_pt_mercado">Casafari (comparáveis + AVM), INE (preços médios por município), SIR/Confidencial Imobiliário (transações reais).</p>
-      </div>
-      <div class="source-card">
-        <div class="source-icon">&#128227;</div>
-        <h3 data-i18n="fonte_pt_portais_title">Publicação em Portais</h3>
-        <p data-i18n="fonte_pt_portais">Idealista, Imovirtual, OLX Portugal, Casa Sapo — publicação e sincronização de anúncios.</p>
+        <span class="source-country-tag">BR Brasil</span>
       </div>
     </div>
   </div>
@@ -964,23 +925,23 @@
   <!-- BRASIL -->
   <div style="margin-top: 3rem; width: 100%;" class="fade-in">
     <h3 style="font-size: 1.1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-      <span style="font-size: 1.4rem;">&#127463;&#127479;</span> Brasil
+      <span style="font-size: 1.4rem;">BR</span> Brasil
     </h3>
     <div class="sources-grid">
       <div class="source-card">
-        <div class="source-icon">&#128269;</div>
-        <h3 data-i18n="fonte_br_captacao_title">Captação / Deal Flow</h3>
-        <p data-i18n-html="fonte_br_captacao"><strong>Homer</strong> — matching automático entre corretores, 80k+ cadastrados<br><strong>Órulo</strong> — 100% dos lançamentos/imóveis novos com tabelas atualizadas<br><strong>WhatsApp regional</strong> — Interimobiliárias, Corretores no Brasil</p>
+        <div class="source-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+        <h3 data-i18n="fonte_br_captacao_title">Captacao / Deal Flow</h3>
+        <p data-i18n-html="fonte_br_captacao"><strong>Homer</strong> — matching automatico entre corretores, 80k+ cadastrados<br><strong>Orulo</strong> — 100% dos lancamentos/imoveis novos com tabelas atualizadas<br><strong>WhatsApp regional</strong> — Interimobiliarias, Corretores no Brasil</p>
       </div>
       <div class="source-card">
-        <div class="source-icon">&#128200;</div>
+        <div class="source-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
         <h3 data-i18n="fonte_br_mercado_title">Pesquisa de Mercado</h3>
-        <p data-i18n-html="fonte_br_mercado"><strong>DataZAP</strong> (Quanto Vale + Geoimovel + Onde Vale) — maior base, AVM referência<br><strong>Índice FipeZAP</strong> — benchmark nacional de preços (oferta)<br><strong>ITBImap.com.br</strong> — preços REAIS de transação (SP por enquanto)</p>
+        <p data-i18n-html="fonte_br_mercado"><strong>DataZAP</strong> (Quanto Vale + Geoimovel + Onde Vale) — maior base, AVM referencia<br><strong>Indice FipeZAP</strong> — benchmark nacional de precos (oferta)<br><strong>ITBImap.com.br</strong> — precos REAIS de transacao (SP por enquanto)</p>
       </div>
       <div class="source-card">
-        <div class="source-icon">&#128227;</div>
-        <h3 data-i18n="fonte_br_portais_title">Publicação em Portais</h3>
-        <p data-i18n-html="fonte_br_portais"><strong>ZAP + VivaReal + OLX</strong> (Grupo OLX) — pacote unificado, maior alcance<br><strong>QuintoAndar + Imovelweb</strong> — 2º ecossistema, Imovelweb crescendo +35%/ano<br><strong>Chaves na Mão</strong> — bom custo-benefício, em crescimento</p>
+        <div class="source-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+        <h3 data-i18n="fonte_br_portais_title">Publicacao em Portais</h3>
+        <p data-i18n-html="fonte_br_portais"><strong>ZAP + VivaReal + OLX</strong> (Grupo OLX) — pacote unificado, maior alcance<br><strong>QuintoAndar + Imovelweb</strong> — 2o ecossistema, Imovelweb crescendo +35%/ano<br><strong>Chaves na Mao</strong> — bom custo-beneficio, em crescimento</p>
       </div>
     </div>
   </div>
@@ -995,197 +956,197 @@
     <div class="flow-step">
       <div class="flow-number" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">1</div>
       <div class="flow-content">
-        <h3 data-i18n="fluxo_1_title">Captação automática (M1 — Ingestor)</h3>
-        <p data-i18n="fluxo_1_desc">O sistema monitora grupos de WhatsApp, Facebook e portais imobiliários 24/7. Mensagens e anúncios são extraídos, filtrados (removendo ruído) e enviados para classificação por IA em lote. Oportunidades reais recebem grau A–F com score de confiança.</p>
+        <h3 data-i18n="fluxo_1_title">Captacao automatica (M1 — Ingestor)</h3>
+        <p data-i18n="fluxo_1_desc">O sistema monitora grupos de WhatsApp, Facebook e portais imobiliarios 24/7. Mensagens e anuncios sao extraidos, filtrados (removendo ruido) e enviados para classificacao por IA em lote. Oportunidades reais recebem grau A-F com score de confianca.</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="flow-number" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">2</div>
       <div class="flow-content">
         <h3 data-i18n="fluxo_2_title">Pesquisa de mercado (M2 — Market Research)</h3>
-        <p data-i18n="fluxo_2_desc">Cada oportunidade é enriquecida automaticamente com dados de Casafari, INE, SIR e Idealista (PT) ou DataZAP, FipeZAP e ITBImap (BR). Comparáveis, preços médios por região e tendências de mercado são cruzados para validar o potencial.</p>
+        <p data-i18n="fluxo_2_desc">Cada oportunidade e enriquecida automaticamente com dados de DataZAP, FipeZAP e ITBImap. Comparaveis, precos medios por regiao e tendencias de mercado sao cruzados para validar o potencial.</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="flow-number" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">3</div>
       <div class="flow-content">
-        <h3 data-i18n="fluxo_3_title">Simulação financeira (M3 — Financial Calculator)</h3>
-        <p data-i18n="fluxo_3_desc">Modelo financeiro completo: ITBI/IMT, ITCMD/Imposto de Selo, custos de obra, cenários (base/otimista/pessimista), MAO, ROI, TIR, MOIC, yield, fluxo de caixa mensal. Adaptado à legislação fiscal de cada país.</p>
+        <h3 data-i18n="fluxo_3_title">Simulacao financeira (M3 — Financial Calculator)</h3>
+        <p data-i18n="fluxo_3_desc">Modelo financeiro completo: ITBI, ITCMD, custos de obra, cenarios (base/otimista/pessimista), MAO, ROI, TIR, MOIC, yield, fluxo de caixa mensal. Adaptado a legislacao fiscal brasileira.</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="flow-number" style="background: rgba(139, 92, 246, 0.15); color: #c084fc;">4</div>
       <div class="flow-content">
-        <h3 data-i18n="fluxo_4_title">Pipeline de negócios (M4 — Deal Pipeline)</h3>
-        <p data-i18n="fluxo_4_desc">Kanban com 10 estratégias (Fix&Flip, Value-Add, Rental Hold, etc.). Máquina de estados flexível: triagem → análise → proposta → negociação → compromisso → escritura → obra → venda → concluído.</p>
+        <h3 data-i18n="fluxo_4_title">Pipeline de negocios (M4 — Deal Pipeline)</h3>
+        <p data-i18n="fluxo_4_desc">Kanban com 10 estrategias (Fix&Flip, Value-Add, Rental Hold, etc.). Maquina de estados flexivel: triagem &#8594; analise &#8594; proposta &#8594; negociacao &#8594; compromisso &#8594; escritura &#8594; obra &#8594; venda &#8594; concluido.</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="flow-number" style="background: rgba(236, 72, 153, 0.15); color: #f472b6;">5</div>
       <div class="flow-content">
         <h3 data-i18n="fluxo_5_title">Due Diligence (M5) + Reforma (M6)</h3>
-        <p data-i18n="fluxo_5_desc">Checklists automáticos por tipo de imóvel e país. Gestão de obra com orçamento, milestones, despesas e fotos de progresso. Alertas de desvio de prazo/orçamento.</p>
+        <p data-i18n="fluxo_5_desc">Checklists automaticos por tipo de imovel. Gestao de obra com orcamento, milestones, despesas e fotos de progresso. Alertas de desvio de prazo/orcamento.</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="flow-number" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">6</div>
       <div class="flow-content">
         <h3 data-i18n="fluxo_6_title">Marketing & Leads (M7 + M8)</h3>
-        <p data-i18n="fluxo_6_desc">Geração de conteúdo com IA (descrições, posts, e-mails) em 5 idiomas. CRM de leads com scoring A–F, pipeline de qualificação e integração com Habta.eu.</p>
+        <p data-i18n="fluxo_6_desc">Geracao de conteudo com IA (descricoes, posts, e-mails) em multiplos idiomas. CRM de leads com scoring A-F, pipeline de qualificacao e integracao com Habta.eu.</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="flow-number" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">7</div>
       <div class="flow-content">
         <h3 data-i18n="fluxo_7_title">Fechamento & P&L (M9 — Closing)</h3>
-        <p data-i18n="fluxo_7_desc">Workflow de escritura, cálculo de ganho de capital, IRPJ/IRC, P&L real vs estimado. Relatório fiscal anual e visão consolidada do portfólio.</p>
+        <p data-i18n="fluxo_7_desc">Workflow de escritura, calculo de ganho de capital, IRPJ, P&L real vs estimado. Relatorio fiscal anual e visao consolidada do portfolio.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- MÓDULOS -->
+<!-- MODULOS -->
 <section id="modulos">
-  <div class="section-label fade-in" data-i18n="modulos_label">Módulos do Sistema</div>
-  <h2 class="fade-in" data-i18n-html="modulos_title">9 módulos, <span class="highlight">um ecossistema</span></h2>
-  <p class="subtitle fade-in" style="margin-bottom: 1rem;" data-i18n="modulos_subtitle">Cada módulo funciona de forma independente mas se comunica com os outros para formar um pipeline completo.</p>
+  <div class="section-label fade-in" data-i18n="modulos_label">Modulos do Sistema</div>
+  <h2 class="fade-in" data-i18n-html="modulos_title">9 modulos, <span class="highlight">um ecossistema</span></h2>
+  <p class="subtitle fade-in" style="margin-bottom: 1rem;" data-i18n="modulos_subtitle">Cada modulo funciona de forma independente mas se comunica com os outros para formar um pipeline completo.</p>
 
   <div class="modules-grid fade-in">
 
     <div class="module-card">
       <div class="module-header">
-        <div class="module-icon" style="background: rgba(16, 185, 129, 0.15);">&#128172;</div>
+        <div class="module-icon" style="background: rgba(16, 185, 129, 0.15);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
         <div><h3>M1 — Ingestor</h3></div>
-        <span class="module-tag" data-i18n="tag_critico">Crítico</span>
+        <span class="module-tag" data-i18n="tag_critico">Critico</span>
       </div>
-      <p class="module-desc" data-i18n="m1_desc">Motor de captação automática de oportunidades via WhatsApp, Facebook e portais imobiliários, com classificação por IA.</p>
+      <p class="module-desc" data-i18n="m1_desc">Motor de captacao automatica de oportunidades via WhatsApp, Facebook e portais imobiliarios, com classificacao por IA.</p>
       <ul class="module-features">
         <li data-i18n="m1_f1">Monitora WhatsApp, grupos Facebook e portais em tempo real</li>
-        <li data-i18n="m1_f2">Filtragem de ruído (stickers, cumprimentos, mídia sem texto)</li>
-        <li data-i18n="m1_f3">Classificação em lote por IA (20 msgs/batch, 3 threads em paralelo)</li>
-        <li data-i18n="m1_f4">Scoring A–F com confiança 0.0–1.0</li>
-        <li data-i18n="m1_f5">Enriquecimento automático com dados de mercado PT e BR</li>
+        <li data-i18n="m1_f2">Filtragem de ruido (stickers, cumprimentos, midia sem texto)</li>
+        <li data-i18n="m1_f3">Classificacao em lote por IA (20 msgs/batch, 3 threads em paralelo)</li>
+        <li data-i18n="m1_f4">Scoring A-F com confianca 0.0-1.0</li>
+        <li data-i18n="m1_f5">Enriquecimento automatico com dados de mercado BR</li>
       </ul>
     </div>
 
     <div class="module-card">
       <div class="module-header">
-        <div class="module-icon" style="background: rgba(59, 130, 246, 0.15);">&#128200;</div>
+        <div class="module-icon" style="background: rgba(59, 130, 246, 0.15);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
         <div><h3>M2 — Market Research</h3></div>
         <span class="module-tag" data-i18n="tag_dados">Dados</span>
       </div>
-      <p class="module-desc" data-i18n="m2_desc">Pesquisa de comparáveis, AVM, estatísticas de zona e alertas de preço.</p>
+      <p class="module-desc" data-i18n="m2_desc">Pesquisa de comparaveis, AVM, estatisticas de zona e alertas de preco.</p>
       <ul class="module-features">
-        <li data-i18n="m2_f1">PT: Casafari (comparáveis + AVM), INE, SIR</li>
-        <li data-i18n="m2_f2">BR: DataZAP (AVM referência), FipeZAP (benchmark preços)</li>
-        <li data-i18n="m2_f3">BR: ITBImap.com.br — preços reais de transação (SP)</li>
-        <li data-i18n="m2_f4">Cache de 7–30 dias para otimizar chamadas</li>
+        <li data-i18n="m2_f1">DataZAP (AVM referencia), FipeZAP (benchmark precos)</li>
+        <li data-i18n="m2_f2">ITBImap.com.br — precos reais de transacao (SP)</li>
+        <li data-i18n="m2_f3">Homer + Orulo — deal flow e lancamentos</li>
+        <li data-i18n="m2_f4">Cache de 7-30 dias para otimizar chamadas</li>
       </ul>
     </div>
 
     <div class="module-card">
       <div class="module-header">
-        <div class="module-icon" style="background: rgba(245, 158, 11, 0.15);">&#129518;</div>
+        <div class="module-icon" style="background: rgba(245, 158, 11, 0.15);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg></div>
         <div><h3>M3 — Financial Calculator</h3></div>
         <span class="module-tag">Core</span>
       </div>
-      <p class="module-desc" data-i18n="m3_desc">Modelo financeiro completo com cenários, impostos e fluxo de caixa — adaptado a PT e BR.</p>
+      <p class="module-desc" data-i18n="m3_desc">Modelo financeiro completo com cenarios, impostos e fluxo de caixa — adaptado ao mercado brasileiro.</p>
       <ul class="module-features">
-        <li data-i18n="m3_f1">ITBI/IMT, ITCMD/Imposto de Selo, custos de cartório</li>
-        <li data-i18n="m3_f2">3 cenários automáticos (base, otimista, pessimista)</li>
+        <li data-i18n="m3_f1">ITBI, ITCMD, custos de cartorio</li>
+        <li data-i18n="m3_f2">3 cenarios automaticos (base, otimista, pessimista)</li>
         <li data-i18n="m3_f3">MAO (70%/65%/60% do ARV)</li>
         <li data-i18n="m3_f4">ROI, TIR, MOIC, Yield, Cash-on-Cash</li>
-        <li data-i18n="m3_f5">Fluxo de caixa mensal com pico de capital necessário</li>
+        <li data-i18n="m3_f5">Fluxo de caixa mensal com pico de capital necessario</li>
       </ul>
     </div>
 
     <div class="module-card">
       <div class="module-header">
-        <div class="module-icon" style="background: rgba(139, 92, 246, 0.15);">&#128188;</div>
+        <div class="module-icon" style="background: rgba(139, 92, 246, 0.15);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div>
         <div><h3>M4 — Deal Pipeline</h3></div>
-        <span class="module-tag" data-i18n="tag_gestao">Gestão</span>
+        <span class="module-tag" data-i18n="tag_gestao">Gestao</span>
       </div>
-      <p class="module-desc" data-i18n="m4_desc">Kanban de negócios com 10 estratégias e máquina de estados flexível.</p>
+      <p class="module-desc" data-i18n="m4_desc">Kanban de negocios com 10 estrategias e maquina de estados flexivel.</p>
       <ul class="module-features">
-        <li data-i18n="m4_f1">Fix&Flip, Value-Add, Rental Hold, Mediação + 6 mais</li>
-        <li data-i18n="m4_f2">Triagem → Análise → Proposta → Compromisso → Escritura → Venda</li>
-        <li data-i18n="m4_f3">Tracking de comissões e propostas</li>
-        <li data-i18n="m4_f4">Métricas de velocidade do pipeline</li>
+        <li data-i18n="m4_f1">Fix&Flip, Value-Add, Rental Hold, Mediacao + 6 mais</li>
+        <li data-i18n="m4_f2">Triagem &#8594; Analise &#8594; Proposta &#8594; Compromisso &#8594; Escritura &#8594; Venda</li>
+        <li data-i18n="m4_f3">Tracking de comissoes e propostas</li>
+        <li data-i18n="m4_f4">Metricas de velocidade do pipeline</li>
       </ul>
     </div>
 
     <div class="module-card">
       <div class="module-header">
-        <div class="module-icon" style="background: rgba(236, 72, 153, 0.15);">&#128203;</div>
+        <div class="module-icon" style="background: rgba(236, 72, 153, 0.15);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
         <div><h3>M5 — Due Diligence</h3></div>
-        <span class="module-tag" data-i18n="tag_verificacao">Verificação</span>
+        <span class="module-tag" data-i18n="tag_verificacao">Verificacao</span>
       </div>
-      <p class="module-desc" data-i18n="m5_desc">Checklists automáticos por tipo de imóvel e detecção de red flags.</p>
+      <p class="module-desc" data-i18n="m5_desc">Checklists automaticos por tipo de imovel e deteccao de red flags.</p>
       <ul class="module-features">
-        <li data-i18n="m5_f1">Checklists por país e tipo de propriedade</li>
-        <li data-i18n="m5_f2">Tracking de documentos (certidões, alvarás)</li>
-        <li data-i18n="m5_f3">Aprovação obrigatória antes de avançar no pipeline</li>
+        <li data-i18n="m5_f1">Checklists por tipo de propriedade</li>
+        <li data-i18n="m5_f2">Tracking de documentos (certidoes, alvaras)</li>
+        <li data-i18n="m5_f3">Aprovacao obrigatoria antes de avancar no pipeline</li>
       </ul>
     </div>
 
     <div class="module-card">
       <div class="module-header">
-        <div class="module-icon" style="background: rgba(239, 68, 68, 0.15);">&#127959;</div>
+        <div class="module-icon" style="background: rgba(239, 68, 68, 0.15);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
         <div><h3 data-i18n="m6_title">M6 — Reforma</h3></div>
         <span class="module-tag" data-i18n="tag_obra">Obra</span>
       </div>
-      <p class="module-desc" data-i18n="m6_desc">Gestão de obra com orçamento, milestones e tracking de despesas.</p>
+      <p class="module-desc" data-i18n="m6_desc">Gestao de obra com orcamento, milestones e tracking de despesas.</p>
       <ul class="module-features">
-        <li data-i18n="m6_f1">Orçamento por categoria (elétrica, hidráulica, pintura)</li>
+        <li data-i18n="m6_f1">Orcamento por categoria (eletrica, hidraulica, pintura)</li>
         <li data-i18n="m6_f2">Pagamentos por milestone</li>
-        <li data-i18n="m6_f3">Alertas de desvio de prazo/orçamento</li>
+        <li data-i18n="m6_f3">Alertas de desvio de prazo/orcamento</li>
         <li data-i18n="m6_f4">Galeria de fotos de progresso</li>
       </ul>
     </div>
 
     <div class="module-card">
       <div class="module-header">
-        <div class="module-icon" style="background: rgba(245, 158, 11, 0.15);">&#128227;</div>
+        <div class="module-icon" style="background: rgba(245, 158, 11, 0.15);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
         <div><h3>M7 — Marketing Engine</h3></div>
         <span class="module-tag">IA</span>
       </div>
-      <p class="module-desc" data-i18n="m7_desc">Geração de conteúdo com IA e publicação multicanal.</p>
+      <p class="module-desc" data-i18n="m7_desc">Geracao de conteudo com IA e publicacao multicanal.</p>
       <ul class="module-features">
         <li data-i18n="m7_f1">Brand Kit (cores, fontes, tom de voz)</li>
-        <li data-i18n="m7_f2">Conteúdo em 5 idiomas (PT-PT, PT-BR, EN, FR, ZH)</li>
+        <li data-i18n="m7_f2">Conteudo em 4 idiomas (PT-BR, EN, FR, ZH)</li>
         <li data-i18n="m7_f3">Posts para WhatsApp, Instagram, Facebook, LinkedIn</li>
-        <li data-i18n="m7_f4">Descrições de anúncios e campanhas de e-mail</li>
-        <li data-i18n="m7_f5">Integração com Trolto para vídeo</li>
+        <li data-i18n="m7_f4">Descricoes de anuncios e campanhas de e-mail</li>
+        <li data-i18n="m7_f5">Integracao com Trolto para video</li>
       </ul>
     </div>
 
     <div class="module-card">
       <div class="module-header">
-        <div class="module-icon" style="background: rgba(6, 182, 212, 0.15);">&#128101;</div>
+        <div class="module-icon" style="background: rgba(6, 182, 212, 0.15);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
         <div><h3>M8 — Leads CRM</h3></div>
         <span class="module-tag" data-i18n="tag_vendas">Vendas</span>
       </div>
-      <p class="module-desc" data-i18n="m8_desc">Pipeline de leads com scoring, nurturing automático e integração Habta.</p>
+      <p class="module-desc" data-i18n="m8_desc">Pipeline de leads com scoring, nurturing automatico e integracao Habta.</p>
       <ul class="module-features">
-        <li data-i18n="m8_f1">Scoring A–F com algoritmo customizado</li>
-        <li data-i18n="m8_f2">Etapas: novo → contatado → qualificado → visita → proposta → ganho</li>
-        <li data-i18n="m8_f3">Sync automático com Habta.eu</li>
-        <li data-i18n="m8_f4">Funil de conversão e analytics por fonte</li>
+        <li data-i18n="m8_f1">Scoring A-F com algoritmo customizado</li>
+        <li data-i18n="m8_f2">Etapas: novo &#8594; contatado &#8594; qualificado &#8594; visita &#8594; proposta &#8594; ganho</li>
+        <li data-i18n="m8_f3">Sync automatico com Habta.eu</li>
+        <li data-i18n="m8_f4">Funil de conversao e analytics por fonte</li>
       </ul>
     </div>
 
     <div class="module-card">
       <div class="module-header">
-        <div class="module-icon" style="background: rgba(16, 185, 129, 0.15);">&#128176;</div>
+        <div class="module-icon" style="background: rgba(16, 185, 129, 0.15);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
         <div><h3>M9 — Closing & P&L</h3></div>
         <span class="module-tag">Exit</span>
       </div>
-      <p class="module-desc" data-i18n="m9_desc">Fechamento de negócios, cálculo de ganho de capital e relatório de portfólio.</p>
+      <p class="module-desc" data-i18n="m9_desc">Fechamento de negocios, calculo de ganho de capital e relatorio de portfolio.</p>
       <ul class="module-features">
-        <li data-i18n="m9_f1">Workflow Compromisso → Escritura → Registro</li>
+        <li data-i18n="m9_f1">Workflow Compromisso &#8594; Escritura &#8594; Registro</li>
         <li data-i18n="m9_f2">P&L real vs estimado por deal</li>
         <li data-i18n="m9_f3">IRPJ, CSLL, ganho de capital</li>
-        <li data-i18n="m9_f4">Portfólio: capital investido, lucro total, IRR</li>
+        <li data-i18n="m9_f4">Portfolio: capital investido, lucro total, IRR</li>
       </ul>
     </div>
 
@@ -1194,36 +1155,36 @@
 
 <!-- IA -->
 <section id="ia">
-  <div class="section-label fade-in" data-i18n="ia_label">Inteligência Artificial</div>
-  <h2 class="fade-in" data-i18n-html="ia_title">O cérebro por trás da <span class="highlight-gold">automação</span></h2>
-  <p class="subtitle fade-in" style="margin-bottom: 1.5rem;" data-i18n="ia_subtitle">O imoIA usa inteligência artificial para classificar mensagens, gerar conteúdo de marketing e enriquecer oportunidades automaticamente.</p>
+  <div class="section-label fade-in" data-i18n="ia_label">Inteligencia Artificial</div>
+  <h2 class="fade-in" data-i18n-html="ia_title">O cerebro por tras da <span class="highlight-gold">automacao</span></h2>
+  <p class="subtitle fade-in" style="margin-bottom: 1.5rem;" data-i18n="ia_subtitle">O imoIA usa inteligencia artificial para classificar mensagens, gerar conteudo de marketing e enriquecer oportunidades automaticamente.</p>
 
   <div class="ai-demo fade-in">
-    <h3 style="margin-bottom: 1.5rem; color: var(--primary-light); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px;" data-i18n="ia_exemplo_titulo">Exemplo: Classificação de mensagem do WhatsApp</h3>
+    <h3 style="margin-bottom: 1.5rem; color: var(--primary-light); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px;" data-i18n="ia_exemplo_titulo">Exemplo: Classificacao de mensagem do WhatsApp</h3>
 
     <div class="chat-bubble">
-      <div class="chat-avatar" style="background: rgba(16, 185, 129, 0.15);">&#128172;</div>
-      <div class="chat-content" data-i18n="ia_msg_whatsapp">"Galera, apareceu um apê de 2 quartos na Vila Mariana, 72m², prédio dos anos 80. Dono precisa vender rápido, aceita R$ 480k. Região com nova estação do metrô prevista pra 2027. Quem quiser avisa."</div>
+      <div class="chat-avatar" style="background: rgba(16, 185, 129, 0.15);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+      <div class="chat-content" data-i18n="ia_msg_whatsapp">"Galera, apareceu um ape de 2 quartos na Vila Mariana, 72m2, predio dos anos 80. Dono precisa vender rapido, aceita R$ 480k. Regiao com nova estacao do metro prevista pra 2027. Quem quiser avisa."</div>
     </div>
 
     <div class="chat-bubble" style="justify-content: flex-end;">
-      <div class="chat-content ai" data-i18n-html="ia_msg_resposta"><div style="font-weight: 700; margin-bottom: 0.75rem; color: var(--primary-light);">&#129302; Análise imoIA</div><div style="margin-bottom: 0.75rem;"><span class="tag tag-opp">OPORTUNIDADE &#10003;</span><span class="tag tag-price">R$ 480.000</span><span class="tag tag-location">Vila Mariana, SP</span><span class="tag tag-type">2 quartos &middot; 72m²</span><span class="tag tag-source">WhatsApp</span></div><div style="font-size: 0.82rem; line-height: 1.7;"><strong>Confiança:</strong> 0.94<br><strong>Grau:</strong> A (Abaixo do mercado + Venda urgente)<br><strong>Tipo:</strong> Venda urgente, preço abaixo do mercado<br><strong>Sinal:</strong> Nova estação metrô 2027 = valorização<br><strong>Preço médio FipeZAP Vila Mariana:</strong> R$ 9.800/m² (~R$ 706k para 72m²)<br><strong>Desconto estimado:</strong> ~32%</div></div>
-      <div class="chat-avatar" style="background: rgba(139, 92, 246, 0.15);">&#129302;</div>
+      <div class="chat-content ai" data-i18n-html="ia_msg_resposta"><div style="font-weight: 700; margin-bottom: 0.75rem; color: var(--primary-light);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"/></svg> Analise imoIA</div><div style="margin-bottom: 0.75rem;"><span class="tag tag-opp">OPORTUNIDADE &#10003;</span><span class="tag tag-price">R$ 480.000</span><span class="tag tag-location">Vila Mariana, SP</span><span class="tag tag-type">2 quartos &middot; 72m2</span><span class="tag tag-source">WhatsApp</span></div><div style="font-size: 0.82rem; line-height: 1.7;"><strong>Confianca:</strong> 0.94<br><strong>Grau:</strong> A (Abaixo do mercado + Venda urgente)<br><strong>Tipo:</strong> Venda urgente, preco abaixo do mercado<br><strong>Sinal:</strong> Nova estacao metro 2027 = valorizacao<br><strong>Preco medio FipeZAP Vila Mariana:</strong> R$ 9.800/m2 (~R$ 706k para 72m2)<br><strong>Desconto estimado:</strong> ~32%</div></div>
+      <div class="chat-avatar" style="background: rgba(139, 92, 246, 0.15);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"/></svg></div>
     </div>
   </div>
 
   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 2rem; width: 100%;" class="fade-in">
     <div class="module-card" style="padding: 1.5rem;">
-      <h3 style="color: var(--primary-light); font-size: 0.95rem;" data-i18n="ia_card1_title">Classificação em lote</h3>
+      <h3 style="color: var(--primary-light); font-size: 0.95rem;" data-i18n="ia_card1_title">Classificacao em lote</h3>
       <p class="module-desc" style="margin-bottom: 0;" data-i18n="ia_card1_desc">20 mensagens por batch, 3 threads em paralelo. Processa centenas de mensagens por minuto com IA.</p>
     </div>
     <div class="module-card" style="padding: 1.5rem;">
       <h3 style="color: var(--accent); font-size: 0.95rem;" data-i18n="ia_card2_title">Filtragem inteligente</h3>
-      <p class="module-desc" style="margin-bottom: 0;" data-i18n="ia_card2_desc">Remove automaticamente stickers, mídia sem texto, cumprimentos ("bom dia") e mensagens curtas. Só analisa conteúdo relevante.</p>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="ia_card2_desc">Remove automaticamente stickers, midia sem texto, cumprimentos ("bom dia") e mensagens curtas. So analisa conteudo relevante.</p>
     </div>
     <div class="module-card" style="padding: 1.5rem;">
-      <h3 style="color: var(--success); font-size: 0.95rem;" data-i18n="ia_card3_title">Geração de conteúdo</h3>
-      <p class="module-desc" style="margin-bottom: 0;" data-i18n="ia_card3_desc">Descrições de imóveis, posts para redes sociais, e-mails de campanha e SEO — tudo gerado por IA em 5 idiomas.</p>
+      <h3 style="color: var(--success); font-size: 0.95rem;" data-i18n="ia_card3_title">Geracao de conteudo</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="ia_card3_desc">Descricoes de imoveis, posts para redes sociais, e-mails de campanha e SEO — tudo gerado por IA em multiplos idiomas.</p>
     </div>
   </div>
 </section>
@@ -1231,8 +1192,8 @@
 <!-- DASHBOARD PREVIEW -->
 <section id="dashboard">
   <div class="section-label fade-in">Dashboard</div>
-  <h2 class="fade-in" data-i18n-html="dash_title">Tudo visível em um único <span class="highlight">painel</span></h2>
-  <p class="subtitle fade-in" data-i18n="dash_subtitle">11 páginas de frontend cobrindo cada módulo do sistema. Acesso direto via Supabase com fallback para FastAPI.</p>
+  <h2 class="fade-in" data-i18n-html="dash_title">Tudo visivel em um unico <span class="highlight">painel</span></h2>
+  <p class="subtitle fade-in" data-i18n="dash_subtitle">11 paginas de frontend cobrindo cada modulo do sistema. Acesso direto via Supabase com fallback para FastAPI.</p>
 
   <div class="dashboard-preview fade-in">
     <div class="dash-topbar">
@@ -1251,7 +1212,7 @@
             <div class="kanban-item">2q Vila Mariana<br><span class="price">R$ 480k</span></div>
           </div>
           <div class="kanban-lane">
-            <div class="kanban-title" style="border-color: #fbbf24;" data-i18n="kanban_analise">Análise</div>
+            <div class="kanban-title" style="border-color: #fbbf24;" data-i18n="kanban_analise">Analise</div>
             <div class="kanban-item">1q Barra RJ<br><span class="price">R$ 320k</span></div>
           </div>
           <div class="kanban-lane">
@@ -1269,13 +1230,13 @@
           <div class="bar" style="height: 55%; background: var(--gradient-1);"><span class="bar-label" data-i18n="dia_qua">Qua</span></div>
           <div class="bar" style="height: 90%; background: var(--gradient-1);"><span class="bar-label" data-i18n="dia_qui">Qui</span></div>
           <div class="bar" style="height: 60%; background: var(--gradient-1);"><span class="bar-label" data-i18n="dia_sex">Sex</span></div>
-          <div class="bar" style="height: 30%; background: var(--gradient-1);"><span class="bar-label" data-i18n="dia_sab">Sáb</span></div>
+          <div class="bar" style="height: 30%; background: var(--gradient-1);"><span class="bar-label" data-i18n="dia_sab">Sab</span></div>
           <div class="bar" style="height: 15%; background: var(--gradient-1);"><span class="bar-label" data-i18n="dia_dom">Dom</span></div>
         </div>
       </div>
 
       <div class="dash-panel">
-        <h4 data-i18n="dash_resumo_title">Resumo do Portfólio</h4>
+        <h4 data-i18n="dash_resumo_title">Resumo do Portfolio</h4>
         <div class="metric-row">
           <span style="color: var(--text-muted);" data-i18n="metric_deals">Deals ativos</span>
           <span style="font-weight: 700;">12</span>
@@ -1285,7 +1246,7 @@
           <span style="font-weight: 700; color: var(--accent);">R$ 5.2M</span>
         </div>
         <div class="metric-row">
-          <span style="color: var(--text-muted);" data-i18n="metric_roi">ROI médio</span>
+          <span style="color: var(--text-muted);" data-i18n="metric_roi">ROI medio</span>
           <span style="font-weight: 700; color: var(--success);">24.5%</span>
         </div>
         <div class="metric-row">
@@ -1302,109 +1263,105 @@
 
   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem; margin-top: 1.5rem; width: 100%;" class="fade-in">
     <div style="background: var(--bg-card); border-radius: 12px; padding: 1rem; text-align: center;">
-      <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">&#127968;</div>
+      <div style="margin-bottom: 0.5rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
       <div style="font-size: 0.8rem; font-weight: 600;">Dashboard</div>
       <div style="font-size: 0.7rem; color: var(--text-muted);">Stats & grades</div>
     </div>
     <div style="background: var(--bg-card); border-radius: 12px; padding: 1rem; text-align: center;">
-      <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">&#128269;</div>
+      <div style="margin-bottom: 0.5rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
       <div style="font-size: 0.8rem; font-weight: 600;" data-i18n="page_propriedades">Propriedades</div>
       <div style="font-size: 0.7rem; color: var(--text-muted);" data-i18n="page_propriedades_sub">Filtros & busca</div>
     </div>
     <div style="background: var(--bg-card); border-radius: 12px; padding: 1rem; text-align: center;">
-      <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">&#128203;</div>
+      <div style="margin-bottom: 0.5rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
       <div style="font-size: 0.8rem; font-weight: 600;">Pipeline</div>
       <div style="font-size: 0.7rem; color: var(--text-muted);">Kanban de deals</div>
     </div>
     <div style="background: var(--bg-card); border-radius: 12px; padding: 1rem; text-align: center;">
-      <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">&#129518;</div>
+      <div style="margin-bottom: 0.5rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg></div>
       <div style="font-size: 0.8rem; font-weight: 600;" data-i18n="page_financeiro">Financeiro</div>
-      <div style="font-size: 0.7rem; color: var(--text-muted);" data-i18n="page_financeiro_sub">Simulações</div>
+      <div style="font-size: 0.7rem; color: var(--text-muted);" data-i18n="page_financeiro_sub">Simulacoes</div>
     </div>
     <div style="background: var(--bg-card); border-radius: 12px; padding: 1rem; text-align: center;">
-      <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">&#128200;</div>
+      <div style="margin-bottom: 0.5rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
       <div style="font-size: 0.8rem; font-weight: 600;" data-i18n="page_mercado">Mercado</div>
-      <div style="font-size: 0.7rem; color: var(--text-muted);" data-i18n="page_mercado_sub">Comparáveis</div>
+      <div style="font-size: 0.7rem; color: var(--text-muted);" data-i18n="page_mercado_sub">Comparaveis</div>
     </div>
     <div style="background: var(--bg-card); border-radius: 12px; padding: 1rem; text-align: center;">
-      <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">&#128101;</div>
+      <div style="margin-bottom: 0.5rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
       <div style="font-size: 0.8rem; font-weight: 600;">Leads</div>
       <div style="font-size: 0.7rem; color: var(--text-muted);">CRM & scoring</div>
     </div>
     <div style="background: var(--bg-card); border-radius: 12px; padding: 1rem; text-align: center;">
-      <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">&#128227;</div>
+      <div style="margin-bottom: 0.5rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
       <div style="font-size: 0.8rem; font-weight: 600;">Marketing</div>
-      <div style="font-size: 0.7rem; color: var(--text-muted);" data-i18n="page_marketing_sub">Conteúdo IA</div>
+      <div style="font-size: 0.7rem; color: var(--text-muted);" data-i18n="page_marketing_sub">Conteudo IA</div>
     </div>
   </div>
 </section>
 
 <!-- STACK -->
 <section id="stack">
-  <div class="section-label fade-in" data-i18n="stack_label">Stack Tecnológica</div>
-  <h2 class="fade-in" data-i18n-html="stack_title">Construído com tecnologia de <span class="highlight">ponta</span></h2>
+  <div class="section-label fade-in" data-i18n="stack_label">Stack Tecnologica</div>
+  <h2 class="fade-in" data-i18n-html="stack_title">Construido com tecnologia de <span class="highlight">ponta</span></h2>
 
   <div class="tech-grid fade-in">
     <div class="tech-category">
       <h3>Backend</h3>
       <div class="tech-item">
-        <div class="tech-icon">&#9889;</div>
+        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
         <div><div class="tech-name">FastAPI (Python)</div><div class="tech-role">API REST principal</div></div>
       </div>
       <div class="tech-item">
-        <div class="tech-icon">&#128024;</div>
+        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div>
         <div><div class="tech-name">SQLAlchemy</div><div class="tech-role">ORM & migrations</div></div>
       </div>
       <div class="tech-item">
-        <div class="tech-icon">&#128640;</div>
-        <div><div class="tech-name">Celery + Redis</div><div class="tech-role" data-i18n="tech_celery">Tarefas assíncronas</div></div>
+        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></div>
+        <div><div class="tech-name">Celery + Redis</div><div class="tech-role" data-i18n="tech_celery">Tarefas assincronas</div></div>
       </div>
     </div>
 
     <div class="tech-category">
       <h3>Frontend</h3>
       <div class="tech-item">
-        <div class="tech-icon">&#9883;</div>
+        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
         <div><div class="tech-name">Next.js 15 + React 19</div><div class="tech-role">Framework UI</div></div>
       </div>
       <div class="tech-item">
-        <div class="tech-icon">&#127912;</div>
+        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg></div>
         <div><div class="tech-name">Tailwind CSS</div><div class="tech-role" data-i18n="tech_tailwind">Estilos responsivos</div></div>
       </div>
       <div class="tech-item">
-        <div class="tech-icon">&#128202;</div>
-        <div><div class="tech-name">Recharts + Zustand</div><div class="tech-role" data-i18n="tech_recharts">Gráficos & estado</div></div>
+        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+        <div><div class="tech-name">Recharts + Zustand</div><div class="tech-role" data-i18n="tech_recharts">Graficos & estado</div></div>
       </div>
     </div>
 
     <div class="tech-category">
       <h3 data-i18n="tech_dados_ia">Dados & IA</h3>
       <div class="tech-item">
-        <div class="tech-icon">&#128154;</div>
+        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></div>
         <div><div class="tech-name">Supabase (PostgreSQL)</div><div class="tech-role" data-i18n="tech_supabase">Banco de dados principal</div></div>
       </div>
       <div class="tech-item">
-        <div class="tech-icon">&#129302;</div>
-        <div><div class="tech-name">Motor de IA</div><div class="tech-role" data-i18n="tech_claude">Classificação & conteúdo IA</div></div>
+        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"/></svg></div>
+        <div><div class="tech-name">Motor de IA</div><div class="tech-role" data-i18n="tech_claude">Classificacao & conteudo IA</div></div>
       </div>
       <div class="tech-item">
-        <div class="tech-icon">&#128241;</div>
+        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
         <div><div class="tech-name">Whapi.Cloud</div><div class="tech-role">API WhatsApp</div></div>
       </div>
     </div>
 
     <div class="tech-category">
-      <h3 data-i18n="tech_integracoes">Integrações</h3>
+      <h3 data-i18n="tech_integracoes">Integracoes</h3>
       <div class="tech-item">
-        <div class="tech-icon">&#127477;&#127481;</div>
-        <div><div class="tech-name">Casafari + INE + SIR</div><div class="tech-role" data-i18n="tech_casafari">Comparáveis, AVM & estatísticas PT</div></div>
+        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+        <div><div class="tech-name">DataZAP + FipeZAP + Homer</div><div class="tech-role" data-i18n="tech_br_data">AVM, precificacao & deal flow BR</div></div>
       </div>
       <div class="tech-item">
-        <div class="tech-icon">&#127463;&#127479;</div>
-        <div><div class="tech-name">DataZAP + FipeZAP + Homer</div><div class="tech-role" data-i18n="tech_br_data">AVM, precificação & deal flow BR</div></div>
-      </div>
-      <div class="tech-item">
-        <div class="tech-icon">&#128279;</div>
+        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
         <div><div class="tech-name">Habta.eu</div><div class="tech-role">Sync de leads</div></div>
       </div>
     </div>
@@ -1428,395 +1385,195 @@
 
 <!-- FOOTER -->
 <section class="footer-section" id="footer" style="min-height: auto;">
-  <h2 class="fade-in"><span class="highlight">imoIA</span> — <span data-i18n="footer_tagline">Inteligência Imobiliária</span></h2>
-  <p class="subtitle fade-in" style="margin: 1rem auto 0; text-align: center;" data-i18n-html="footer_desc">Captação automática. Análise inteligente. Pipeline completo.<br>Do WhatsApp ao lucro, tudo em um único sistema.</p>
-  <div class="footer-meta" data-i18n="footer_copy">imoIA © 2026 · Brasil & Portugal · Inteligência imobiliária para investidores</div>
+  <h2 class="fade-in"><span class="highlight">imoIA</span> — <span data-i18n="footer_tagline">Inteligencia Imobiliaria</span></h2>
+  <p class="subtitle fade-in" style="margin: 1rem auto 0; text-align: center;" data-i18n-html="footer_desc">Captacao automatica. Analise inteligente. Pipeline completo.<br>Do WhatsApp ao lucro, tudo em um unico sistema.</p>
+  <div class="footer-meta" data-i18n="footer_copy">imoIA &copy; 2026 &middot; Brasil &middot; Inteligencia imobiliaria para investidores</div>
 </section>
 
 <script>
 const T = {
-  'pt-PT': {
-    // Nav
-    nav_inicio: 'Início',
-    nav_visao: 'Visão Geral',
-    nav_fontes: 'Fontes',
-    nav_fluxo: 'Fluxo',
-    nav_modulos: 'Módulos',
-
-    // Hero
-    hero_badge: 'Plataforma de Inteligência Imobiliária',
-    hero_title: 'Da captação ao<br><span class="highlight">negócio fechado</span>,<br>com <span class="highlight-gold">inteligência artificial</span>.',
-    hero_subtitle: 'O imoIA automatiza a captação, análise financeira, gestão de pipeline e marketing de oportunidades de investimento imobiliário em Portugal e no Brasil.',
-    country_pt_detail: 'Casafari, INE, SIR, Idealista, Imovirtual',
-    country_br_detail: 'Homer, Órulo, DataZAP, FipeZAP, ZAP/VivaReal/OLX',
-    stat_modulos: 'Módulos integrados',
-    stat_estrategias: 'Estratégias de investimento',
-    stat_paises: 'Países suportados',
-
-    // Visão
-    visao_label: 'Visão Geral',
-    visao_title: 'O problema que resolvemos',
-    visao_subtitle: 'Investidores perdem oportunidades porque o fluxo de informação é manual, disperso e lento. O imoIA centraliza tudo num único sistema inteligente — em Portugal e no Brasil.',
-    pipe_captacao: 'Captação',
-    pipe_ia: 'IA Classifica',
-    pipe_analise: 'Análise',
-    pipe_pipeline: 'Pipeline',
-    pipe_obra: 'Renovação',
-    pipe_lucro: 'Lucro',
-
-    // Fontes
-    fontes_label: 'Fontes de Captação',
-    fontes_title: 'Múltiplas fontes, <span class="highlight">2 países</span>',
-    fontes_subtitle: 'A mesma lógica de classificação por IA aplicada a múltiplas fontes de oportunidades, com cobertura dedicada em Portugal e no Brasil.',
-    fonte_whatsapp: 'Monitorização de grupos de investidores imobiliários (Interimobiliárias, grupos regionais). Extração automática com classificação por IA em lote.',
-    fonte_facebook: 'Captação de oportunidades em grupos de compra/venda de imóveis. Mesma lógica de classificação do WhatsApp aplicada ao Facebook.',
-    // PT
-    fonte_pt_captacao_title: 'Captação / Deal Flow',
-    fonte_pt_captacao: 'Casafari, Idealista, Imovirtual, OLX Portugal — scraping automatizado de listings com matching de oportunidades.',
-    fonte_pt_mercado_title: 'Pesquisa de Mercado',
-    fonte_pt_mercado: 'Casafari (comparáveis + AVM), INE (preços medianos por município), SIR/Confidencial Imobiliário (transacções reais).',
-    fonte_pt_portais_title: 'Publicação em Portais',
-    fonte_pt_portais: 'Idealista, Imovirtual, OLX Portugal, Casa Sapo — publicação e sincronização de anúncios.',
-    // BR
-    fonte_br_captacao_title: 'Captação / Deal Flow',
-    fonte_br_captacao: '<strong>Homer</strong> — matching automático entre corretores, 80k+ registados<br><strong>Órulo</strong> — 100% dos lançamentos/imóveis novos com tabelas actualizadas<br><strong>WhatsApp regional</strong> — Interimobiliárias, Corretores no Brasil',
-    fonte_br_mercado_title: 'Pesquisa de Mercado',
-    fonte_br_mercado: '<strong>DataZAP</strong> (Quanto Vale + Geoimovel + Onde Vale) — maior base, AVM referência<br><strong>Índice FipeZAP</strong> — benchmark nacional de preços (oferta)<br><strong>ITBImap.com.br</strong> — preços REAIS de transacção (SP por agora)',
-    fonte_br_portais_title: 'Publicação em Portais',
-    fonte_br_portais: '<strong>ZAP + VivaReal + OLX</strong> (Grupo OLX) — pacote unificado, maior alcance<br><strong>QuintoAndar + Imovelweb</strong> — 2.º ecossistema, Imovelweb a crescer +35%/ano<br><strong>Chaves na Mão</strong> — bom custo-benefício, em crescimento',
-
-    // Fluxo
-    fluxo_label: 'Como Funciona',
-    fluxo_title: 'O fluxo completo, <span class="highlight">passo a passo</span>',
-    fluxo_1_title: 'Captação automática (M1 — Ingestor)',
-    fluxo_1_desc: 'O sistema monitoriza grupos de WhatsApp, Facebook e portais imobiliários 24/7. Mensagens e anúncios são extraídos, filtrados (removendo ruído) e enviados para classificação por IA em lote. Oportunidades reais recebem grau A–F com score de confiança.',
-    fluxo_2_title: 'Pesquisa de mercado (M2 — Market Research)',
-    fluxo_2_desc: 'Cada oportunidade é enriquecida automaticamente com dados de Casafari, INE, SIR e Idealista (PT) ou DataZAP, FipeZAP e ITBImap (BR). Comparáveis, preços medianos por zona e tendências de mercado são cruzados para validar o potencial.',
-    fluxo_3_title: 'Simulação financeira (M3 — Financial Calculator)',
-    fluxo_3_desc: 'Modelo financeiro completo: IMT/ITBI, imposto de selo/ITCMD, custos de obra, cenários (base/optimista/pessimista), MAO, ROI, TIR, MOIC, yield, cash flow mensal. Adaptado à legislação fiscal de cada país.',
-    fluxo_4_title: 'Pipeline de negócios (M4 — Deal Pipeline)',
-    fluxo_4_desc: 'Kanban com 10 estratégias (Fix&Flip, Value-Add, Rental Hold, etc.). Máquina de estados flexível: triagem → análise → proposta → negociação → CPCV/compromisso → escritura → obra → venda → concluído.',
-    fluxo_5_title: 'Due Diligence (M5) + Renovação (M6)',
-    fluxo_5_desc: 'Checklists automáticos por tipo de imóvel e país. Gestão de obra com orçamento, milestones, despesas e fotos de progresso. Alertas de desvio de prazo/orçamento.',
-    fluxo_6_title: 'Marketing & Leads (M7 + M8)',
-    fluxo_6_desc: 'Geração de conteúdo com IA (descrições, posts, e-mails) em 5 idiomas. CRM de leads com scoring A–F, pipeline de qualificação e integração com Habta.eu.',
-    fluxo_7_title: 'Fecho & P&L (M9 — Closing)',
-    fluxo_7_desc: 'Workflow de escritura, cálculo de mais-valias, IRC/IRPJ, P&L real vs estimado. Relatório fiscal anual e visão consolidada do portfólio.',
-
-    // Módulos
-    modulos_label: 'Módulos do Sistema',
-    modulos_title: '9 módulos, <span class="highlight">um ecossistema</span>',
-    modulos_subtitle: 'Cada módulo funciona de forma independente mas comunica com os restantes para formar um pipeline completo.',
-    tag_critico: 'Crítico',
-    tag_dados: 'Dados',
-    tag_gestao: 'Gestão',
-    tag_verificacao: 'Verificação',
-    tag_obra: 'Obra',
-    tag_vendas: 'Vendas',
-    m1_desc: 'Motor de captação automática de oportunidades via WhatsApp, Facebook e portais imobiliários, com classificação por IA.',
-    m1_f1: 'Monitoriza WhatsApp, grupos Facebook e portais em tempo real',
-    m1_f2: 'Filtragem de ruído (stickers, saudações, média sem texto)',
-    m1_f3: 'Classificação em lote por IA (20 msgs/batch, 3 threads em paralelo)',
-    m1_f4: 'Scoring A–F com confiança 0.0–1.0',
-    m1_f5: 'Enriquecimento automático com dados de mercado PT e BR',
-    m2_desc: 'Pesquisa de comparáveis, AVM, estatísticas de zona e alertas de preço.',
-    m2_f1: 'PT: Casafari (comparáveis + AVM), INE, SIR',
-    m2_f2: 'BR: DataZAP (AVM referência), FipeZAP (benchmark preços)',
-    m2_f3: 'BR: ITBImap.com.br — preços reais de transacção (SP)',
-    m2_f4: 'Cache de 7–30 dias para optimizar chamadas',
-    m3_desc: 'Modelo financeiro completo com cenários, impostos e cash flow — adaptado a PT e BR.',
-    m3_f1: 'IMT/ITBI, Imposto de Selo/ITCMD, custos notariais',
-    m3_f2: '3 cenários automáticos (base, optimista, pessimista)',
-    m3_f3: 'MAO (70%/65%/60% do ARV)',
-    m3_f4: 'ROI, TIR, MOIC, Yield, Cash-on-Cash',
-    m3_f5: 'Cash flow mensal com pico de capital necessário',
-    m4_desc: 'Kanban de negócios com 10 estratégias e máquina de estados flexível.',
-    m4_f1: 'Fix&Flip, Value-Add, Rental Hold, Mediação + 6 mais',
-    m4_f2: 'Triagem → Análise → Proposta → CPCV → Escritura → Venda',
-    m4_f3: 'Tracking de comissões e propostas',
-    m4_f4: 'Métricas de velocidade do pipeline',
-    m5_desc: 'Checklists automáticos por tipo de imóvel e detecção de red flags.',
-    m5_f1: 'Checklists por país e tipo de propriedade',
-    m5_f2: 'Tracking de documentos (certidões, licenças)',
-    m5_f3: 'Gate de aprovação antes de avançar no pipeline',
-    m6_title: 'M6 — Renovação',
-    m6_desc: 'Gestão de obra com orçamento, milestones e tracking de despesas.',
-    m6_f1: 'Orçamento por categoria (eléctrica, canalização, pintura)',
-    m6_f2: 'Pagamentos por milestone',
-    m6_f3: 'Alertas de desvio de prazo/orçamento',
-    m6_f4: 'Galeria de fotos de progresso',
-    m7_desc: 'Geração de conteúdo com IA e publicação multicanal.',
-    m7_f1: 'Brand Kit (cores, fontes, tom de voz)',
-    m7_f2: 'Conteúdo em 5 idiomas (PT-PT, PT-BR, EN, FR, ZH)',
-    m7_f3: 'Posts para WhatsApp, Instagram, Facebook, LinkedIn',
-    m7_f4: 'Descrições de listings e campanhas de e-mail',
-    m7_f5: 'Integração com Trolto para vídeo',
-    m8_desc: 'Pipeline de leads com scoring, nurturing automático e integração Habta.',
-    m8_f1: 'Scoring A–F com algoritmo customizado',
-    m8_f2: 'Etapas: novo → contactado → qualificado → visita → proposta → ganho',
-    m8_f3: 'Sync automático com Habta.eu',
-    m8_f4: 'Funil de conversão e analytics por fonte',
-    m9_desc: 'Fecho de negócios, cálculo de mais-valias e relatório de portfólio.',
-    m9_f1: 'Workflow CPCV → Escritura → Registo',
-    m9_f2: 'P&L real vs estimado por deal',
-    m9_f3: 'IRC, derrama, mais-valias',
-    m9_f4: 'Portfólio: capital investido, lucro total, IRR',
-
-    // IA
-    ia_label: 'Inteligência Artificial',
-    ia_title: 'O cérebro por trás da <span class="highlight-gold">automação</span>',
-    ia_subtitle: 'O imoIA usa inteligência artificial para classificar mensagens, gerar conteúdo de marketing e enriquecer oportunidades automaticamente.',
-    ia_exemplo_titulo: 'Exemplo: Classificação de mensagem do WhatsApp',
-    ia_msg_whatsapp: '"Pessoal, apareceu um apartamento de 2 quartos na Vila Mariana, 72m², prédio dos anos 80. Dono precisa vender rápido, aceita R$ 480k. Região com nova estação do metrô prevista para 2027. Quem quiser avisa."',
-    ia_msg_resposta: '<div style="font-weight: 700; margin-bottom: 0.75rem; color: var(--primary-light);">&#129302; Análise imoIA</div><div style="margin-bottom: 0.75rem;"><span class="tag tag-opp">OPORTUNIDADE &#10003;</span><span class="tag tag-price">R$ 480.000</span><span class="tag tag-location">Vila Mariana, SP</span><span class="tag tag-type">2 quartos &middot; 72m²</span><span class="tag tag-source">WhatsApp</span></div><div style="font-size: 0.82rem; line-height: 1.7;"><strong>Confiança:</strong> 0.94<br><strong>Grau:</strong> A (Abaixo do mercado + Venda urgente)<br><strong>Tipo:</strong> Venda urgente, preço abaixo do mercado<br><strong>Sinal:</strong> Nova estação metrô 2027 = valorização<br><strong>Preço médio FipeZAP Vila Mariana:</strong> R$ 9.800/m² (~R$ 706k para 72m²)<br><strong>Desconto estimado:</strong> ~32%</div>',
-    ia_card1_title: 'Classificação em lote',
-    ia_card1_desc: '20 mensagens por batch, 3 threads em paralelo. Processa centenas de mensagens por minuto com IA.',
-    ia_card2_title: 'Filtragem inteligente',
-    ia_card2_desc: 'Remove automaticamente stickers, média sem texto, saudações ("bom dia") e mensagens curtas. Só analisa conteúdo relevante.',
-    ia_card3_title: 'Geração de conteúdo',
-    ia_card3_desc: 'Descrições de imóveis, posts para redes sociais, e-mails de campanha e SEO — tudo gerado por IA em 5 idiomas.',
-
-    // Dashboard
-    dash_title: 'Tudo visível num único <span class="highlight">painel</span>',
-    dash_subtitle: '11 páginas de frontend cobrindo cada módulo do sistema. Acesso directo via Supabase com fallback para FastAPI.',
-    kanban_triagem: 'Triagem',
-    kanban_analise: 'Análise',
-    dash_chart_title: 'Oportunidades / Semana',
-    dash_resumo_title: 'Resumo do Portfólio',
-    metric_deals: 'Deals activos',
-    metric_capital: 'Capital investido',
-    metric_roi: 'ROI médio',
-    metric_leads: 'Leads qualificados',
-    metric_obras: 'Obras em curso',
-    dia_seg: 'Seg', dia_ter: 'Ter', dia_qua: 'Qua', dia_qui: 'Qui', dia_sex: 'Sex', dia_sab: 'Sáb', dia_dom: 'Dom',
-    page_propriedades: 'Propriedades',
-    page_propriedades_sub: 'Filtros & browse',
-    page_financeiro: 'Financeiro',
-    page_financeiro_sub: 'Simulações',
-    page_mercado: 'Mercado',
-    page_mercado_sub: 'Comparáveis',
-    page_marketing_sub: 'Conteúdo IA',
-
-    // Stack
-    stack_label: 'Stack Tecnológica',
-    stack_title: 'Construído com tecnologia de <span class="highlight">ponta</span>',
-    tech_celery: 'Tarefas assíncronas',
-    tech_tailwind: 'Estilos responsivos',
-    tech_recharts: 'Gráficos & estado',
-    tech_dados_ia: 'Dados & IA',
-    tech_supabase: 'Base de dados principal',
-    tech_claude: 'Classificação & conteúdo IA',
-    tech_integracoes: 'Integrações',
-    tech_casafari: 'Comparáveis, AVM & estatísticas PT',
-    tech_ine: 'Dados estatísticos',
-    tech_br_data: 'AVM, precificação & deal flow BR',
-
-    // Footer
-    footer_tagline: 'Inteligência Imobiliária',
-    footer_desc: 'Captação automática. Análise inteligente. Pipeline completo.<br>Do WhatsApp ao lucro, tudo num único sistema.',
-    footer_copy: 'imoIA © 2026 · Portugal & Brasil · Inteligência imobiliária para investidores',
-  },
-
   'pt-BR': {
     // Nav
-    nav_inicio: 'Início',
-    nav_visao: 'Visão Geral',
+    nav_inicio: 'Inicio',
+    nav_visao: 'Visao Geral',
     nav_fontes: 'Fontes',
     nav_fluxo: 'Fluxo',
-    nav_modulos: 'Módulos',
+    nav_modulos: 'Modulos',
 
     // Hero
-    hero_badge: 'Plataforma de Inteligência Imobiliária',
-    hero_title: 'Da captação ao<br><span class="highlight">negócio fechado</span>,<br>com <span class="highlight-gold">inteligência artificial</span>.',
-    hero_subtitle: 'O imoIA automatiza a captação, análise financeira, gestão de pipeline e marketing de oportunidades de investimento imobiliário no Brasil e em Portugal.',
-    country_pt_detail: 'Mercado ativo — Casafari, INE, SIR, Idealista',
-    country_br_detail: 'Homer, Órulo, DataZAP, FipeZAP, ZAP/VivaReal/OLX',
-    stat_modulos: 'Módulos integrados',
-    stat_estrategias: 'Estratégias de investimento',
-    stat_paises: 'Países suportados',
+    hero_badge: 'Plataforma de Inteligencia Imobiliaria',
+    hero_title: 'Da captacao ao<br><span class="highlight">negocio fechado</span>,<br>com <span class="highlight-gold">inteligencia artificial</span>.',
+    hero_subtitle: 'O imoIA automatiza a captacao, analise financeira, gestao de pipeline e marketing de oportunidades de investimento imobiliario no Brasil.',
+    country_br_detail: 'Homer, Orulo, DataZAP, FipeZAP, ZAP/VivaReal/OLX',
+    stat_modulos: 'Modulos integrados',
+    stat_estrategias: 'Estrategias de investimento',
+    stat_fontes: 'Fontes de dados integradas',
 
-    // Visão
-    visao_label: 'Visão Geral',
+    // Visao
+    visao_label: 'Visao Geral',
     visao_title: 'O problema que a gente resolve',
-    visao_subtitle: 'Investidores perdem oportunidades porque o fluxo de informação é manual, espalhado e lento. O imoIA centraliza tudo em um único sistema inteligente — no Brasil e em Portugal.',
-    pipe_captacao: 'Captação',
+    visao_subtitle: 'Investidores perdem oportunidades porque o fluxo de informacao e manual, espalhado e lento. O imoIA centraliza tudo em um unico sistema inteligente.',
+    pipe_captacao: 'Captacao',
     pipe_ia: 'IA Classifica',
-    pipe_analise: 'Análise',
+    pipe_analise: 'Analise',
     pipe_pipeline: 'Pipeline',
     pipe_obra: 'Reforma',
     pipe_lucro: 'Lucro',
 
     // Fontes
-    fontes_label: 'Fontes de Captação',
-    fontes_title: 'Múltiplas fontes, <span class="highlight">2 países</span>',
-    fontes_subtitle: 'A mesma lógica de classificação por IA aplicada a múltiplas fontes de oportunidades, com cobertura dedicada no Brasil e em Portugal.',
-    fonte_whatsapp: 'Monitoramento de grupos de investidores imobiliários (Interimobiliárias, Corretores no Brasil, grupos regionais). Extração automática com classificação por IA em lote.',
-    fonte_facebook: 'Captação de oportunidades em grupos de compra/venda de imóveis. Mesma lógica de classificação do WhatsApp aplicada ao Facebook.',
-    // PT
-    fonte_pt_captacao_title: 'Captação / Deal Flow',
-    fonte_pt_captacao: 'Casafari, Idealista, Imovirtual, OLX Portugal — scraping automatizado de listings com matching de oportunidades.',
-    fonte_pt_mercado_title: 'Pesquisa de Mercado',
-    fonte_pt_mercado: 'Casafari (comparáveis + AVM), INE (preços médios por município), SIR/Confidencial Imobiliário (transações reais).',
-    fonte_pt_portais_title: 'Publicação em Portais',
-    fonte_pt_portais: 'Idealista, Imovirtual, OLX Portugal, Casa Sapo — publicação e sincronização de anúncios.',
-    // BR
-    fonte_br_captacao_title: 'Captação / Deal Flow',
-    fonte_br_captacao: '<strong>Homer</strong> — matching automático entre corretores, 80k+ cadastrados<br><strong>Órulo</strong> — 100% dos lançamentos/imóveis novos com tabelas atualizadas<br><strong>WhatsApp regional</strong> — Interimobiliárias, Corretores no Brasil',
+    fontes_label: 'Fontes de Captacao',
+    fontes_title: 'Multiplas fontes, <span class="highlight">um sistema</span>',
+    fontes_subtitle: 'A mesma logica de classificacao por IA aplicada a multiplas fontes de oportunidades, com cobertura dedicada no mercado brasileiro.',
+    fonte_whatsapp: 'Monitoramento de grupos de investidores imobiliarios (Interimobiliarias, Corretores no Brasil, grupos regionais). Extracao automatica com classificacao por IA em lote.',
+    fonte_facebook: 'Captacao de oportunidades em grupos de compra/venda de imoveis. Mesma logica de classificacao do WhatsApp aplicada ao Facebook.',
+    fonte_br_captacao_title: 'Captacao / Deal Flow',
+    fonte_br_captacao: '<strong>Homer</strong> — matching automatico entre corretores, 80k+ cadastrados<br><strong>Orulo</strong> — 100% dos lancamentos/imoveis novos com tabelas atualizadas<br><strong>WhatsApp regional</strong> — Interimobiliarias, Corretores no Brasil',
     fonte_br_mercado_title: 'Pesquisa de Mercado',
-    fonte_br_mercado: '<strong>DataZAP</strong> (Quanto Vale + Geoimovel + Onde Vale) — maior base, AVM referência<br><strong>Índice FipeZAP</strong> — benchmark nacional de preços (oferta)<br><strong>ITBImap.com.br</strong> — preços REAIS de transação (SP por enquanto)',
-    fonte_br_portais_title: 'Publicação em Portais',
-    fonte_br_portais: '<strong>ZAP + VivaReal + OLX</strong> (Grupo OLX) — pacote unificado, maior alcance<br><strong>QuintoAndar + Imovelweb</strong> — 2º ecossistema, Imovelweb crescendo +35%/ano<br><strong>Chaves na Mão</strong> — bom custo-benefício, em crescimento',
+    fonte_br_mercado: '<strong>DataZAP</strong> (Quanto Vale + Geoimovel + Onde Vale) — maior base, AVM referencia<br><strong>Indice FipeZAP</strong> — benchmark nacional de precos (oferta)<br><strong>ITBImap.com.br</strong> — precos REAIS de transacao (SP por enquanto)',
+    fonte_br_portais_title: 'Publicacao em Portais',
+    fonte_br_portais: '<strong>ZAP + VivaReal + OLX</strong> (Grupo OLX) — pacote unificado, maior alcance<br><strong>QuintoAndar + Imovelweb</strong> — 2o ecossistema, Imovelweb crescendo +35%/ano<br><strong>Chaves na Mao</strong> — bom custo-beneficio, em crescimento',
 
     // Fluxo
     fluxo_label: 'Como Funciona',
     fluxo_title: 'O fluxo completo, <span class="highlight">passo a passo</span>',
-    fluxo_1_title: 'Captação automática (M1 — Ingestor)',
-    fluxo_1_desc: 'O sistema monitora grupos de WhatsApp, Facebook e portais imobiliários 24/7. Mensagens e anúncios são extraídos, filtrados (removendo ruído) e enviados para classificação por IA em lote. Oportunidades reais recebem grau A–F com score de confiança.',
+    fluxo_1_title: 'Captacao automatica (M1 — Ingestor)',
+    fluxo_1_desc: 'O sistema monitora grupos de WhatsApp, Facebook e portais imobiliarios 24/7. Mensagens e anuncios sao extraidos, filtrados (removendo ruido) e enviados para classificacao por IA em lote. Oportunidades reais recebem grau A-F com score de confianca.',
     fluxo_2_title: 'Pesquisa de mercado (M2 — Market Research)',
-    fluxo_2_desc: 'Cada oportunidade é enriquecida automaticamente com dados de Casafari, INE, SIR e Idealista (PT) ou DataZAP, FipeZAP e ITBImap (BR). Comparáveis, preços médios por região e tendências de mercado são cruzados para validar o potencial.',
-    fluxo_3_title: 'Simulação financeira (M3 — Financial Calculator)',
-    fluxo_3_desc: 'Modelo financeiro completo: ITBI/IMT, ITCMD/Imposto de Selo, custos de obra, cenários (base/otimista/pessimista), MAO, ROI, TIR, MOIC, yield, fluxo de caixa mensal. Adaptado à legislação fiscal de cada país.',
-    fluxo_4_title: 'Pipeline de negócios (M4 — Deal Pipeline)',
-    fluxo_4_desc: 'Kanban com 10 estratégias (Fix&Flip, Value-Add, Rental Hold, etc.). Máquina de estados flexível: triagem → análise → proposta → negociação → compromisso → escritura → obra → venda → concluído.',
+    fluxo_2_desc: 'Cada oportunidade e enriquecida automaticamente com dados de DataZAP, FipeZAP e ITBImap. Comparaveis, precos medios por regiao e tendencias de mercado sao cruzados para validar o potencial.',
+    fluxo_3_title: 'Simulacao financeira (M3 — Financial Calculator)',
+    fluxo_3_desc: 'Modelo financeiro completo: ITBI, ITCMD, custos de obra, cenarios (base/otimista/pessimista), MAO, ROI, TIR, MOIC, yield, fluxo de caixa mensal. Adaptado a legislacao fiscal brasileira.',
+    fluxo_4_title: 'Pipeline de negocios (M4 — Deal Pipeline)',
+    fluxo_4_desc: 'Kanban com 10 estrategias (Fix&Flip, Value-Add, Rental Hold, etc.). Maquina de estados flexivel: triagem \u2192 analise \u2192 proposta \u2192 negociacao \u2192 compromisso \u2192 escritura \u2192 obra \u2192 venda \u2192 concluido.',
     fluxo_5_title: 'Due Diligence (M5) + Reforma (M6)',
-    fluxo_5_desc: 'Checklists automáticos por tipo de imóvel e país. Gestão de obra com orçamento, milestones, despesas e fotos de progresso. Alertas de desvio de prazo/orçamento.',
+    fluxo_5_desc: 'Checklists automaticos por tipo de imovel. Gestao de obra com orcamento, milestones, despesas e fotos de progresso. Alertas de desvio de prazo/orcamento.',
     fluxo_6_title: 'Marketing & Leads (M7 + M8)',
-    fluxo_6_desc: 'Geração de conteúdo com IA (descrições, posts, e-mails) em 5 idiomas. CRM de leads com scoring A–F, pipeline de qualificação e integração com Habta.eu.',
+    fluxo_6_desc: 'Geracao de conteudo com IA (descricoes, posts, e-mails) em multiplos idiomas. CRM de leads com scoring A-F, pipeline de qualificacao e integracao com Habta.eu.',
     fluxo_7_title: 'Fechamento & P&L (M9 — Closing)',
-    fluxo_7_desc: 'Workflow de escritura, cálculo de ganho de capital, IRPJ/IRC, P&L real vs estimado. Relatório fiscal anual e visão consolidada do portfólio.',
+    fluxo_7_desc: 'Workflow de escritura, calculo de ganho de capital, IRPJ, P&L real vs estimado. Relatorio fiscal anual e visao consolidada do portfolio.',
 
-    // Módulos
-    modulos_label: 'Módulos do Sistema',
-    modulos_title: '9 módulos, <span class="highlight">um ecossistema</span>',
-    modulos_subtitle: 'Cada módulo funciona de forma independente mas se comunica com os outros para formar um pipeline completo.',
-    tag_critico: 'Crítico',
+    // Modulos
+    modulos_label: 'Modulos do Sistema',
+    modulos_title: '9 modulos, <span class="highlight">um ecossistema</span>',
+    modulos_subtitle: 'Cada modulo funciona de forma independente mas se comunica com os outros para formar um pipeline completo.',
+    tag_critico: 'Critico',
     tag_dados: 'Dados',
-    tag_gestao: 'Gestão',
-    tag_verificacao: 'Verificação',
+    tag_gestao: 'Gestao',
+    tag_verificacao: 'Verificacao',
     tag_obra: 'Obra',
     tag_vendas: 'Vendas',
-    m1_desc: 'Motor de captação automática de oportunidades via WhatsApp, Facebook e portais imobiliários, com classificação por IA.',
+    m1_desc: 'Motor de captacao automatica de oportunidades via WhatsApp, Facebook e portais imobiliarios, com classificacao por IA.',
     m1_f1: 'Monitora WhatsApp, grupos Facebook e portais em tempo real',
-    m1_f2: 'Filtragem de ruído (stickers, cumprimentos, mídia sem texto)',
-    m1_f3: 'Classificação em lote por IA (20 msgs/batch, 3 threads em paralelo)',
-    m1_f4: 'Scoring A–F com confiança 0.0–1.0',
-    m1_f5: 'Enriquecimento automático com dados de mercado PT e BR',
-    m2_desc: 'Pesquisa de comparáveis, AVM, estatísticas de zona e alertas de preço.',
-    m2_f1: 'PT: Casafari (comparáveis + AVM), INE, SIR',
-    m2_f2: 'BR: DataZAP (AVM referência), FipeZAP (benchmark preços)',
-    m2_f3: 'BR: ITBImap.com.br — preços reais de transação (SP)',
-    m2_f4: 'Cache de 7–30 dias para otimizar chamadas',
-    m3_desc: 'Modelo financeiro completo com cenários, impostos e fluxo de caixa — adaptado a PT e BR.',
-    m3_f1: 'ITBI/IMT, ITCMD/Imposto de Selo, custos de cartório',
-    m3_f2: '3 cenários automáticos (base, otimista, pessimista)',
+    m1_f2: 'Filtragem de ruido (stickers, cumprimentos, midia sem texto)',
+    m1_f3: 'Classificacao em lote por IA (20 msgs/batch, 3 threads em paralelo)',
+    m1_f4: 'Scoring A-F com confianca 0.0-1.0',
+    m1_f5: 'Enriquecimento automatico com dados de mercado BR',
+    m2_desc: 'Pesquisa de comparaveis, AVM, estatisticas de zona e alertas de preco.',
+    m2_f1: 'DataZAP (AVM referencia), FipeZAP (benchmark precos)',
+    m2_f2: 'ITBImap.com.br — precos reais de transacao (SP)',
+    m2_f3: 'Homer + Orulo — deal flow e lancamentos',
+    m2_f4: 'Cache de 7-30 dias para otimizar chamadas',
+    m3_desc: 'Modelo financeiro completo com cenarios, impostos e fluxo de caixa — adaptado ao mercado brasileiro.',
+    m3_f1: 'ITBI, ITCMD, custos de cartorio',
+    m3_f2: '3 cenarios automaticos (base, otimista, pessimista)',
     m3_f3: 'MAO (70%/65%/60% do ARV)',
     m3_f4: 'ROI, TIR, MOIC, Yield, Cash-on-Cash',
-    m3_f5: 'Fluxo de caixa mensal com pico de capital necessário',
-    m4_desc: 'Kanban de negócios com 10 estratégias e máquina de estados flexível.',
-    m4_f1: 'Fix&Flip, Value-Add, Rental Hold, Mediação + 6 mais',
-    m4_f2: 'Triagem → Análise → Proposta → Compromisso → Escritura → Venda',
-    m4_f3: 'Tracking de comissões e propostas',
-    m4_f4: 'Métricas de velocidade do pipeline',
-    m5_desc: 'Checklists automáticos por tipo de imóvel e detecção de red flags.',
-    m5_f1: 'Checklists por país e tipo de propriedade',
-    m5_f2: 'Tracking de documentos (certidões, alvarás)',
-    m5_f3: 'Aprovação obrigatória antes de avançar no pipeline',
+    m3_f5: 'Fluxo de caixa mensal com pico de capital necessario',
+    m4_desc: 'Kanban de negocios com 10 estrategias e maquina de estados flexivel.',
+    m4_f1: 'Fix&Flip, Value-Add, Rental Hold, Mediacao + 6 mais',
+    m4_f2: 'Triagem \u2192 Analise \u2192 Proposta \u2192 Compromisso \u2192 Escritura \u2192 Venda',
+    m4_f3: 'Tracking de comissoes e propostas',
+    m4_f4: 'Metricas de velocidade do pipeline',
+    m5_desc: 'Checklists automaticos por tipo de imovel e deteccao de red flags.',
+    m5_f1: 'Checklists por tipo de propriedade',
+    m5_f2: 'Tracking de documentos (certidoes, alvaras)',
+    m5_f3: 'Aprovacao obrigatoria antes de avancar no pipeline',
     m6_title: 'M6 — Reforma',
-    m6_desc: 'Gestão de obra com orçamento, milestones e tracking de despesas.',
-    m6_f1: 'Orçamento por categoria (elétrica, hidráulica, pintura)',
+    m6_desc: 'Gestao de obra com orcamento, milestones e tracking de despesas.',
+    m6_f1: 'Orcamento por categoria (eletrica, hidraulica, pintura)',
     m6_f2: 'Pagamentos por milestone',
-    m6_f3: 'Alertas de desvio de prazo/orçamento',
+    m6_f3: 'Alertas de desvio de prazo/orcamento',
     m6_f4: 'Galeria de fotos de progresso',
-    m7_desc: 'Geração de conteúdo com IA e publicação multicanal.',
+    m7_desc: 'Geracao de conteudo com IA e publicacao multicanal.',
     m7_f1: 'Brand Kit (cores, fontes, tom de voz)',
-    m7_f2: 'Conteúdo em 5 idiomas (PT-PT, PT-BR, EN, FR, ZH)',
+    m7_f2: 'Conteudo em 4 idiomas (PT-BR, EN, FR, ZH)',
     m7_f3: 'Posts para WhatsApp, Instagram, Facebook, LinkedIn',
-    m7_f4: 'Descrições de anúncios e campanhas de e-mail',
-    m7_f5: 'Integração com Trolto para vídeo',
-    m8_desc: 'Pipeline de leads com scoring, nurturing automático e integração Habta.',
-    m8_f1: 'Scoring A–F com algoritmo customizado',
-    m8_f2: 'Etapas: novo → contatado → qualificado → visita → proposta → ganho',
-    m8_f3: 'Sync automático com Habta.eu',
-    m8_f4: 'Funil de conversão e analytics por fonte',
-    m9_desc: 'Fechamento de negócios, cálculo de ganho de capital e relatório de portfólio.',
-    m9_f1: 'Workflow Compromisso → Escritura → Registro',
+    m7_f4: 'Descricoes de anuncios e campanhas de e-mail',
+    m7_f5: 'Integracao com Trolto para video',
+    m8_desc: 'Pipeline de leads com scoring, nurturing automatico e integracao Habta.',
+    m8_f1: 'Scoring A-F com algoritmo customizado',
+    m8_f2: 'Etapas: novo \u2192 contatado \u2192 qualificado \u2192 visita \u2192 proposta \u2192 ganho',
+    m8_f3: 'Sync automatico com Habta.eu',
+    m8_f4: 'Funil de conversao e analytics por fonte',
+    m9_desc: 'Fechamento de negocios, calculo de ganho de capital e relatorio de portfolio.',
+    m9_f1: 'Workflow Compromisso \u2192 Escritura \u2192 Registro',
     m9_f2: 'P&L real vs estimado por deal',
     m9_f3: 'IRPJ, CSLL, ganho de capital',
-    m9_f4: 'Portfólio: capital investido, lucro total, IRR',
+    m9_f4: 'Portfolio: capital investido, lucro total, IRR',
 
     // IA
-    ia_label: 'Inteligência Artificial',
-    ia_title: 'O cérebro por trás da <span class="highlight-gold">automação</span>',
-    ia_subtitle: 'O imoIA usa inteligência artificial para classificar mensagens, gerar conteúdo de marketing e enriquecer oportunidades automaticamente.',
-    ia_exemplo_titulo: 'Exemplo: Classificação de mensagem do WhatsApp',
-    ia_msg_whatsapp: '"Galera, apareceu um apê de 2 quartos na Vila Mariana, 72m², prédio dos anos 80. Dono precisa vender rápido, aceita R$ 480k. Região com nova estação do metrô prevista pra 2027. Quem quiser avisa."',
-    ia_msg_resposta: '<div style="font-weight: 700; margin-bottom: 0.75rem; color: var(--primary-light);">&#129302; Análise imoIA</div><div style="margin-bottom: 0.75rem;"><span class="tag tag-opp">OPORTUNIDADE &#10003;</span><span class="tag tag-price">R$ 480.000</span><span class="tag tag-location">Vila Mariana, SP</span><span class="tag tag-type">2 quartos &middot; 72m²</span><span class="tag tag-source">WhatsApp</span></div><div style="font-size: 0.82rem; line-height: 1.7;"><strong>Confiança:</strong> 0.94<br><strong>Grau:</strong> A (Abaixo do mercado + Venda urgente)<br><strong>Tipo:</strong> Venda urgente, preço abaixo do mercado<br><strong>Sinal:</strong> Nova estação metrô 2027 = valorização<br><strong>Preço médio FipeZAP Vila Mariana:</strong> R$ 9.800/m² (~R$ 706k para 72m²)<br><strong>Desconto estimado:</strong> ~32%</div>',
-    ia_card1_title: 'Classificação em lote',
+    ia_label: 'Inteligencia Artificial',
+    ia_title: 'O cerebro por tras da <span class="highlight-gold">automacao</span>',
+    ia_subtitle: 'O imoIA usa inteligencia artificial para classificar mensagens, gerar conteudo de marketing e enriquecer oportunidades automaticamente.',
+    ia_exemplo_titulo: 'Exemplo: Classificacao de mensagem do WhatsApp',
+    ia_msg_whatsapp: '"Galera, apareceu um ape de 2 quartos na Vila Mariana, 72m2, predio dos anos 80. Dono precisa vender rapido, aceita R$ 480k. Regiao com nova estacao do metro prevista pra 2027. Quem quiser avisa."',
+    ia_msg_resposta: '<div style="font-weight: 700; margin-bottom: 0.75rem; color: var(--primary-light);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"/></svg> Analise imoIA</div><div style="margin-bottom: 0.75rem;"><span class="tag tag-opp">OPORTUNIDADE &#10003;</span><span class="tag tag-price">R$ 480.000</span><span class="tag tag-location">Vila Mariana, SP</span><span class="tag tag-type">2 quartos &middot; 72m2</span><span class="tag tag-source">WhatsApp</span></div><div style="font-size: 0.82rem; line-height: 1.7;"><strong>Confianca:</strong> 0.94<br><strong>Grau:</strong> A (Abaixo do mercado + Venda urgente)<br><strong>Tipo:</strong> Venda urgente, preco abaixo do mercado<br><strong>Sinal:</strong> Nova estacao metro 2027 = valorizacao<br><strong>Preco medio FipeZAP Vila Mariana:</strong> R$ 9.800/m2 (~R$ 706k para 72m2)<br><strong>Desconto estimado:</strong> ~32%</div>',
+    ia_card1_title: 'Classificacao em lote',
     ia_card1_desc: '20 mensagens por batch, 3 threads em paralelo. Processa centenas de mensagens por minuto com IA.',
     ia_card2_title: 'Filtragem inteligente',
-    ia_card2_desc: 'Remove automaticamente stickers, mídia sem texto, cumprimentos ("bom dia") e mensagens curtas. Só analisa conteúdo relevante.',
-    ia_card3_title: 'Geração de conteúdo',
-    ia_card3_desc: 'Descrições de imóveis, posts para redes sociais, e-mails de campanha e SEO — tudo gerado por IA em 5 idiomas.',
+    ia_card2_desc: 'Remove automaticamente stickers, midia sem texto, cumprimentos ("bom dia") e mensagens curtas. So analisa conteudo relevante.',
+    ia_card3_title: 'Geracao de conteudo',
+    ia_card3_desc: 'Descricoes de imoveis, posts para redes sociais, e-mails de campanha e SEO — tudo gerado por IA em multiplos idiomas.',
 
     // Dashboard
-    dash_title: 'Tudo visível em um único <span class="highlight">painel</span>',
-    dash_subtitle: '11 páginas de frontend cobrindo cada módulo do sistema. Acesso direto via Supabase com fallback para FastAPI.',
+    dash_title: 'Tudo visivel em um unico <span class="highlight">painel</span>',
+    dash_subtitle: '11 paginas de frontend cobrindo cada modulo do sistema. Acesso direto via Supabase com fallback para FastAPI.',
     kanban_triagem: 'Triagem',
-    kanban_analise: 'Análise',
+    kanban_analise: 'Analise',
     dash_chart_title: 'Oportunidades / Semana',
-    dash_resumo_title: 'Resumo do Portfólio',
+    dash_resumo_title: 'Resumo do Portfolio',
     metric_deals: 'Deals ativos',
     metric_capital: 'Capital investido',
-    metric_roi: 'ROI médio',
+    metric_roi: 'ROI medio',
     metric_leads: 'Leads qualificados',
     metric_obras: 'Obras em andamento',
-    dia_seg: 'Seg', dia_ter: 'Ter', dia_qua: 'Qua', dia_qui: 'Qui', dia_sex: 'Sex', dia_sab: 'Sáb', dia_dom: 'Dom',
+    dia_seg: 'Seg', dia_ter: 'Ter', dia_qua: 'Qua', dia_qui: 'Qui', dia_sex: 'Sex', dia_sab: 'Sab', dia_dom: 'Dom',
     page_propriedades: 'Propriedades',
     page_propriedades_sub: 'Filtros & busca',
     page_financeiro: 'Financeiro',
-    page_financeiro_sub: 'Simulações',
+    page_financeiro_sub: 'Simulacoes',
     page_mercado: 'Mercado',
-    page_mercado_sub: 'Comparáveis',
-    page_marketing_sub: 'Conteúdo IA',
+    page_mercado_sub: 'Comparaveis',
+    page_marketing_sub: 'Conteudo IA',
 
     // Stack
-    stack_label: 'Stack Tecnológica',
-    stack_title: 'Construído com tecnologia de <span class="highlight">ponta</span>',
-    tech_celery: 'Tarefas assíncronas',
+    stack_label: 'Stack Tecnologica',
+    stack_title: 'Construido com tecnologia de <span class="highlight">ponta</span>',
+    tech_celery: 'Tarefas assincronas',
     tech_tailwind: 'Estilos responsivos',
-    tech_recharts: 'Gráficos & estado',
+    tech_recharts: 'Graficos & estado',
     tech_dados_ia: 'Dados & IA',
     tech_supabase: 'Banco de dados principal',
-    tech_claude: 'Classificação & conteúdo IA',
-    tech_integracoes: 'Integrações',
-    tech_casafari: 'Comparáveis, AVM & estatísticas PT',
-    tech_ine: 'Dados estatísticos',
-    tech_br_data: 'AVM, precificação & deal flow BR',
+    tech_claude: 'Classificacao & conteudo IA',
+    tech_integracoes: 'Integracoes',
+    tech_br_data: 'AVM, precificacao & deal flow BR',
 
     // Footer
-    footer_tagline: 'Inteligência Imobiliária',
-    footer_desc: 'Captação automática. Análise inteligente. Pipeline completo.<br>Do WhatsApp ao lucro, tudo em um único sistema.',
-    footer_copy: 'imoIA © 2026 · Brasil & Portugal · Inteligência imobiliária para investidores',
+    footer_tagline: 'Inteligencia Imobiliaria',
+    footer_desc: 'Captacao automatica. Analise inteligente. Pipeline completo.<br>Do WhatsApp ao lucro, tudo em um unico sistema.',
+    footer_copy: 'imoIA \u00a9 2026 \u00b7 Brasil \u00b7 Inteligencia imobiliaria para investidores',
   }
 };
 
 let currentLang = 'pt-BR';
-try { currentLang = localStorage.getItem('imoia-lang') || 'pt-BR'; } catch(e) {}
 
 function setLang(lang) {
   currentLang = lang;
-  try { localStorage.setItem('imoia-lang', lang); } catch(e) {}
   document.documentElement.lang = lang;
-
-  // Update lang buttons
-  document.querySelectorAll('.lang-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.textContent === (lang === 'pt-PT' ? 'PT' : 'BR'));
-  });
 
   // Update text content
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
-    if (T[lang][key] !== undefined) {
+    if (T[lang] && T[lang][key] !== undefined) {
       el.textContent = T[lang][key];
     }
   });
@@ -1824,7 +1581,7 @@ function setLang(lang) {
   // Update HTML content (for elements with spans/tags inside)
   document.querySelectorAll('[data-i18n-html]').forEach(el => {
     const key = el.getAttribute('data-i18n-html');
-    if (T[lang][key] !== undefined) {
+    if (T[lang] && T[lang][key] !== undefined) {
       el.innerHTML = T[lang][key];
     }
   });
