@@ -820,8 +820,8 @@
       <li><a href="#fluxo" data-i18n="nav_fluxo">Fluxo</a></li>
       <li><a href="#modulos" data-i18n="nav_modulos">Módulos</a></li>
       <li><a href="#ia">IA</a></li>
+      <li><a href="#criativos">Criativos</a></li>
       <li><a href="#dashboard">Dashboard</a></li>
-      <li><a href="#stack">Stack</a></li>
     </ul>
   </div>
 </nav>
@@ -830,14 +830,21 @@
 <section id="hero">
   <div class="hero-badge" data-i18n="hero_badge">Plataforma de Inteligência Imobiliária</div>
   <h1 class="fade-in" data-i18n-html="hero_title">Da captação ao<br><span class="highlight">negócio fechado</span>,<br>com <span class="highlight-gold">inteligência artificial</span>.</h1>
-  <p class="subtitle fade-in" data-i18n="hero_subtitle">O imoIA automatiza a captação, análise financeira, gestão de pipeline e marketing de oportunidades de investimento imobiliário no Brasil.</p>
+  <p class="subtitle fade-in" data-i18n="hero_subtitle">O imoIA automatiza a captação, análise financeira, gestão de pipeline e marketing de oportunidades de investimento imobiliário no Brasil e na Europa.</p>
 
   <div class="countries-banner fade-in">
     <div class="country-item">
-      <div class="country-flag">BR</div>
+      <div class="country-flag" style="font-weight: 800; color: var(--success);">BR</div>
       <div>
         <div class="country-name">Brasil</div>
-        <div class="country-detail" data-i18n="country_br_detail">Homer, Órulo, DataZAP, FipeZAP, ZAP/VivaReal/OLX</div>
+        <div class="country-detail">Homer, Órulo, DataZAP, FipeZAP, ZAP/VivaReal/OLX</div>
+      </div>
+    </div>
+    <div class="country-item">
+      <div class="country-flag" style="font-weight: 800; color: var(--primary-light);">EU</div>
+      <div>
+        <div class="country-name">Europa</div>
+        <div class="country-detail">Casafari, INE, SIR, Idealista, Imovirtual</div>
       </div>
     </div>
   </div>
@@ -845,19 +852,19 @@
   <div class="hero-stats fade-in">
     <div class="stat-card">
       <div class="stat-number">9</div>
-      <div class="stat-label" data-i18n="stat_modulos">Módulos integrados</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-number">60+</div>
-      <div class="stat-label">API endpoints</div>
+      <div class="stat-label">Módulos integrados</div>
     </div>
     <div class="stat-card">
       <div class="stat-number">10</div>
-      <div class="stat-label" data-i18n="stat_estrategias">Estratégias de investimento</div>
+      <div class="stat-label">Estratégias de investimento</div>
     </div>
     <div class="stat-card">
-      <div class="stat-number">6+</div>
-      <div class="stat-label" data-i18n="stat_fontes">Fontes de dados integradas</div>
+      <div class="stat-number">2</div>
+      <div class="stat-label">Mercados (BR + EU)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">10+</div>
+      <div class="stat-label">Fontes de dados</div>
     </div>
   </div>
 </section>
@@ -866,7 +873,7 @@
 <section id="visao">
   <div class="section-label fade-in" data-i18n="visao_label">Visão Geral</div>
   <h2 class="fade-in" data-i18n="visao_title">O problema que a gente resolve</h2>
-  <p class="subtitle fade-in" style="margin-bottom: 2rem;" data-i18n="visao_subtitle">Investidores perdem oportunidades porque o fluxo de informação é manual, espalhado e lento. O imoIA centraliza tudo em um único sistema inteligente.</p>
+  <p class="subtitle fade-in" style="margin-bottom: 2rem;" data-i18n="visao_subtitle">Investidores perdem oportunidades porque o fluxo de informação é manual, espalhado e lento. O imoIA centraliza tudo em um único sistema inteligente — no Brasil e na Europa.</p>
 
   <div class="pipeline-flow fade-in">
     <div class="pipeline-step">
@@ -900,7 +907,7 @@
 <section id="fontes">
   <div class="section-label fade-in" data-i18n="fontes_label">Fontes de Captação</div>
   <h2 class="fade-in" data-i18n-html="fontes_title">Múltiplas fontes, <span class="highlight">um sistema</span></h2>
-  <p class="subtitle fade-in" data-i18n="fontes_subtitle">A mesma lógica de classificação por IA aplicada a múltiplas fontes de oportunidades, com cobertura dedicada no mercado brasileiro.</p>
+  <p class="subtitle fade-in" data-i18n="fontes_subtitle">A mesma lógica de classificação por IA aplicada a múltiplas fontes de oportunidades, com cobertura no Brasil e na Europa.</p>
 
   <!-- Fontes comuns (WhatsApp + Facebook) -->
   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 2rem; width: 100%;" class="fade-in">
@@ -910,6 +917,7 @@
       <p data-i18n="fonte_whatsapp">Monitoramento de grupos de investidores imobiliários (Interimobiliárias, Corretores no Brasil, grupos regionais). Extração automática com classificação por IA em lote.</p>
       <div class="source-countries">
         <span class="source-country-tag">BR Brasil</span>
+        <span class="source-country-tag">EU Europa</span>
       </div>
     </div>
     <div class="source-card">
@@ -918,6 +926,7 @@
       <p data-i18n="fonte_facebook">Captação de oportunidades em grupos de compra/venda de imóveis. Mesma lógica de classificação do WhatsApp aplicada ao Facebook.</p>
       <div class="source-countries">
         <span class="source-country-tag">BR Brasil</span>
+        <span class="source-country-tag">EU Europa</span>
       </div>
     </div>
   </div>
@@ -942,6 +951,30 @@
         <div class="source-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
         <h3 data-i18n="fonte_br_portais_title">Publicação em Portais</h3>
         <p data-i18n-html="fonte_br_portais"><strong>ZAP + VivaReal + OLX</strong> (Grupo OLX) — pacote unificado, maior alcance<br><strong>QuintoAndar + Imovelweb</strong> — 2o ecossistema, Imovelweb crescendo +35%/ano<br><strong>Chaves na Mão</strong> — bom custo-benefício, em crescimento</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- EUROPA -->
+  <div style="margin-top: 3rem; width: 100%;" class="fade-in">
+    <h3 style="font-size: 1.1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
+      <span style="font-weight: 800; color: var(--primary-light);">EU</span> Europa
+    </h3>
+    <div class="sources-grid">
+      <div class="source-card">
+        <div class="source-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+        <h3>Captação / Deal Flow</h3>
+        <p>Casafari, Idealista, Imovirtual, OLX — scraping automatizado de listings com matching de oportunidades no mercado europeu.</p>
+      </div>
+      <div class="source-card">
+        <div class="source-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+        <h3>Pesquisa de Mercado</h3>
+        <p>Casafari (comparáveis + AVM), INE (preços médios por município), SIR/Confidencial Imobiliário (transações reais).</p>
+      </div>
+      <div class="source-card">
+        <div class="source-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+        <h3>Publicação em Portais</h3>
+        <p>Idealista, Imovirtual, OLX, Casa Sapo — publicação e sincronização de anúncios no mercado europeu.</p>
       </div>
     </div>
   </div>
@@ -1300,85 +1333,45 @@
   </div>
 </section>
 
-<!-- STACK -->
-<section id="stack">
-  <div class="section-label fade-in" data-i18n="stack_label">Stack Tecnológica</div>
-  <h2 class="fade-in" data-i18n-html="stack_title">Construído com tecnologia de <span class="highlight">ponta</span></h2>
+<!-- CRIATIVOS & MARKETING -->
+<section id="criativos">
+  <div class="section-label fade-in">Marketing & Criativos</div>
+  <h2 class="fade-in">Peças de marketing geradas por <span class="highlight-gold">IA</span></h2>
+  <p class="subtitle fade-in" style="margin-bottom: 2rem;">O imoIA gera automaticamente descrições, posts para redes sociais, campanhas de e-mail e vídeos — tudo adaptado ao imóvel e ao público-alvo.</p>
 
-  <div class="tech-grid fade-in">
-    <div class="tech-category">
-      <h3>Backend</h3>
-      <div class="tech-item">
-        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
-        <div><div class="tech-name">FastAPI (Python)</div><div class="tech-role">API REST principal</div></div>
-      </div>
-      <div class="tech-item">
-        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div>
-        <div><div class="tech-name">SQLAlchemy</div><div class="tech-role">ORM & migrations</div></div>
-      </div>
-      <div class="tech-item">
-        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></div>
-        <div><div class="tech-name">Celery + Redis</div><div class="tech-role" data-i18n="tech_celery">Tarefas assíncronas</div></div>
-      </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; width: 100%;" class="fade-in">
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--primary);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+      <h3 style="font-size: 1rem;">Descrições de imóveis</h3>
+      <p class="module-desc" style="margin-bottom: 0;">Textos otimizados para portais (ZAP, OLX, VivaReal) e redes sociais. Gerados por IA com base nas características do imóvel, bairro e perfil do comprador.</p>
     </div>
-
-    <div class="tech-category">
-      <h3>Frontend</h3>
-      <div class="tech-item">
-        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
-        <div><div class="tech-name">Next.js 15 + React 19</div><div class="tech-role">Framework UI</div></div>
-      </div>
-      <div class="tech-item">
-        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg></div>
-        <div><div class="tech-name">Tailwind CSS</div><div class="tech-role" data-i18n="tech_tailwind">Estilos responsivos</div></div>
-      </div>
-      <div class="tech-item">
-        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
-        <div><div class="tech-name">Recharts + Zustand</div><div class="tech-role" data-i18n="tech_recharts">Gráficos & estado</div></div>
-      </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--accent);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></div>
+      <h3 style="font-size: 1rem;">Posts para redes sociais</h3>
+      <p class="module-desc" style="margin-bottom: 0;">Conteúdo pronto para Instagram, Facebook, LinkedIn e WhatsApp. Com hashtags, CTAs e copy adaptado ao tom de voz da marca.</p>
     </div>
-
-    <div class="tech-category">
-      <h3 data-i18n="tech_dados_ia">Dados & IA</h3>
-      <div class="tech-item">
-        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></div>
-        <div><div class="tech-name">Supabase (PostgreSQL)</div><div class="tech-role" data-i18n="tech_supabase">Banco de dados principal</div></div>
-      </div>
-      <div class="tech-item">
-        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"/></svg></div>
-        <div><div class="tech-name">Motor de IA</div><div class="tech-role" data-i18n="tech_claude">Classificação & conteúdo IA</div></div>
-      </div>
-      <div class="tech-item">
-        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
-        <div><div class="tech-name">Whapi.Cloud</div><div class="tech-role">API WhatsApp</div></div>
-      </div>
-    </div>
-
-    <div class="tech-category">
-      <h3 data-i18n="tech_integracoes">Integrações</h3>
-      <div class="tech-item">
-        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
-        <div><div class="tech-name">DataZAP + FipeZAP + Homer</div><div class="tech-role" data-i18n="tech_br_data">AVM, precificação & deal flow BR</div></div>
-      </div>
-      <div class="tech-item">
-        <div class="tech-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
-        <div><div class="tech-name">Habta.eu</div><div class="tech-role">Sync de leads</div></div>
-      </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--success);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+      <h3 style="font-size: 1rem;">Campanhas de e-mail</h3>
+      <p class="module-desc" style="margin-bottom: 0;">E-mails de nurturing, follow-up e lançamento gerados por IA. Sequências automáticas por estágio do lead no pipeline.</p>
     </div>
   </div>
 
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 2rem; width: 100%;" class="fade-in">
-    <div class="module-card" style="padding: 1.5rem; border-left: 3px solid var(--primary);">
-      <h3 style="font-size: 0.9rem;">Frontend</h3>
-      <p style="color: var(--text-muted); font-size: 0.85rem;">Vercel — imoia.vercel.app</p>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-top: 1.25rem; width: 100%;" class="fade-in">
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #ec4899;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></div>
+      <h3 style="font-size: 1rem;">Vídeos automatizados</h3>
+      <p class="module-desc" style="margin-bottom: 0;">Geração de vídeos de apresentação do imóvel via integração com Trolto. Templates prontos com fotos, dados e narração automática.</p>
     </div>
-    <div class="module-card" style="padding: 1.5rem; border-left: 3px solid var(--accent);">
-      <h3 style="font-size: 0.9rem;">Backend API</h3>
-      <p style="color: var(--text-muted); font-size: 0.85rem;">Render — FastAPI + PostgreSQL</p>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #8b5cf6;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+      <h3 style="font-size: 1rem;">Multi-idioma</h3>
+      <p class="module-desc" style="margin-bottom: 0;">Todo o conteúdo gerado em 4 idiomas: PT-BR, inglês, francês e mandarim. Ideal para captar investidores internacionais.</p>
     </div>
-    <div class="module-card" style="padding: 1.5rem; border-left: 3px solid var(--success);">
-      <h3 style="font-size: 0.9rem;">Database</h3>
-      <p style="color: var(--text-muted); font-size: 0.85rem;">Supabase — PostgreSQL managed</p>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #06b6d4;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+      <h3 style="font-size: 1rem;">Brand Kit</h3>
+      <p class="module-desc" style="margin-bottom: 0;">Cores, fontes, tom de voz e guidelines da marca configurados uma vez. Toda peça gerada segue a identidade visual automaticamente.</p>
     </div>
   </div>
 </section>
@@ -1387,7 +1380,7 @@
 <section class="footer-section" id="footer" style="min-height: auto;">
   <h2 class="fade-in"><span class="highlight">imoIA</span> — <span data-i18n="footer_tagline">Inteligência Imobiliária</span></h2>
   <p class="subtitle fade-in" style="margin: 1rem auto 0; text-align: center;" data-i18n-html="footer_desc">Captação automática. Análise inteligente. Pipeline completo.<br>Do WhatsApp ao lucro, tudo em um único sistema.</p>
-  <div class="footer-meta" data-i18n="footer_copy">imoIA &copy; 2026 &middot; Brasil &middot; Inteligência imobiliária para investidores</div>
+  <div class="footer-meta" data-i18n="footer_copy">imoIA &copy; 2026 &middot; Brasil & Europa &middot; Inteligência imobiliária para investidores</div>
 </section>
 
 <script>
@@ -1403,16 +1396,12 @@ const T = {
     // Hero
     hero_badge: 'Plataforma de Inteligência Imobiliária',
     hero_title: 'Da captação ao<br><span class="highlight">negócio fechado</span>,<br>com <span class="highlight-gold">inteligência artificial</span>.',
-    hero_subtitle: 'O imoIA automatiza a captação, análise financeira, gestão de pipeline e marketing de oportunidades de investimento imobiliário no Brasil.',
-    country_br_detail: 'Homer, Órulo, DataZAP, FipeZAP, ZAP/VivaReal/OLX',
-    stat_modulos: 'Módulos integrados',
-    stat_estrategias: 'Estratégias de investimento',
-    stat_fontes: 'Fontes de dados integradas',
+    hero_subtitle: 'O imoIA automatiza a captação, análise financeira, gestão de pipeline e marketing de oportunidades de investimento imobiliário no Brasil e na Europa.',
 
     // Visão
     visao_label: 'Visão Geral',
     visao_title: 'O problema que a gente resolve',
-    visao_subtitle: 'Investidores perdem oportunidades porque o fluxo de informação é manual, espalhado e lento. O imoIA centraliza tudo em um único sistema inteligente.',
+    visao_subtitle: 'Investidores perdem oportunidades porque o fluxo de informação é manual, espalhado e lento. O imoIA centraliza tudo em um único sistema inteligente — no Brasil e na Europa.',
     pipe_captacao: 'Captação',
     pipe_ia: 'IA Classifica',
     pipe_analise: 'Análise',
@@ -1423,7 +1412,7 @@ const T = {
     // Fontes
     fontes_label: 'Fontes de Captação',
     fontes_title: 'Múltiplas fontes, <span class="highlight">um sistema</span>',
-    fontes_subtitle: 'A mesma lógica de classificação por IA aplicada a múltiplas fontes de oportunidades, com cobertura dedicada no mercado brasileiro.',
+    fontes_subtitle: 'A mesma lógica de classificação por IA aplicada a múltiplas fontes de oportunidades, com cobertura no Brasil e na Europa.',
     fonte_whatsapp: 'Monitoramento de grupos de investidores imobiliários (Interimobiliárias, Corretores no Brasil, grupos regionais). Extração automática com classificação por IA em lote.',
     fonte_facebook: 'Captação de oportunidades em grupos de compra/venda de imóveis. Mesma lógica de classificação do WhatsApp aplicada ao Facebook.',
     fonte_br_captacao_title: 'Captação / Deal Flow',
@@ -1560,7 +1549,7 @@ const T = {
     // Footer
     footer_tagline: 'Inteligência Imobiliária',
     footer_desc: 'Captação automática. Análise inteligente. Pipeline completo.<br>Do WhatsApp ao lucro, tudo em um único sistema.',
-    footer_copy: 'imoIA \u00a9 2026 \u00b7 Brasil \u00b7 Inteligência imobiliária para investidores',
+    footer_copy: 'imoIA \u00a9 2026 \u00b7 Brasil & Europa \u00b7 Inteligência imobiliária para investidores',
   }
 };
 
