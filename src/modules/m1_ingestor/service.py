@@ -1074,7 +1074,7 @@ def run_pipeline() -> PipelineResult:
         except Exception:
             return False
 
-    groups_to_archive = [g.get("id") for g in active_with_unread if g.get("id")]
+    groups_to_archive = [g.get("id") for g in active_groups if g.get("id")]
     if groups_to_archive:
         with ThreadPoolExecutor(max_workers=10) as executor:
             archive_futures = [executor.submit(_archive_group_task, gid) for gid in groups_to_archive]
