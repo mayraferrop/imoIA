@@ -233,6 +233,7 @@ export default function PropertiesPage() {
 
   // Poll em background — não bloqueia a interface
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const idleCountRef = React.useRef<number>(0);
   function startBackgroundPoll() {
     if (pollRef.current) return;
     pollRef.current = setInterval(async () => {
@@ -261,7 +262,15 @@ export default function PropertiesPage() {
           return;
         }
         if (data.status === "idle") {
-          // Pipeline ainda não arrancou ou já terminou antes
+          // Pipeline voltou a idle — já terminou (sem transitar por "done")
+          idleCountRef.current = (idleCountRef.current ?? 0) + 1;
+          if (idleCountRef.current >= 2) {
+            setTriggerMsg("Pipeline concluído (sem novos dados processados).");
+            setTriggerLoading(false);
+            fetchData();
+            if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+            idleCountRef.current = 0;
+          }
           return;
         }
         if (data.status === "running") {
@@ -320,6 +329,7 @@ export default function PropertiesPage() {
   }
 
   async function handleTriggerPipeline() {
+    idleCountRef.current = 0;
     setTriggerLoading(true);
     const triggered = await wakeAndTrigger();
     if (triggered) {
