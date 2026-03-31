@@ -169,8 +169,13 @@ class WhatsAppClient:
         for page_size in [500, 100, 50, 20, 10, 5]:
             groups = self._fetch_all_group_chats(page_size)
             if groups:
-                logger.info(f"Encontrados {len(groups)} grupos (Whapi, page_size={page_size})")
-                return groups
+                # Filtrar grupos já arquivados (só retornar não-arquivados)
+                not_archived = [g for g in groups if not g.get("is_archived", False)]
+                logger.info(
+                    f"Encontrados {len(groups)} grupos (Whapi, page_size={page_size}), "
+                    f"{len(not_archived)} não-arquivados"
+                )
+                return not_archived
             logger.warning(f"0 grupos com page_size={page_size}, a tentar menor...")
 
         logger.error("Nao foi possivel obter grupos da API Whapi")
