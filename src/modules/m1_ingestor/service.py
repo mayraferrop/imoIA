@@ -945,7 +945,7 @@ def run_pipeline() -> PipelineResult:
             except Exception as e:
                 logger.warning(f"Falha mark_as_read {group.get('name', '?')}: {e}")
     phase1a_elapsed = time.monotonic() - phase1a_start
-    logger.info(f"FASE 1a (mark_as_read): {active_read}/{len(groups_to_read)} em {phase1a_elapsed:.1f}s")
+    logger.info(f"FASE 1a (mark_as_read): {active_read}/{len(active_with_unread)} em {phase1a_elapsed:.1f}s")
 
     # --- FASE 1b: Marcar inativos com unread como lidos (paralelo) ---
     phase1b_start = time.monotonic()
