@@ -931,42 +931,18 @@ def run_pipeline() -> PipelineResult:
     phase1_elapsed = time.monotonic() - phase1_start
     logger.info(f"FASE 1 (fetch paralelo): {len(fetch_results)} grupos em {phase1_elapsed:.1f}s")
 
-    # --- FASE 1a: Marcar grupos com unread como lidos no device ---
+    # --- FASE 1a: Skip mark_as_read individual ---
+    # PUT individual por mensagem interfere com o archive sync no device.
+    # A leitura é feita na FASE 4 via PATCH read=true (junto com archive).
     phase1a_start = time.monotonic()
-    read_client = WhatsAppClient()
     active_read = 0
-    logger.info(f"FASE 1a: {len(active_with_unread)} grupos com unread para marcar como lidos")
-    for group in active_with_unread:
-        gid = group.get("id", "")
-        if gid:
-            try:
-                read_client.mark_group_as_read(gid)
-                active_read += 1
-            except Exception as e:
-                logger.warning(f"Falha mark_as_read {group.get('name', '?')}: {e}")
     phase1a_elapsed = time.monotonic() - phase1a_start
-    logger.info(f"FASE 1a (mark_as_read): {active_read}/{len(active_with_unread)} em {phase1a_elapsed:.1f}s")
+    logger.info(f"FASE 1a: skip (leitura feita na FASE 4 junto com archive)")
 
-    # --- FASE 1b: Marcar inativos com unread como lidos (paralelo) ---
+    # --- FASE 1b: Skip (inativos não precisam de mark_as_read) ---
     phase1b_start = time.monotonic()
     inactive_read = 0
-
-    def _mark_inactive_read(group: Dict[str, Any]) -> bool:
-        try:
-            tc = WhatsAppClient()
-            return tc.mark_group_as_read(group["id"])
-        except Exception:
-            return False
-
-    if inactive_with_unread:
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            inactive_futures = [executor.submit(_mark_inactive_read, g) for g in inactive_with_unread]
-            inactive_results = [f.result() for f in inactive_futures]
-            inactive_read = sum(1 for r in inactive_results if r)
-
     phase1b_elapsed = time.monotonic() - phase1b_start
-    if inactive_with_unread:
-        logger.info(f"FASE 1b (inativos paralelo): {inactive_read}/{len(inactive_with_unread)} em {phase1b_elapsed:.1f}s")
 
     # --- FASE 2: Deduplicar + preparar classificacao ---
     phase2_start = time.monotonic()
