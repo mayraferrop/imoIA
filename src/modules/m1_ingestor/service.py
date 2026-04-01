@@ -1062,9 +1062,30 @@ def run_pipeline() -> PipelineResult:
     phase3_elapsed = time.monotonic() - phase3_start
     logger.info(f"FASE 3 (classificacao): {total_filtered} msgs, {total_opportunities} opps em {phase3_elapsed:.1f}s")
 
-    # --- FASE 4: Skip archive (utilizadora mantém grupos arquivados manualmente) ---
+    # --- FASE 4: Archive grupos não-arquivados (PATCH read + POST archive) ---
+    phase4_start = time.monotonic()
     archive_count = 0
-    logger.info("FASE 4: archive desativado (grupos geridos manualmente)")
+
+    def _archive_group_task(gid: str) -> bool:
+        try:
+            tc = WhatsAppClient()
+            return tc.archive_group(gid)
+        except Exception:
+            return False
+
+    groups_to_archive = [
+        g.get("id") for g in active_groups
+        if g.get("id") and not g.get("is_archived", False)
+    ]
+    logger.info(f"FASE 4: {len(groups_to_archive)} grupos por arquivar")
+    if groups_to_archive:
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            archive_futures = [executor.submit(_archive_group_task, gid) for gid in groups_to_archive]
+            archive_results = [f.result() for f in archive_futures]
+            archive_count = sum(1 for r in archive_results if r)
+
+    phase4_elapsed = time.monotonic() - phase4_start
+    logger.info(f"FASE 4 (archive): {archive_count}/{len(groups_to_archive)} em {phase4_elapsed:.1f}s")
 
     # Resumo final
     pipeline_elapsed = time.monotonic() - pipeline_start
@@ -1083,13 +1104,14 @@ def run_pipeline() -> PipelineResult:
     logger.info(f"  FASE 1b inativos: {phase1b_elapsed:.1f}s")
     logger.info(f"  FASE 2 dedup: {phase2_elapsed:.1f}s")
     logger.info(f"  FASE 3 classificacao: {phase3_elapsed:.1f}s")
+    logger.info(f"  FASE 4 archive: {phase4_elapsed:.1f}s")
     logger.info(f"  Grupos com unread: {len(active_with_unread)} activos + {len(inactive_with_unread)} inativos")
     logger.info(f"  Grupos skip (ja lidos): {len(active_already_read)}")
     logger.info(f"  Mensagens buscadas: {total_messages}")
     logger.info(f"  Mensagens apos filtro: {total_filtered}")
     logger.info(f"  Oportunidades: {total_opportunities}")
     logger.info(f"  Inativos lidos: {inactive_read}")
-    logger.info(f"  Archive: {archive_count}")
+    logger.info(f"  Archive: {archive_count}/{len(groups_to_archive)}")
     logger.info(f"  Erros: {len(errors)}")
     if total_filtered > 0 and total_opportunities == 0:
         logger.warning("ATENCAO: 0 oportunidades detetadas!")
