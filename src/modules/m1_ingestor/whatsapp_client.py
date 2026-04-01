@@ -446,7 +446,7 @@ class WhatsAppClient:
             data = self._do_request(
                 "GET",
                 f"/messages/list/{chat_id}",
-                params={"count": 10},
+                params={"count": 50},
             )
         except Exception as e:
             logger.warning(f"Falha fetch msgs para mark_as_read {chat_id}: {e}")

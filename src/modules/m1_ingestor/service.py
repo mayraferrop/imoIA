@@ -931,13 +931,12 @@ def run_pipeline() -> PipelineResult:
     phase1_elapsed = time.monotonic() - phase1_start
     logger.info(f"FASE 1 (fetch paralelo): {len(fetch_results)} grupos em {phase1_elapsed:.1f}s")
 
-    # --- FASE 1a: Marcar TODOS os grupos activos como lidos no device ---
-    # Usa active_groups (não active_with_unread) para garantir que nenhum
-    # grupo é saltado por race condition com o estado da API
+    # --- FASE 1a: Marcar grupos com unread como lidos no device ---
     phase1a_start = time.monotonic()
     read_client = WhatsAppClient()
     active_read = 0
-    for group in active_groups:
+    logger.info(f"FASE 1a: {len(active_with_unread)} grupos com unread para marcar como lidos")
+    for group in active_with_unread:
         gid = group.get("id", "")
         if gid:
             try:
@@ -946,7 +945,7 @@ def run_pipeline() -> PipelineResult:
             except Exception as e:
                 logger.warning(f"Falha mark_as_read {group.get('name', '?')}: {e}")
     phase1a_elapsed = time.monotonic() - phase1a_start
-    logger.info(f"FASE 1a (mark_as_read): {active_read}/{len(active_groups)} em {phase1a_elapsed:.1f}s")
+    logger.info(f"FASE 1a (mark_as_read): {active_read}/{len(groups_to_read)} em {phase1a_elapsed:.1f}s")
 
     # --- FASE 1b: Marcar inativos com unread como lidos (paralelo) ---
     phase1b_start = time.monotonic()
