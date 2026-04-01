@@ -931,7 +931,7 @@ def run_pipeline() -> PipelineResult:
     phase1_elapsed = time.monotonic() - phase1_start
     logger.info(f"FASE 1 (fetch paralelo): {len(fetch_results)} grupos em {phase1_elapsed:.1f}s")
 
-    # --- FASE 1a: Marcar grupos com unread como lidos (PATCH read=true) ---
+    # --- FASE 1a: Marcar grupos com unread como lidos no device (PUT individual) ---
     phase1a_start = time.monotonic()
     read_client = WhatsAppClient()
     active_read = 0
@@ -939,7 +939,7 @@ def run_pipeline() -> PipelineResult:
         gid = group.get("id", "")
         if gid:
             try:
-                read_client.mark_chat_as_read(gid)
+                read_client.mark_group_as_read(gid)
                 active_read += 1
             except Exception as e:
                 logger.warning(f"Falha mark_as_read {group.get('name', '?')}: {e}")
