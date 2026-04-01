@@ -931,11 +931,13 @@ def run_pipeline() -> PipelineResult:
     phase1_elapsed = time.monotonic() - phase1_start
     logger.info(f"FASE 1 (fetch paralelo): {len(fetch_results)} grupos em {phase1_elapsed:.1f}s")
 
-    # --- FASE 1a: Marcar grupos com unread como lidos no device (PUT individual) ---
+    # --- FASE 1a: Marcar TODOS os grupos activos como lidos no device ---
+    # Usa active_groups (não active_with_unread) para garantir que nenhum
+    # grupo é saltado por race condition com o estado da API
     phase1a_start = time.monotonic()
     read_client = WhatsAppClient()
     active_read = 0
-    for group in active_with_unread:
+    for group in active_groups:
         gid = group.get("id", "")
         if gid:
             try:
@@ -944,7 +946,7 @@ def run_pipeline() -> PipelineResult:
             except Exception as e:
                 logger.warning(f"Falha mark_as_read {group.get('name', '?')}: {e}")
     phase1a_elapsed = time.monotonic() - phase1a_start
-    logger.info(f"FASE 1a (mark_as_read): {active_read}/{len(active_with_unread)} em {phase1a_elapsed:.1f}s")
+    logger.info(f"FASE 1a (mark_as_read): {active_read}/{len(active_groups)} em {phase1a_elapsed:.1f}s")
 
     # --- FASE 1b: Marcar inativos com unread como lidos (paralelo) ---
     phase1b_start = time.monotonic()
@@ -1067,11 +1069,17 @@ def run_pipeline() -> PipelineResult:
     archive_count = 0
 
     def _archive_group_task(gid: str) -> bool:
-        try:
-            tc = WhatsAppClient()
-            return tc.archive_group(gid)
-        except Exception:
-            return False
+        """Arquiva grupo com retry (2 tentativas)."""
+        for attempt in range(2):
+            try:
+                tc = WhatsAppClient()
+                if tc.archive_group(gid):
+                    return True
+                if attempt == 0:
+                    time.sleep(1)  # pausa antes do retry
+            except Exception as e:
+                logger.error(f"Archive falhou para {gid} (tentativa {attempt + 1}): {e}")
+        return False
 
     groups_to_archive = [
         g.get("id") for g in active_groups
@@ -1079,13 +1087,16 @@ def run_pipeline() -> PipelineResult:
     ]
     logger.info(f"FASE 4: {len(groups_to_archive)} grupos por arquivar")
     if groups_to_archive:
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            archive_futures = [executor.submit(_archive_group_task, gid) for gid in groups_to_archive]
-            archive_results = [f.result() for f in archive_futures]
-            archive_count = sum(1 for r in archive_results if r)
+        # Sequencial para evitar rate limiting na Whapi
+        for gid in groups_to_archive:
+            if _archive_group_task(gid):
+                archive_count += 1
 
     phase4_elapsed = time.monotonic() - phase4_start
-    logger.info(f"FASE 4 (archive): {archive_count}/{len(groups_to_archive)} em {phase4_elapsed:.1f}s")
+    if archive_count < len(groups_to_archive):
+        logger.warning(f"FASE 4: archive INCOMPLETO {archive_count}/{len(groups_to_archive)} em {phase4_elapsed:.1f}s")
+    else:
+        logger.info(f"FASE 4 (archive): {archive_count}/{len(groups_to_archive)} em {phase4_elapsed:.1f}s")
 
     # Resumo final
     pipeline_elapsed = time.monotonic() - pipeline_start

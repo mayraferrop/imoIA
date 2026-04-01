@@ -577,5 +577,5 @@ class WhatsAppClient:
             logger.info(f"Grupo {group_id} arquivado via POST (Whapi)")
             return True
         except Exception as e:
-            logger.warning(f"Archive POST falhou para {group_id}: {e}")
+            logger.error(f"Archive POST falhou para {group_id}: {e}")
             return False
