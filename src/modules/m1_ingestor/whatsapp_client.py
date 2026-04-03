@@ -425,6 +425,39 @@ class WhatsAppClient:
 
         return count
 
+    def mark_group_as_read_light(self, chat_id: str) -> bool:
+        """Marca grupo como lido marcando apenas a ÚLTIMA mensagem.
+
+        Mais leve que mark_group_as_read (1 PUT em vez de 50).
+        Suficiente para limpar o badge de unread no device.
+        """
+        if self.backend == "baileys":
+            return False
+
+        try:
+            data = self._do_request(
+                "GET",
+                f"/messages/list/{chat_id}",
+                params={"count": 1},
+            )
+        except Exception as e:
+            logger.warning(f"Falha fetch última msg para mark_as_read {chat_id}: {e}")
+            return self._patch_chat_read(chat_id)
+
+        messages = data.get("messages", [])
+        if not messages:
+            return True
+
+        msg = messages[0]
+        if not msg.get("from_me"):
+            msg_id = msg.get("id", "")
+            if msg_id:
+                self.mark_as_read(msg_id)
+
+        self._patch_chat_read(chat_id)
+        logger.info(f"Grupo {chat_id} marcado como lido (light)")
+        return True
+
     def mark_group_as_read(self, chat_id: str) -> bool:
         """Marca grupo como lido marcando TODAS as mensagens recentes.
 

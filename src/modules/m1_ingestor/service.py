@@ -1073,9 +1073,9 @@ def run_pipeline() -> PipelineResult:
     else:
         logger.info(f"FASE 4 (archive): {archive_count}/{len(groups_to_archive)} em {phase4_elapsed:.1f}s")
 
-    # --- FASE 5: Marcar como lido no device (PUT individual) DEPOIS do archive ---
-    # PUT individual sincroniza leitura com o aparelho mas interfere com
-    # o archive se feito ANTES. Por isso é feito DEPOIS da FASE 4.
+    # --- FASE 5: Marcar como lido no device (PUT última msg) DEPOIS do archive ---
+    # Usa mark_group_as_read_light (1 PUT por grupo) em vez de 50 PUTs.
+    # Feito DEPOIS do archive para não interferir com sync do device.
     phase5_start = time.monotonic()
     read_client = WhatsAppClient()
     active_read = 0
@@ -1083,12 +1083,12 @@ def run_pipeline() -> PipelineResult:
         gid = group.get("id", "")
         if gid:
             try:
-                read_client.mark_group_as_read(gid)
+                read_client.mark_group_as_read_light(gid)
                 active_read += 1
             except Exception as e:
                 logger.warning(f"Falha mark_as_read {group.get('name', '?')}: {e}")
     phase5_elapsed = time.monotonic() - phase5_start
-    logger.info(f"FASE 5 (mark_as_read): {active_read}/{len(active_with_unread)} em {phase5_elapsed:.1f}s")
+    logger.info(f"FASE 5 (mark_as_read light): {active_read}/{len(active_with_unread)} em {phase5_elapsed:.1f}s")
 
     # Resumo final
     pipeline_elapsed = time.monotonic() - pipeline_start
