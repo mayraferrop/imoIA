@@ -339,8 +339,9 @@ export default function MarketPage() {
   /* --- Create alert (FastAPI — needs business logic) --- */
   async function handleCreateAlert(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const form = e.currentTarget;
     setLoading(true);
-    const fd = new FormData(e.currentTarget);
+    const fd = new FormData(form);
     const districts = (fd.get("al_districts") as string)
       .split(",")
       .map((s) => s.trim())
@@ -361,7 +362,7 @@ export default function MarketPage() {
         price_max: priceMax > 0 ? priceMax : null,
       }),
     });
-    e.currentTarget.reset();
+    form.reset();
     await loadData();
     setLoading(false);
   }
