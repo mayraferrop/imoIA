@@ -223,6 +223,25 @@ async def pipeline_debug() -> Dict[str, Any]:
 
     import os
     info["anthropic_key_set"] = bool(os.getenv("ANTHROPIC_API_KEY"))
+
+    # Teste rápido: buscar msgs de 1 grupo e ver filtros
+    try:
+        from src.modules.m1_ingestor.whatsapp_client import WhatsAppClient
+        from src.modules.m1_ingestor.service import _filter_noise
+        wa = WhatsAppClient()
+        from datetime import datetime, timedelta, timezone
+        since = datetime.now(tz=timezone.utc) - timedelta(days=10)
+        msgs = wa.fetch_unread_messages("120363169818379684@g.us", since)
+        info["test_group"] = "*PROCURO* IMÓVEIS OFF-MARKET"
+        info["msgs_fetched"] = len(msgs)
+        info["msgs_text"] = sum(1 for m in msgs if m.get("message_type") == "text")
+        filtered = _filter_noise(msgs)
+        info["msgs_after_filter"] = len(filtered)
+        if filtered:
+            info["sample_msg"] = filtered[0].get("content", "")[:100]
+    except Exception as e:
+        info["test_error"] = f"{type(e).__name__}: {e}"
+
     return info
 
 
