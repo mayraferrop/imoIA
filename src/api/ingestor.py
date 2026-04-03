@@ -203,6 +203,29 @@ async def get_pipeline_status() -> Dict[str, Any]:
         return dict(_pipeline_state)
 
 
+@router.get("/debug", summary="Diagnostico do pipeline")
+async def pipeline_debug() -> Dict[str, Any]:
+    """Verifica dependencias e configuracao do pipeline."""
+    info: Dict[str, Any] = {}
+    try:
+        import anthropic
+        info["anthropic_installed"] = True
+        info["anthropic_version"] = anthropic.__version__
+    except ImportError:
+        info["anthropic_installed"] = False
+
+    try:
+        from src.modules.m1_ingestor.classifier import OpportunityClassifier
+        info["classifier_available"] = True
+    except Exception as e:
+        info["classifier_available"] = False
+        info["classifier_error"] = f"{type(e).__name__}: {e}"
+
+    import os
+    info["anthropic_key_set"] = bool(os.getenv("ANTHROPIC_API_KEY"))
+    return info
+
+
 @router.get("/groups", summary="Listar grupos monitorizados")
 async def list_groups() -> List[Dict[str, Any]]:
     """Lista todos os grupos com estatisticas (dados historicos)."""
