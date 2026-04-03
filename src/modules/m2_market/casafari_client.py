@@ -249,13 +249,15 @@ class CasafariClient:
                         )
 
                 if resp.status_code == 402:
-                    logger.warning(
-                        "CASAFARI: 402 — plano sem acesso a este endpoint. "
-                        "Verifique a subscrição em app.casafari.com."
+                    logger.info(
+                        f"CASAFARI: 402 — limite atingido ou plano sem acesso "
+                        f"a {path}. Verifique a subscrição."
                     )
                     return None
                 if resp.status_code == 403:
-                    logger.warning("CASAFARI: 403 — sem permissao")
+                    logger.info(
+                        f"CASAFARI: 403 — endpoint {path} nao incluido no plano actual"
+                    )
                     return None
                 if resp.status_code == 404:
                     return None
@@ -307,17 +309,31 @@ class CasafariClient:
             logger.info(f"CASAFARI: localizacao '{name}' nao encontrada")
             return None
 
-        # Procurar melhor match: preferir Concelho, depois Freguesia
-        best: Optional[Dict[str, Any]] = None
+        # Procurar melhor match: exact match no nome > Concelho > Freguesia
+        # (evita apanhar 'Porto Moniz' quando se procura 'Porto')
+        key_lower = key  # ja normalizado acima
+        exact_concelho: Optional[Dict[str, Any]] = None
+        any_concelho: Optional[Dict[str, Any]] = None
+        exact_freguesia: Optional[Dict[str, Any]] = None
+        fallback: Optional[Dict[str, Any]] = None
+
         for loc in locations:
             level = (loc.get("administrative_level") or "").lower()
+            loc_name = (loc.get("name") or "").strip().lower()
+            is_exact = loc_name == key_lower
+
             if "concelho" in level:
-                best = loc
-                break
-            if "freguesia" in level and best is None:
-                best = loc
-            if best is None:
-                best = loc
+                if is_exact:
+                    exact_concelho = loc
+                elif any_concelho is None:
+                    any_concelho = loc
+            elif "freguesia" in level:
+                if is_exact and exact_freguesia is None:
+                    exact_freguesia = loc
+            elif fallback is None:
+                fallback = loc
+
+        best = exact_concelho or any_concelho or exact_freguesia or fallback
 
         if best:
             loc_id = best.get("location_id")

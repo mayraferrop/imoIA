@@ -28,10 +28,11 @@ from src.database.models_v2 import (
 )
 from src.modules.m2_market.casafari_client import CasafariClient
 
-# Cache TTLs (dias)
-_CACHE_COMPARABLES_DAYS = 7
-_CACHE_ZONE_STATS_DAYS = 30
-_CACHE_VALUATION_DAYS = 14
+# Cache TTLs lidos de config.py (fallback hardcoded se config falhar)
+_settings = get_settings()
+_CACHE_COMPARABLES_DAYS = _settings.market_cache_days_comparables
+_CACHE_ZONE_STATS_DAYS = _settings.market_cache_days_zone_stats
+_CACHE_VALUATION_DAYS = _settings.market_cache_days_valuation
 
 _DEFAULT_TENANT_SLUG = "default"
 
@@ -308,9 +309,14 @@ class MarketService:
         if prices_m2:
             sorted_p = sorted(prices_m2)
             n = len(sorted_p)
+            # Mediana correcta para arrays pares e ímpares
+            if n % 2 == 1:
+                median = sorted_p[n // 2]
+            else:
+                median = (sorted_p[n // 2 - 1] + sorted_p[n // 2]) / 2
             stats = {
                 "avg_price_m2": round(sum(sorted_p) / n, 2),
-                "median_price_m2": round(sorted_p[n // 2], 2),
+                "median_price_m2": round(median, 2),
                 "min_price_m2": round(sorted_p[0], 2),
                 "max_price_m2": round(sorted_p[-1], 2),
                 "count": n,
