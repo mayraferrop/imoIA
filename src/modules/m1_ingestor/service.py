@@ -57,9 +57,10 @@ def _get_classifier(tenant_id: str | None = None) -> Any:
     """
     try:
         from src.modules.m1_ingestor.classifier import OpportunityClassifier
+        logger.info("OpportunityClassifier carregado com sucesso")
         return OpportunityClassifier(tenant_id=tenant_id)
-    except (ImportError, AttributeError):
-        logger.warning("OpportunityClassifier não disponível — a usar mock")
+    except Exception as e:
+        logger.error(f"OpportunityClassifier não disponível ({type(e).__name__}: {e}) — a usar mock")
         return _MockClassifier()
 
 
@@ -1000,6 +1001,7 @@ def run_pipeline() -> PipelineResult:
     # --- FASE 3: Classificar num batch unico ---
     phase3_start = time.monotonic()
 
+    logger.info(f"FASE 3: {len(all_filtered)} mensagens para classificar (de {total_messages} buscadas)")
     if all_filtered:
         classifier_messages = [
             {"index": i, "text": msg.get("content", ""), "group": msg.get("_group_name", "?")}
