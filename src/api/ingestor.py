@@ -242,19 +242,22 @@ async def pipeline_debug() -> Dict[str, Any]:
     except Exception as e:
         info["test_error"] = f"{type(e).__name__}: {e}"
 
-    # Teste de classificação com 1 mensagem
+    # Teste de classificação directa com API
     try:
         from src.modules.m1_ingestor.service import _get_classifier
         clf = _get_classifier()
         info["classifier_type"] = type(clf).__name__
-        test_msgs = [{"index": 0, "text": "Vendo prédio em Lisboa, 6 frações, 800k, rentabilidade 7%", "group": "teste"}]
-        results = clf.classify_batch(test_msgs)
-        if results:
-            r = results[0]
-            info["test_classification"] = {
-                "is_opportunity": r.is_opportunity,
-                "confidence": r.confidence,
-            }
+
+        # Testar chamada directa à API Anthropic
+        from src.modules.m1_ingestor.prompts import BATCH_TEMPLATE, SYSTEM_PROMPT
+        import json as _json
+        test_msg = [{"index": 0, "text": "Vendo prédio em Lisboa, 6 frações, 800k, rentabilidade 7%", "group": "teste"}]
+        user_content = BATCH_TEMPLATE.format(n=1, messages_json=_json.dumps(test_msg, ensure_ascii=False))
+        try:
+            raw_response = clf._call_api(user_content)
+            info["api_response"] = raw_response[:300]
+        except Exception as e:
+            info["api_call_error"] = f"{type(e).__name__}: {e}"
     except Exception as e:
         info["classify_error"] = f"{type(e).__name__}: {e}"
 
