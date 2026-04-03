@@ -34,7 +34,7 @@ _STATIC_LOCATIONS: Dict[str, int] = {
     "vila franca de xira": 2730, "mafra": 1870, "almada": 1875,
     "seixal": 3094, "setubal": 1873, "barreiro": 3086, "montijo": 2767,
     "sesimbra": 1669, "palmela": 3073,
-    "porto": 25254, "vila nova de gaia": 3249, "matosinhos": 3054,
+    "porto": 2925, "vila nova de gaia": 3249, "matosinhos": 3054,
     "maia": 3052, "gondomar": 3045, "valongo": 3061,
     "vila do conde": 3062, "povoa de varzim": 3058,
     "faro": 1876, "loule": 2918, "albufeira": 1602, "lagos": 1611,
