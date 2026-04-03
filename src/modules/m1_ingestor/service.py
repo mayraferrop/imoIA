@@ -1001,20 +1001,27 @@ def run_pipeline() -> PipelineResult:
     # --- FASE 3: Classificar num batch unico ---
     phase3_start = time.monotonic()
 
-    logger.info(f"FASE 3: {len(all_filtered)} mensagens para classificar (de {total_messages} buscadas)")
-    if all_filtered:
+    # Limitar classificação para caber no Render free tier
+    MAX_CLASSIFY = 100
+    logger.info(f"FASE 3: {len(all_filtered)} mensagens para classificar (de {total_messages} buscadas, max={MAX_CLASSIFY})")
+    if len(all_filtered) > MAX_CLASSIFY:
+        logger.warning(f"Limitando classificação a {MAX_CLASSIFY} mensagens (de {len(all_filtered)})")
+        all_filtered_to_classify = all_filtered[:MAX_CLASSIFY]
+    else:
+        all_filtered_to_classify = all_filtered
+    if all_filtered_to_classify:
         classifier_messages = [
             {"index": i, "text": msg.get("content", ""), "group": msg.get("_group_name", "?")}
-            for i, msg in enumerate(all_filtered)
+            for i, msg in enumerate(all_filtered_to_classify)
         ]
 
         logger.info(f"A classificar {len(classifier_messages)} mensagens de {len(group_filtered_map)} grupos")
         all_classifications = classifier.classify_batch(classifier_messages)
 
         for i, classification in enumerate(all_classifications):
-            if i >= len(all_filtered):
+            if i >= len(all_filtered_to_classify):
                 break
-            msg = all_filtered[i]
+            msg = all_filtered_to_classify[i]
             gid = msg.get("_group_id", "unknown")
             group_info = group_info_map.get(gid, {"id": gid, "name": gid})
 
