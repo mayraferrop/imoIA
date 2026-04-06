@@ -252,6 +252,12 @@ class MarketOverviewResponse(BaseModel):
     casafari_configured: bool = False
     casafari_search_access: bool = False
     ine_available: bool = True
+    bpstat_available: bool = True
+    sir_available: bool = False
+    avm_method: str = "local_avm"
+    last_valuation_at: Optional[str] = None
+    avg_confidence_score: Optional[float] = None
+    data_sources: List[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -320,24 +326,64 @@ class LocalAVMComparable(BaseModel):
     listing_price: Optional[float] = None
     price_per_m2: Optional[float] = None
     gross_area_m2: Optional[float] = None
+    useful_area_m2: Optional[float] = None
     bedrooms: Optional[int] = None
+    bathrooms: Optional[int] = None
     condition: Optional[str] = None
+    construction_year: Optional[int] = None
+    energy_certificate: Optional[str] = None
+    listing_date: Optional[str] = None
+    days_on_market: Optional[int] = None
+    comparison_type: Optional[str] = None
     weight: float = 0.0
 
 
-class LocalAVMResponse(BaseModel):
-    """Resultado do AVM local imoIA."""
+class LocalAVMMarketStats(BaseModel):
+    """Estatisticas de mercado calculadas a partir dos comparaveis."""
 
+    avg_price: Optional[float] = None
+    avg_price_per_m2: Optional[float] = None
+    median_price_per_m2: Optional[float] = None
+    min_price_per_m2: Optional[float] = None
+    max_price_per_m2: Optional[float] = None
+    std_dev_price_m2: Optional[float] = None
+    coefficient_of_variation: Optional[float] = None
+    avg_area_m2: Optional[float] = None
+    avg_construction_year: Optional[int] = None
+    avg_time_on_market_days: Optional[int] = None
+    avg_listings_per_property: Optional[float] = None
+    sold_or_rented_last_6m: Optional[int] = None
+    total_active_listings: Optional[int] = None
+    condition_breakdown: Dict[str, int] = Field(default_factory=dict)
+    parish_breakdown: Dict[str, int] = Field(default_factory=dict)
+    energy_breakdown: Dict[str, int] = Field(default_factory=dict)
+
+
+class LocalAVMResponse(BaseModel):
+    """Resultado do AVM local imoIA — equivalente ao CASAFARI valuation."""
+
+    # Precos estimados (equivalente a fast_sell/fair_market/out_of_market)
     estimated_price: Optional[float] = None
-    estimated_price_low: Optional[float] = None
-    estimated_price_high: Optional[float] = None
+    fast_sell_price: Optional[float] = None
+    fair_market_price: Optional[float] = None
+    out_of_market_price: Optional[float] = None
     estimated_price_per_m2: Optional[float] = None
     confidence_score: float = 0.0
+
+    # Contagens
     comparables_used: int = 0
     comparables_total: int = 0
+
+    # Estatisticas de preco
     weighted_avg_price_m2: Optional[float] = None
     simple_median_price_m2: Optional[float] = None
-    std_dev_price_m2: Optional[float] = None
+    percentile_25_price_m2: Optional[float] = None
+    percentile_75_price_m2: Optional[float] = None
+
+    # Estatisticas de mercado completas
+    market_stats: Optional[LocalAVMMarketStats] = None
+
+    # Metadados
     method: str = "weighted_comparables"
     source: str = "imoia_local"
     comparables: List[LocalAVMComparable] = Field(default_factory=list)

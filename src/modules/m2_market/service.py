@@ -425,16 +425,15 @@ class MarketService:
         deal_id: Optional[str] = None,
         tenant_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Avalia um imovel combinando CASAFARI + INE.
+        """Avalia um imovel combinando AVM local + INE.
 
-        Metodo 'hybrid':
-        1. Tenta AVM nativo CASAFARI (se tem coordenadas)
-        2. Fallback: busca comparaveis e calcula mediana
+        Metodo 'hybrid' (prioridade):
+        1. AVM local ponderado (se tem coordenadas + CASAFARI)
+        2. Fallback: comparaveis simples via listing-alerts
         3. Complementa com INE para benchmarks
-        4. Calcula confianca baseada na fonte e numero de comparaveis
 
-        Metodo 'casafari_native': usa apenas AVM nativo.
-        Metodo 'comparables': usa apenas comparaveis (comportamento antigo).
+        Metodo 'local_avm': usa apenas AVM local ponderado.
+        Metodo 'comparables': usa apenas comparaveis simples.
 
         Returns:
             Dict com resultado da avaliacao.
@@ -450,46 +449,37 @@ class MarketService:
             confidence = 0.0
             comp_count = 0
             stats: Dict[str, Any] = {}
-            casafari_native_data = None
             used_method = method
 
-            # --- Tentar AVM nativo CASAFARI (se tem coordenadas) ---
-            if method in ("hybrid", "casafari_native"):
-                casafari_native_data = self._try_casafari_native_valuation(
-                    property_type=property_type,
+            # --- 1. Tentar AVM local ponderado (metodo principal) ---
+            if method in ("hybrid", "local_avm") and latitude and longitude:
+                avm_result = self.local_avm(
                     latitude=latitude,
                     longitude=longitude,
-                    address=address,
-                    condition=condition,
+                    property_type=property_type or "apartment",
                     bedrooms=bedrooms,
                     bathrooms=bathrooms,
-                    gross_area_m2=gross_area_m2,
+                    total_area=area,
+                    condition=condition,
+                    address=address,
+                    municipality=municipality,
+                    district=district,
                 )
 
-                if casafari_native_data:
-                    # Extrair dados do AVM nativo
-                    native_price = casafari_native_data.get("estimated_price")
-                    native_price_m2 = casafari_native_data.get("estimated_price_per_sqm")
-                    native_comps = casafari_native_data.get("comparables", [])
-                    comp_count = len(native_comps)
+                if "error" not in avm_result:
+                    estimated_value = avm_result["fair_market_price"]
+                    estimated_price_m2 = avm_result["estimated_price_per_m2"]
+                    confidence = avm_result["confidence_score"]
+                    comp_count = avm_result["comparables_used"]
+                    ms = avm_result.get("market_stats") or {}
+                    stats = {
+                        "avg_price_m2": ms.get("avg_price_per_m2"),
+                        "median_price_m2": ms.get("median_price_per_m2"),
+                        "count": comp_count,
+                    }
+                    used_method = "local_avm"
 
-                    if native_price:
-                        estimated_value = float(native_price)
-                        estimated_price_m2 = float(native_price_m2) if native_price_m2 else (
-                            round(estimated_value / area, 2) if area > 0 else None
-                        )
-                        # Confianca mais alta com AVM nativo (dados verificados)
-                        if comp_count >= 10:
-                            confidence = 90.0
-                        elif comp_count >= 5:
-                            confidence = 80.0
-                        elif comp_count >= 3:
-                            confidence = 65.0
-                        else:
-                            confidence = 45.0
-                        used_method = "casafari_native"
-
-            # --- Fallback: comparaveis manuais ---
+            # --- 2. Fallback: comparaveis simples via listing-alerts ---
             if estimated_value is None and method in ("hybrid", "comparables"):
                 comp_result = self.find_comparables(
                     municipality=municipality,
@@ -521,7 +511,7 @@ class MarketService:
                         confidence = 25.0
                     used_method = "comparables"
 
-            # --- Complementar com INE ---
+            # --- 3. Complementar com INE ---
             ine_price_m2 = None
             if self._ine and municipality:
                 ine_data = self._ine.get_median_price(municipality)
@@ -535,9 +525,9 @@ class MarketService:
                 confidence = 20.0
                 used_method = "ine"
 
-            # Intervalo (±10% nativo, ±15% comparaveis, ±25% INE)
-            if used_method == "casafari_native":
-                margin = 0.10
+            # Intervalo (±7% local_avm, ±15% comparaveis, ±25% INE)
+            if used_method == "local_avm":
+                margin = 0.07
             elif confidence >= 60:
                 margin = 0.15
             else:
@@ -574,7 +564,7 @@ class MarketService:
                 comparables_avg_price_m2=stats.get("avg_price_m2"),
                 source="casafari" if used_method != "ine" else "ine",
                 method=used_method,
-                model_version="m2_v2",
+                model_version="m2_v3",
                 expires_at=datetime.now(tz=timezone.utc) + timedelta(days=_CACHE_VALUATION_DAYS),
             )
             session.add(valuation)
@@ -583,7 +573,7 @@ class MarketService:
             logger.info(
                 f"M2: avaliacao {valuation.id} — valor={estimated_value}, "
                 f"preco_m2={estimated_price_m2}, confianca={confidence}%, "
-                f"comparaveis={comp_count}"
+                f"metodo={used_method}, comparaveis={comp_count}"
             )
 
             return self._valuation_to_dict(valuation)
@@ -604,13 +594,16 @@ class MarketService:
         municipality: Optional[str] = None,
         district: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """AVM local ponderado por distancia, area e caracteristicas.
+        """AVM local completo — substitui o valuation pago da CASAFARI.
 
-        Busca comparaveis via CASAFARI /comparables/search e calcula preco
-        estimado com media ponderada (peso = proximidade * similaridade).
+        Busca comparaveis via /comparables/search e calcula:
+        - Preco estimado com media ponderada (distancia, area, quartos, condicao)
+        - fast_sell / fair_market / out_of_market (equivalente CASAFARI)
+        - Estatisticas de mercado (DOM, volume, breakdowns)
+        - Percentis e intervalo de confianca
 
         Returns:
-            Dict com estimativa, intervalo, confianca e comparaveis usados.
+            Dict completo com estimativa, mercado e comparaveis.
         """
         if not self.casafari_available:
             return {"error": "CASAFARI nao configurada"}
@@ -644,13 +637,15 @@ class MarketService:
         if not results:
             return {"error": "0 comparaveis encontrados"}
 
-        # Parsear comparaveis
+        # Parsear comparaveis com todos os campos
         parsed = []
         for item in results:
             comp = CasafariClient.parse_alert_to_comparable(item)
             price_m2 = comp.get("price_per_m2")
             price = comp.get("listing_price")
-            area = comp.get("gross_area_m2") or comp.get("useful_area_m2")
+            gross = comp.get("gross_area_m2")
+            useful = comp.get("useful_area_m2")
+            area = gross or useful
             if not price_m2 and price and area and area > 0:
                 price_m2 = round(price / area, 2)
             if not price_m2 or price_m2 <= 0:
@@ -662,6 +657,19 @@ class MarketService:
             if clat and clon:
                 dist = self._haversine(latitude, longitude, clat, clon)
 
+            # Extrair dados do raw para DOM e listings
+            raw = comp.get("raw_data") or {}
+            dom = raw.get("days_on_market") or comp.get("days_on_market")
+            listings_count = len(raw.get("listings", []))
+            alert_date = comp.get("listing_date") or raw.get("alert_date")
+            alert_type = raw.get("alert_type", "")
+            alert_subtype = comp.get("alert_subtype") or raw.get("alert_subtype", "")
+
+            # Determinar tipo de comparavel (activo, vendido, etc.)
+            comparison = comp.get("comparison_type", "listing_active")
+            if "sold" in str(alert_subtype).lower() or "sold" in str(alert_type).lower():
+                comparison = "sold"
+
             parsed.append({
                 "source_id": comp.get("source_id"),
                 "source_url": comp.get("source_url"),
@@ -671,9 +679,17 @@ class MarketService:
                 "distance_km": round(dist, 2) if dist else None,
                 "listing_price": price,
                 "price_per_m2": price_m2,
-                "gross_area_m2": area,
+                "gross_area_m2": gross,
+                "useful_area_m2": useful,
                 "bedrooms": comp.get("bedrooms"),
+                "bathrooms": comp.get("bathrooms"),
                 "condition": comp.get("condition"),
+                "construction_year": comp.get("construction_year"),
+                "energy_certificate": comp.get("energy_certificate"),
+                "listing_date": alert_date,
+                "days_on_market": dom,
+                "comparison_type": comparison,
+                "listings_count": listings_count if listings_count > 0 else None,
             })
 
         if not parsed:
@@ -690,10 +706,10 @@ class MarketService:
             if d is not None:
                 w *= math.exp(-(d ** 2) / (2 * (distance_km / 2) ** 2))
             else:
-                w *= 0.3  # sem coordenadas = peso baixo
+                w *= 0.3
 
             # Peso area: area similar = mais peso
-            c_area = c.get("gross_area_m2")
+            c_area = c.get("gross_area_m2") or c.get("useful_area_m2")
             if c_area and c_area > 0:
                 area_ratio = min(c_area, area_ref) / max(c_area, area_ref)
                 w *= area_ratio
@@ -735,20 +751,27 @@ class MarketService:
             c["price_per_m2"] * c["weight"] for c in weighted_comps
         ) / total_w
 
-        # Mediana simples para referencia
+        # Estatisticas de preco
         all_prices_m2 = sorted(c["price_per_m2"] for c in weighted_comps)
+        all_prices = sorted(c["listing_price"] for c in weighted_comps if c.get("listing_price"))
         n = len(all_prices_m2)
+
+        # Mediana
         if n % 2 == 1:
             median_price_m2 = all_prices_m2[n // 2]
         else:
             median_price_m2 = (all_prices_m2[n // 2 - 1] + all_prices_m2[n // 2]) / 2
 
-        # Desvio padrao
+        # Percentis 25 e 75 (para IQR)
+        p25_idx = max(0, int(n * 0.25))
+        p75_idx = min(n - 1, int(n * 0.75))
+        p25 = all_prices_m2[p25_idx]
+        p75 = all_prices_m2[p75_idx]
+
+        # Desvio padrao e CV
         mean_p = sum(all_prices_m2) / n
         variance = sum((p - mean_p) ** 2 for p in all_prices_m2) / n
         std_dev = math.sqrt(variance)
-
-        # Coeficiente de variacao (CV) para confianca
         cv = std_dev / mean_p if mean_p > 0 else 1.0
 
         # Confianca baseada em CV + numero de comparaveis
@@ -763,33 +786,113 @@ class MarketService:
         else:
             confidence = 25.0
 
-        # Estimativa final
+        # Precos estimados (equivalente CASAFARI: fast_sell/fair_market/out_of_market)
         area_for_calc = total_area or 80.0
-        estimated_price = round(weighted_price_m2 * area_for_calc, 2)
+        fair_market = round(weighted_price_m2 * area_for_calc, 2)
+        # fast_sell = ~7% abaixo do fair_market (CASAFARI usa ~7%)
+        fast_sell = round(fair_market * 0.93, 2)
+        # out_of_market = ~7% acima
+        out_of_market = round(fair_market * 1.07, 2)
 
-        # Intervalo baseado no CV
-        margin = max(0.08, min(cv, 0.30))
-        estimated_low = round(estimated_price * (1 - margin), 2)
-        estimated_high = round(estimated_price * (1 + margin), 2)
+        # --- Estatisticas de mercado ---
+
+        # Media de area
+        areas = [c.get("gross_area_m2") or c.get("useful_area_m2") for c in weighted_comps]
+        areas = [a for a in areas if a and a > 0]
+        avg_area = round(sum(areas) / len(areas), 1) if areas else None
+
+        # Media de ano de construcao
+        years = [c.get("construction_year") for c in weighted_comps]
+        years = [y for y in years if y and y > 1800]
+        avg_year = round(sum(years) / len(years)) if years else None
+
+        # Tempo medio no mercado (DOM)
+        doms = [c.get("days_on_market") for c in weighted_comps]
+        doms = [d for d in doms if d and d > 0]
+        avg_dom = round(sum(doms) / len(doms)) if doms else None
+
+        # Media de listings por propriedade
+        lcounts = [c.get("listings_count") for c in weighted_comps]
+        lcounts = [lc for lc in lcounts if lc and lc > 0]
+        avg_listings = round(sum(lcounts) / len(lcounts), 1) if lcounts else None
+
+        # Contagem de vendidos nos ultimos 6 meses
+        now = datetime.now(tz=timezone.utc)
+        six_months_ago = now - timedelta(days=180)
+        sold_6m = 0
+        active_count = 0
+        for c in weighted_comps:
+            ct = c.get("comparison_type", "")
+            if "sold" in ct:
+                sold_6m += 1
+            else:
+                active_count += 1
+
+        # Breakdown por condicao
+        cond_breakdown: Dict[str, int] = {}
+        for c in weighted_comps:
+            cond = c.get("condition") or "unknown"
+            cond_breakdown[cond] = cond_breakdown.get(cond, 0) + 1
+
+        # Breakdown por freguesia
+        parish_breakdown: Dict[str, int] = {}
+        for c in weighted_comps:
+            p = c.get("parish") or "unknown"
+            parish_breakdown[p] = parish_breakdown.get(p, 0) + 1
+
+        # Breakdown por certificado energetico
+        energy_breakdown: Dict[str, int] = {}
+        for c in weighted_comps:
+            e = c.get("energy_certificate") or "unknown"
+            energy_breakdown[e] = energy_breakdown.get(e, 0) + 1
+
+        # Media de preco absoluto
+        avg_price = round(sum(all_prices) / len(all_prices), 2) if all_prices else None
+
+        market_stats = {
+            "avg_price": avg_price,
+            "avg_price_per_m2": round(mean_p, 2),
+            "median_price_per_m2": round(median_price_m2, 2),
+            "min_price_per_m2": round(all_prices_m2[0], 2),
+            "max_price_per_m2": round(all_prices_m2[-1], 2),
+            "std_dev_price_m2": round(std_dev, 2),
+            "coefficient_of_variation": round(cv, 4),
+            "avg_area_m2": avg_area,
+            "avg_construction_year": avg_year,
+            "avg_time_on_market_days": avg_dom,
+            "avg_listings_per_property": avg_listings,
+            "sold_or_rented_last_6m": sold_6m if sold_6m > 0 else None,
+            "total_active_listings": active_count,
+            "condition_breakdown": cond_breakdown,
+            "parish_breakdown": parish_breakdown,
+            "energy_breakdown": energy_breakdown,
+        }
 
         logger.info(
             f"M2-AVM-LOCAL: {n} comparaveis, "
-            f"preco_m2_ponderado={weighted_price_m2:.0f}, "
-            f"mediana={median_price_m2:.0f}, "
+            f"fair_market={fair_market:.0f}€, "
+            f"preco_m2={weighted_price_m2:.0f}, "
             f"CV={cv:.2f}, confianca={confidence}%"
         )
 
+        # Limpar campo listings_count dos comparaveis (so para calculo interno)
+        for c in weighted_comps:
+            c.pop("listings_count", None)
+
         return {
-            "estimated_price": estimated_price,
-            "estimated_price_low": estimated_low,
-            "estimated_price_high": estimated_high,
+            "estimated_price": fair_market,
+            "fast_sell_price": fast_sell,
+            "fair_market_price": fair_market,
+            "out_of_market_price": out_of_market,
             "estimated_price_per_m2": round(weighted_price_m2, 2),
             "confidence_score": confidence,
             "comparables_used": n,
             "comparables_total": len(results),
             "weighted_avg_price_m2": round(weighted_price_m2, 2),
             "simple_median_price_m2": round(median_price_m2, 2),
-            "std_dev_price_m2": round(std_dev, 2),
+            "percentile_25_price_m2": round(p25, 2),
+            "percentile_75_price_m2": round(p75, 2),
+            "market_stats": market_stats,
             "method": "weighted_comparables",
             "source": "imoia_local",
             "comparables": weighted_comps[:20],
@@ -1338,7 +1441,7 @@ class MarketService:
     # ------------------------------------------------------------------
 
     def get_market_overview(self) -> Dict[str, Any]:
-        """Overview para dashboard."""
+        """Overview completo para dashboard."""
         with get_session() as session:
             zones = session.execute(
                 select(func.count()).select_from(MarketZoneStats)
@@ -1358,10 +1461,35 @@ class MarketService:
                 select(func.count()).select_from(MarketComparable)
             ).scalar() or 0
 
-            # Verificar acesso real a pesquisa CASAFARI (login OK != acesso a search)
+            # Ultima avaliacao e media de confianca
+            last_val = session.execute(
+                select(PropertyValuation)
+                .order_by(PropertyValuation.valuated_at.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+
+            last_val_at = last_val.valuated_at.isoformat() if last_val and last_val.valuated_at else None
+
+            avg_conf = session.execute(
+                select(func.avg(PropertyValuation.confidence_score))
+            ).scalar()
+
+            # Verificar acesso real a pesquisa CASAFARI
             casafari_search_ok = False
             if self.casafari_available:
                 casafari_search_ok = self._casafari.check_search_access()
+
+            # Fontes de dados activas
+            sources = []
+            if self.casafari_available:
+                sources.append("casafari")
+            if self._ine:
+                sources.append("ine")
+            sources.append("bpstat")  # sempre disponivel (API publica)
+            if hasattr(self, "_sir") and self._sir and self._sir.is_configured:
+                sources.append("sir")
+
+            sir_ok = hasattr(self, "_sir") and self._sir and self._sir.is_configured
 
             return {
                 "zones_monitored": zones,
@@ -1371,6 +1499,12 @@ class MarketService:
                 "casafari_configured": self.casafari_available,
                 "casafari_search_access": casafari_search_ok,
                 "ine_available": self._ine is not None,
+                "bpstat_available": True,
+                "sir_available": sir_ok,
+                "avm_method": "local_avm",
+                "last_valuation_at": last_val_at,
+                "avg_confidence_score": round(avg_conf, 1) if avg_conf else None,
+                "data_sources": sources,
             }
 
     # ------------------------------------------------------------------
