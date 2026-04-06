@@ -1258,7 +1258,7 @@ def reprocess_group_batch(
                     total_opportunities += opps
 
         except Exception as e:
-            errors.append(f"{gid}: {str(e)[:80]}")
+            errors.append(f"{gid}: {str(e)[:300]}")
             logger.error(f"Reprocess batch erro {gid}: {e}")
 
     logger.info(f"Batch reprocess: {groups_processed} grupos, {total_messages} msgs, {total_opportunities} opps")
