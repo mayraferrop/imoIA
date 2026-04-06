@@ -21,9 +21,11 @@
 ## 🏗️ Arquitetura e Stack
 
 - **Runtime:** Node.js (gerenciado via NVM)
-- **Linguagem:** TypeScript
+- **Linguagem:** TypeScript (frontend), Python (backend)
+- **Base de dados:** Supabase PostgreSQL (via pooler, transaction mode)
+- **ORM:** SQLAlchemy 2.0 (backend) + PostgREST (frontend/REST)
 - **WhatsApp:** Whapi.cloud (REST API)
-- **IDE:** Antigravity
+- **Deploy:** Render (backend), Vercel (frontend)
 - **Versionamento:** Git / GitHub (branch principal: `main`)
 
 ---
@@ -218,6 +220,10 @@ Quando receber instruções para trabalhar em paralelo, monte este time automati
 | Mar/2026 | Whapi: endpoint de arquivar atualizado pelo fornecedor | Mudança no lado do Whapi, não bug nosso |
 | Mar/2026 | NVM adicionado ao `.zshrc` para persistência | Evitar `command not found: claude` em terminais novos |
 | Mar/2026 | Vercel: alias `imoia.vercel.app` → projecto `imo-ia` | URL principal usada em produção |
+| Abr/2026 | Migração SQLite → Supabase PostgreSQL concluída | BD principal é Supabase (48 tabelas, pooler aws-1-eu-west-1:6543) |
+| Abr/2026 | User `imoia_app` para SQLAlchemy, RLS ativado em todas tabelas | anon=SELECT only, imoia_app=ALL, service_role=bypass |
+| Abr/2026 | SQLite removido, DATABASE_URL obrigatório | Sem fallback — PostgreSQL é o único BD suportado |
+| Abr/2026 | Backup semanal via cron + scripts/backup_supabase.py | Domingos 3h, exporta JSON para backups/ |
 
 > Adicionar novas entradas aqui quando decisões técnicas relevantes forem tomadas.
 
