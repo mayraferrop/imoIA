@@ -33,8 +33,8 @@ class Group(Base):
     __tablename__ = "groups"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    whatsapp_group_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    whatsapp_group_id: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     message_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -50,14 +50,14 @@ class Message(Base):
     __tablename__ = "messages"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    whatsapp_message_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    whatsapp_message_id: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     group_id: Mapped[int] = mapped_column(Integer, ForeignKey("groups.id"), nullable=False)
-    group_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    sender_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    sender_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    group_name: Mapped[str] = mapped_column(Text, nullable=False)
+    sender_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    sender_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    message_type: Mapped[str] = mapped_column(String(50), default="text")
-    media_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    message_type: Mapped[str] = mapped_column(Text, default="text")
+    media_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     processed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
