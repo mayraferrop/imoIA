@@ -1675,7 +1675,7 @@ def page_configuracao() -> None:
     st.markdown("### Base de Dados")
     db_url = st.text_input(
         "DATABASE_URL",
-        value=env_values.get("DATABASE_URL", "sqlite:///data/imoia.db"),
+        value=env_values.get("DATABASE_URL", ""),
         help="URL de conexao a base de dados",
     )
 
