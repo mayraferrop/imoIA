@@ -1048,8 +1048,25 @@ def run_pipeline() -> PipelineResult:
     phase3_elapsed = time.monotonic() - phase3_start
     logger.info(f"FASE 3 (classificacao): {total_filtered} msgs, {total_opportunities} opps em {phase3_elapsed:.1f}s")
 
-    # --- FASE 4: Archive grupos não-arquivados (PATCH read + POST archive) ---
+    # --- FASE 4: Marcar como lido ANTES de arquivar (PUT última msg) ---
+    # Usa mark_group_as_read_light (1 PUT por grupo) em vez de 50 PUTs.
+    # Feito ANTES do archive para garantir que msgs são lidas primeiro.
     phase4_start = time.monotonic()
+    read_client = WhatsAppClient()
+    active_read = 0
+    for group in active_with_unread:
+        gid = group.get("id", "")
+        if gid:
+            try:
+                read_client.mark_group_as_read_light(gid)
+                active_read += 1
+            except Exception as e:
+                logger.warning(f"Falha mark_as_read {group.get('name', '?')}: {e}")
+    phase4_elapsed = time.monotonic() - phase4_start
+    logger.info(f"FASE 4 (mark_as_read light): {active_read}/{len(active_with_unread)} em {phase4_elapsed:.1f}s")
+
+    # --- FASE 5: Archive grupos não-arquivados (POST archive) ---
+    phase5_start = time.monotonic()
     archive_count = 0
 
     def _archive_group_task(gid: str) -> bool:
@@ -1069,35 +1086,18 @@ def run_pipeline() -> PipelineResult:
         g.get("id") for g in active_groups
         if g.get("id") and not g.get("is_archived", False)
     ]
-    logger.info(f"FASE 4: {len(groups_to_archive)} grupos por arquivar")
+    logger.info(f"FASE 5: {len(groups_to_archive)} grupos por arquivar")
     if groups_to_archive:
         # Sequencial para evitar rate limiting na Whapi
         for gid in groups_to_archive:
             if _archive_group_task(gid):
                 archive_count += 1
 
-    phase4_elapsed = time.monotonic() - phase4_start
-    if archive_count < len(groups_to_archive):
-        logger.warning(f"FASE 4: archive INCOMPLETO {archive_count}/{len(groups_to_archive)} em {phase4_elapsed:.1f}s")
-    else:
-        logger.info(f"FASE 4 (archive): {archive_count}/{len(groups_to_archive)} em {phase4_elapsed:.1f}s")
-
-    # --- FASE 5: Marcar como lido no device (PUT última msg) DEPOIS do archive ---
-    # Usa mark_group_as_read_light (1 PUT por grupo) em vez de 50 PUTs.
-    # Feito DEPOIS do archive para não interferir com sync do device.
-    phase5_start = time.monotonic()
-    read_client = WhatsAppClient()
-    active_read = 0
-    for group in active_with_unread:
-        gid = group.get("id", "")
-        if gid:
-            try:
-                read_client.mark_group_as_read_light(gid)
-                active_read += 1
-            except Exception as e:
-                logger.warning(f"Falha mark_as_read {group.get('name', '?')}: {e}")
     phase5_elapsed = time.monotonic() - phase5_start
-    logger.info(f"FASE 5 (mark_as_read light): {active_read}/{len(active_with_unread)} em {phase5_elapsed:.1f}s")
+    if archive_count < len(groups_to_archive):
+        logger.warning(f"FASE 5: archive INCOMPLETO {archive_count}/{len(groups_to_archive)} em {phase5_elapsed:.1f}s")
+    else:
+        logger.info(f"FASE 5 (archive): {archive_count}/{len(groups_to_archive)} em {phase5_elapsed:.1f}s")
 
     # Resumo final
     pipeline_elapsed = time.monotonic() - pipeline_start
