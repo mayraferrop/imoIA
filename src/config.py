@@ -101,9 +101,9 @@ class Settings:
         default_factory=lambda: os.getenv("TROLTO_BASE_URL", "https://api.trolto.com")
     )
 
-    # Base de dados
+    # Base de dados (PostgreSQL via Supabase Pooler)
     database_url: str = field(
-        default_factory=lambda: os.getenv("DATABASE_URL", f"sqlite:///{_PROJECT_ROOT / 'data' / 'imoia.db'}")
+        default_factory=lambda: os.getenv("DATABASE_URL", "")
     )
 
     # Pipeline

@@ -4,6 +4,7 @@ auth/
 
 # Database
 data/*.db
+backups/
 
 # Logs
 logs/*.log
@@ -71,3 +72,4 @@ storage/
 *.db
 .next/
 .vercel
+.env*.local

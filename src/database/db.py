@@ -7,8 +7,6 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
-from pathlib import Path
-
 from urllib.parse import quote_plus, urlparse
 
 from loguru import logger
@@ -23,42 +21,34 @@ _SessionLocal = None
 
 
 def _get_engine():
-    """Cria ou retorna o engine SQLAlchemy."""
+    """Cria ou retorna o engine SQLAlchemy (PostgreSQL via Supabase)."""
     global _engine
     if _engine is None:
         settings = get_settings()
         db_url = settings.database_url
 
+        if not db_url:
+            raise ValueError(
+                "DATABASE_URL não configurado. "
+                "Defina no .env: postgresql://user.ref:pass@host:6543/postgres"
+            )
+
         # Garantir que a password está URL-encoded (caracteres especiais como @)
-        if "postgresql" in db_url:
-            parsed = urlparse(db_url)
-            if parsed.password and "%" not in parsed.password:
-                encoded_pw = quote_plus(parsed.password)
-                db_url = db_url.replace(f":{parsed.password}@", f":{encoded_pw}@", 1)
+        parsed = urlparse(db_url)
+        if parsed.password and "%" not in parsed.password:
+            encoded_pw = quote_plus(parsed.password)
+            db_url = db_url.replace(f":{parsed.password}@", f":{encoded_pw}@", 1)
 
-        # Garantir que o diretório data/ existe para SQLite
-        if db_url.startswith("sqlite:///"):
-            db_path = db_url.replace("sqlite:///", "")
-            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-
-        connect_args = {}
-        kwargs = {}
-        if "sqlite" in db_url:
-            connect_args["check_same_thread"] = False
-        else:
-            # PostgreSQL — pool settings para Supabase Transaction pooler
-            kwargs["pool_size"] = 2
-            kwargs["max_overflow"] = 3
-            kwargs["pool_pre_ping"] = True
-            kwargs["pool_recycle"] = 300
-
+        # Pool settings para Supabase Transaction pooler
         _engine = create_engine(
             db_url,
             echo=False,
-            connect_args=connect_args,
-            **kwargs,
+            pool_size=2,
+            max_overflow=3,
+            pool_pre_ping=True,
+            pool_recycle=300,
         )
-        logger.info(f"Engine SQLAlchemy criado: {db_url}")
+        logger.info(f"Engine SQLAlchemy criado: {db_url[:50]}...")
     return _engine
 
 
@@ -76,8 +66,6 @@ def _sync_sequences(engine) -> None:
     Evita erros de duplicate key quando a sequence está dessincronizada
     (ex: dados importados sem passar pelo auto-increment).
     """
-    if "sqlite" in str(engine.url):
-        return
     tables = ["messages", "groups", "opportunities", "market_data"]
     try:
         with engine.connect() as conn:
@@ -94,8 +82,6 @@ def _sync_sequences(engine) -> None:
 
 def _apply_migrations(engine) -> None:
     """Aplica migracoes incrementais (ALTER TABLE) para colunas em falta."""
-    if "sqlite" in str(engine.url):
-        return
     migrations = [
         ("financial_models", "tir_anual_pct", "ALTER TABLE financial_models ADD COLUMN tir_anual_pct FLOAT DEFAULT 0"),
         ("financial_models", "loan_pct_purchase", "ALTER TABLE financial_models ADD COLUMN loan_pct_purchase FLOAT DEFAULT 0"),
