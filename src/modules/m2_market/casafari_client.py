@@ -880,55 +880,86 @@ class CasafariClient:
     def search_comparables(
         self,
         operation: str = "sale",
-        location_ids: Optional[List[int]] = None,
-        property_types: Optional[List[str]] = None,
-        conditions: Optional[List[str]] = None,
-        price_from: Optional[int] = None,
-        price_to: Optional[int] = None,
-        bedrooms_from: Optional[int] = None,
-        bedrooms_to: Optional[int] = None,
-        total_area_from: Optional[int] = None,
-        total_area_to: Optional[int] = None,
+        latitude: Optional[float] = None,
+        longitude: Optional[float] = None,
+        address: Optional[str] = None,
+        distance_km: float = 5.0,
+        comparables_count: int = 20,
+        comparables_types: Optional[List[str]] = None,
+        condition: Optional[str] = None,
+        bedrooms: Optional[int] = None,
+        bathrooms: Optional[int] = None,
+        total_area: Optional[int] = None,
+        plot_area: Optional[int] = None,
+        construction_year: Optional[int] = None,
+        min_price: Optional[int] = None,
+        max_price: Optional[int] = None,
         limit: int = 20,
         offset: int = 0,
     ) -> Optional[Dict[str, Any]]:
         """Pesquisa de comparaveis via POST /api/v1/comparables/search.
 
-        Endpoint dedicado para comparaveis (separado de listing-alerts).
+        Usa a mesma estrutura de location_boundary que valuation/comparables-prices.
+        Campos obrigatorios: comparables_count, location_boundary, comparables_types.
 
         Args:
             operation: 'sale' ou 'rent'.
-            location_ids: IDs de localizacao CASAFARI.
-            property_types: Tipos de imovel.
-            conditions: Condicoes.
-            price_from/price_to: Intervalo de preco.
-            bedrooms_from/bedrooms_to: Intervalo de quartos.
-            total_area_from/total_area_to: Intervalo de area.
+            latitude/longitude: Coordenadas do ponto central.
+            address: Morada (opcional, complementa coordenadas).
+            distance_km: Raio de pesquisa (0.05-50 km, default 5).
+            comparables_count: Numero de comparaveis (1-50).
+            comparables_types: Tipos de imovel CASAFARI.
+            condition: Condicao (used, new, very-good, ruin, other).
+            bedrooms/bathrooms: Filtros.
+            total_area/plot_area: Area em m2.
+            construction_year: Ano de construcao.
+            min_price/max_price: Intervalo de preco.
             limit/offset: Paginacao.
 
         Returns:
             Dict com resultados de comparaveis.
         """
-        body: Dict[str, Any] = {"operation": operation}
+        if not comparables_types:
+            comparables_types = ["apartment"]
 
-        if location_ids:
-            body["location_ids"] = location_ids
-        if property_types:
-            body["types"] = property_types
-        if conditions:
-            body["conditions"] = conditions
-        if price_from is not None:
-            body["price_from"] = price_from
-        if price_to is not None:
-            body["price_to"] = price_to
-        if bedrooms_from is not None:
-            body["bedrooms_from"] = bedrooms_from
-        if bedrooms_to is not None:
-            body["bedrooms_to"] = bedrooms_to
-        if total_area_from is not None:
-            body["total_area_from"] = total_area_from
-        if total_area_to is not None:
-            body["total_area_to"] = total_area_to
+        body: Dict[str, Any] = {
+            "operation": operation,
+            "comparables_count": min(comparables_count, 50),
+            "comparables_types": comparables_types,
+        }
+
+        # location_boundary obrigatorio
+        if latitude is not None and longitude is not None:
+            body["location_boundary"] = {
+                "circle": {
+                    "target_point": {
+                        "coordinates": {
+                            "latitude": latitude,
+                            "longitude": longitude,
+                        },
+                    },
+                    "distance": distance_km,
+                },
+            }
+            if address:
+                body["location_boundary"]["circle"]["target_point"]["address"] = address
+
+        if condition:
+            body["condition"] = condition
+        if bedrooms is not None:
+            body["bedrooms"] = bedrooms
+        if bathrooms is not None:
+            body["bathrooms"] = bathrooms
+        if total_area is not None:
+            body["total_area"] = total_area
+        if plot_area is not None:
+            body["plot_area"] = plot_area
+        if construction_year is not None:
+            body["construction_year"] = construction_year
+        if min_price is not None:
+            body["min_price"] = min_price
+        if max_price is not None:
+            body["max_price"] = max_price
 
         return self._request(
             "POST",
