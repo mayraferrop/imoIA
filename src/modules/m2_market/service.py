@@ -588,6 +588,227 @@ class MarketService:
 
             return self._valuation_to_dict(valuation)
 
+    def local_avm(
+        self,
+        latitude: float,
+        longitude: float,
+        property_type: str = "apartment",
+        bedrooms: Optional[int] = None,
+        bathrooms: Optional[int] = None,
+        total_area: Optional[float] = None,
+        condition: Optional[str] = None,
+        operation: str = "sale",
+        distance_km: float = 5.0,
+        max_comparables: int = 30,
+        address: Optional[str] = None,
+        municipality: Optional[str] = None,
+        district: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """AVM local ponderado por distancia, area e caracteristicas.
+
+        Busca comparaveis via CASAFARI /comparables/search e calcula preco
+        estimado com media ponderada (peso = proximidade * similaridade).
+
+        Returns:
+            Dict com estimativa, intervalo, confianca e comparaveis usados.
+        """
+        if not self.casafari_available:
+            return {"error": "CASAFARI nao configurada"}
+
+        casafari_types = CasafariClient.map_property_type(property_type)
+        casafari_condition = (
+            CasafariClient.map_condition(condition) if condition else None
+        )
+
+        # Buscar comparaveis via endpoint dedicado
+        data = self._casafari.search_comparables(
+            operation=operation,
+            latitude=latitude,
+            longitude=longitude,
+            address=address,
+            distance_km=distance_km,
+            comparables_count=min(max_comparables, 50),
+            comparables_types=casafari_types or ["apartment"],
+            condition=casafari_condition,
+            bedrooms=bedrooms,
+            bathrooms=bathrooms,
+            total_area=int(total_area) if total_area else None,
+        )
+
+        if not data:
+            return {"error": "CASAFARI nao retornou comparaveis"}
+
+        results = data.get("results", [])
+        if isinstance(data, list):
+            results = data
+        if not results:
+            return {"error": "0 comparaveis encontrados"}
+
+        # Parsear comparaveis
+        parsed = []
+        for item in results:
+            comp = CasafariClient.parse_alert_to_comparable(item)
+            price_m2 = comp.get("price_per_m2")
+            price = comp.get("listing_price")
+            area = comp.get("gross_area_m2") or comp.get("useful_area_m2")
+            if not price_m2 and price and area and area > 0:
+                price_m2 = round(price / area, 2)
+            if not price_m2 or price_m2 <= 0:
+                continue
+
+            clat = comp.get("latitude")
+            clon = comp.get("longitude")
+            dist = None
+            if clat and clon:
+                dist = self._haversine(latitude, longitude, clat, clon)
+
+            parsed.append({
+                "source_id": comp.get("source_id"),
+                "source_url": comp.get("source_url"),
+                "parish": comp.get("parish"),
+                "latitude": clat,
+                "longitude": clon,
+                "distance_km": round(dist, 2) if dist else None,
+                "listing_price": price,
+                "price_per_m2": price_m2,
+                "gross_area_m2": area,
+                "bedrooms": comp.get("bedrooms"),
+                "condition": comp.get("condition"),
+            })
+
+        if not parsed:
+            return {"error": "0 comparaveis com preco/m2 valido"}
+
+        # Calcular pesos
+        area_ref = total_area or 80.0
+        weighted_comps = []
+        for c in parsed:
+            w = 1.0
+
+            # Peso distancia: mais perto = mais peso (decay gaussiano)
+            d = c.get("distance_km")
+            if d is not None:
+                w *= math.exp(-(d ** 2) / (2 * (distance_km / 2) ** 2))
+            else:
+                w *= 0.3  # sem coordenadas = peso baixo
+
+            # Peso area: area similar = mais peso
+            c_area = c.get("gross_area_m2")
+            if c_area and c_area > 0:
+                area_ratio = min(c_area, area_ref) / max(c_area, area_ref)
+                w *= area_ratio
+            else:
+                w *= 0.5
+
+            # Peso quartos: mesmo numero = bonus
+            c_bed = c.get("bedrooms")
+            if bedrooms is not None and c_bed is not None:
+                if c_bed == bedrooms:
+                    w *= 1.2
+                elif abs(c_bed - bedrooms) == 1:
+                    w *= 0.8
+                else:
+                    w *= 0.5
+
+            # Peso condicao: mesma condicao = bonus
+            c_cond = c.get("condition")
+            if condition and c_cond:
+                if c_cond == condition:
+                    w *= 1.2
+                elif c_cond in ("new", "very-good") and condition in ("new", "very-good"):
+                    w *= 1.0
+                else:
+                    w *= 0.7
+
+            c["weight"] = round(w, 4)
+            weighted_comps.append(c)
+
+        # Ordenar por peso (maior primeiro)
+        weighted_comps.sort(key=lambda x: x["weight"], reverse=True)
+
+        # Media ponderada do preco/m2
+        total_w = sum(c["weight"] for c in weighted_comps)
+        if total_w <= 0:
+            return {"error": "pesos zerados — sem comparaveis validos"}
+
+        weighted_price_m2 = sum(
+            c["price_per_m2"] * c["weight"] for c in weighted_comps
+        ) / total_w
+
+        # Mediana simples para referencia
+        all_prices_m2 = sorted(c["price_per_m2"] for c in weighted_comps)
+        n = len(all_prices_m2)
+        if n % 2 == 1:
+            median_price_m2 = all_prices_m2[n // 2]
+        else:
+            median_price_m2 = (all_prices_m2[n // 2 - 1] + all_prices_m2[n // 2]) / 2
+
+        # Desvio padrao
+        mean_p = sum(all_prices_m2) / n
+        variance = sum((p - mean_p) ** 2 for p in all_prices_m2) / n
+        std_dev = math.sqrt(variance)
+
+        # Coeficiente de variacao (CV) para confianca
+        cv = std_dev / mean_p if mean_p > 0 else 1.0
+
+        # Confianca baseada em CV + numero de comparaveis
+        if n >= 15 and cv < 0.25:
+            confidence = 90.0
+        elif n >= 10 and cv < 0.35:
+            confidence = 80.0
+        elif n >= 5 and cv < 0.40:
+            confidence = 65.0
+        elif n >= 3:
+            confidence = 45.0
+        else:
+            confidence = 25.0
+
+        # Estimativa final
+        area_for_calc = total_area or 80.0
+        estimated_price = round(weighted_price_m2 * area_for_calc, 2)
+
+        # Intervalo baseado no CV
+        margin = max(0.08, min(cv, 0.30))
+        estimated_low = round(estimated_price * (1 - margin), 2)
+        estimated_high = round(estimated_price * (1 + margin), 2)
+
+        logger.info(
+            f"M2-AVM-LOCAL: {n} comparaveis, "
+            f"preco_m2_ponderado={weighted_price_m2:.0f}, "
+            f"mediana={median_price_m2:.0f}, "
+            f"CV={cv:.2f}, confianca={confidence}%"
+        )
+
+        return {
+            "estimated_price": estimated_price,
+            "estimated_price_low": estimated_low,
+            "estimated_price_high": estimated_high,
+            "estimated_price_per_m2": round(weighted_price_m2, 2),
+            "confidence_score": confidence,
+            "comparables_used": n,
+            "comparables_total": len(results),
+            "weighted_avg_price_m2": round(weighted_price_m2, 2),
+            "simple_median_price_m2": round(median_price_m2, 2),
+            "std_dev_price_m2": round(std_dev, 2),
+            "method": "weighted_comparables",
+            "source": "imoia_local",
+            "comparables": weighted_comps[:20],
+        }
+
+    @staticmethod
+    def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        """Distancia em km entre dois pontos (formula de Haversine)."""
+        R = 6371.0
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        a = (
+            math.sin(dlat / 2) ** 2
+            + math.cos(math.radians(lat1))
+            * math.cos(math.radians(lat2))
+            * math.sin(dlon / 2) ** 2
+        )
+        return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
     def valuate_deal(self, deal_id: str) -> Dict[str, Any]:
         """Avalia um deal existente."""
         with get_session() as session:

@@ -289,6 +289,60 @@ class CasafariValuationResponse(BaseModel):
     source: str = "casafari_native"
 
 
+class LocalAVMRequest(BaseModel):
+    """Dados para avaliacao local (AVM imoIA baseado em comparaveis)."""
+
+    latitude: float
+    longitude: float
+    address: Optional[str] = None
+    district: Optional[str] = None
+    municipality: Optional[str] = None
+    parish: Optional[str] = None
+    property_type: str = "apartment"
+    bedrooms: Optional[int] = None
+    bathrooms: Optional[int] = None
+    total_area: Optional[float] = None
+    condition: Optional[str] = None
+    operation: str = "sale"
+    distance_km: float = Field(default=5.0, ge=0.5, le=20.0)
+    max_comparables: int = Field(default=30, ge=5, le=50)
+
+
+class LocalAVMComparable(BaseModel):
+    """Comparavel usado no calculo do AVM local."""
+
+    source_id: Optional[str] = None
+    source_url: Optional[str] = None
+    parish: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    distance_km: Optional[float] = None
+    listing_price: Optional[float] = None
+    price_per_m2: Optional[float] = None
+    gross_area_m2: Optional[float] = None
+    bedrooms: Optional[int] = None
+    condition: Optional[str] = None
+    weight: float = 0.0
+
+
+class LocalAVMResponse(BaseModel):
+    """Resultado do AVM local imoIA."""
+
+    estimated_price: Optional[float] = None
+    estimated_price_low: Optional[float] = None
+    estimated_price_high: Optional[float] = None
+    estimated_price_per_m2: Optional[float] = None
+    confidence_score: float = 0.0
+    comparables_used: int = 0
+    comparables_total: int = 0
+    weighted_avg_price_m2: Optional[float] = None
+    simple_median_price_m2: Optional[float] = None
+    std_dev_price_m2: Optional[float] = None
+    method: str = "weighted_comparables"
+    source: str = "imoia_local"
+    comparables: List[LocalAVMComparable] = Field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # References
 # ---------------------------------------------------------------------------

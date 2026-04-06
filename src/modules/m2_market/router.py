@@ -28,6 +28,8 @@ from src.modules.m2_market.schemas import (
     ComparableSearchRequest,
     ComparableSearchResponse,
     EnrichmentResponse,
+    LocalAVMRequest,
+    LocalAVMResponse,
     LocationSearchRequest,
     LocationSearchResponse,
     MarketOverviewResponse,
@@ -522,6 +524,45 @@ async def valuate_casafari_native(data: CasafariValuationRequest) -> Dict[str, A
             status_code=502,
             detail="CASAFARI nao retornou dados — verifique limites da API",
         )
+    return result
+
+
+# ---------------------------------------------------------------------------
+# AVM Local (imoIA)
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/valuate/local",
+    summary="AVM local imoIA (ponderado por comparaveis)",
+    response_model=LocalAVMResponse,
+)
+async def valuate_local(data: LocalAVMRequest) -> Dict[str, Any]:
+    """Avaliacao automatica usando comparaveis CASAFARI com ponderacao local.
+
+    Calcula preco estimado com media ponderada por distancia, area,
+    quartos e condicao. Nao depende do endpoint pago de valuation.
+    """
+    svc = _get_service()
+    result = svc.local_avm(
+        latitude=data.latitude,
+        longitude=data.longitude,
+        address=data.address,
+        district=data.district,
+        municipality=data.municipality,
+        property_type=data.property_type,
+        bedrooms=data.bedrooms,
+        bathrooms=data.bathrooms,
+        total_area=data.total_area,
+        condition=data.condition,
+        operation=data.operation,
+        distance_km=data.distance_km,
+        max_comparables=data.max_comparables,
+    )
+
+    if "error" in result:
+        raise HTTPException(status_code=502, detail=result["error"])
+
     return result
 
 
