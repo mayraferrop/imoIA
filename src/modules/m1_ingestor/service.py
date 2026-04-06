@@ -594,11 +594,19 @@ def _save_results(
         # Guardar dados de mercado se disponíveis
         if idx < len(market_enrichments) and market_enrichments[idx] is not None:
             market = market_enrichments[idx]
+            # Truncar campos VARCHAR para caber no schema do DB
+            _ine_q = market.get("ine_quarter")
+            if _ine_q and len(str(_ine_q)) > 10:
+                _ine_q = str(_ine_q)[:10]
+            _sir_pos = market.get("sir_market_position")
+            if _sir_pos and len(str(_sir_pos)) > 20:
+                _sir_pos = str(_sir_pos)[:20]
+
             db_market = MarketData(
                 opportunity_id=db_opportunity.id,
                 # INE
                 ine_median_price_m2=market.get("ine_median_price_m2"),
-                ine_quarter=market.get("ine_quarter"),
+                ine_quarter=_ine_q,
                 # Casafari
                 casafari_avg_price_m2=market.get("casafari_avg_price_m2"),
                 casafari_median_price_m2=market.get("casafari_median_price_m2"),
@@ -609,7 +617,7 @@ def _save_results(
                 infocasa_comparables_count=market.get("infocasa_comparables_count"),
                 # SIR
                 sir_median_price_m2=market.get("sir_median_price_m2"),
-                sir_market_position=market.get("sir_market_position"),
+                sir_market_position=_sir_pos,
                 sir_price_vs_market_pct=market.get("sir_price_vs_market_pct"),
                 sir_transactions_count=market.get("sir_transactions_count"),
                 # Idealista

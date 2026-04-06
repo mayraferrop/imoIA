@@ -15,7 +15,6 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
-    String,
     Text,
     func,
 )
@@ -86,9 +85,9 @@ class Opportunity(Base):
     bedrooms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     ai_reasoning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     original_message: Mapped[str] = mapped_column(Text, nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default="nova")
+    status: Mapped[str] = mapped_column(Text, default="nova")
     deal_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    deal_grade: Mapped[Optional[str]] = mapped_column(String(2), nullable=True)
+    deal_grade: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
@@ -106,7 +105,7 @@ class MarketData(Base):
 
     # INE (baseline nacional)
     ine_median_price_m2: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    ine_quarter: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    ine_quarter: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Casafari (comparaveis e estatisticas)
     casafari_avg_price_m2: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
@@ -120,7 +119,7 @@ class MarketData(Base):
 
     # SIR / Confidencial Imobiliario (transacoes reais)
     sir_median_price_m2: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    sir_market_position: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    sir_market_position: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     sir_price_vs_market_pct: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     sir_transactions_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
