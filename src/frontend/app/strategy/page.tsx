@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
+import { apiGet, apiPost, apiDelete } from "@/lib/api";
 
 // Categorias para agrupamento visual
 const CATEGORY_LABELS: Record<string, string> = {
@@ -57,15 +56,8 @@ export default function StrategyPage() {
   const [editingStrategy, setEditingStrategy] = useState<Strategy | null>(null);
 
   const fetchStrategies = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/v1/strategies`);
-      if (res.ok) {
-        const data = await res.json();
-        setStrategies(data);
-      }
-    } catch {
-      /* ignora */
-    }
+    const data = await apiGet<Strategy[]>("/api/v1/strategies");
+    if (data) setStrategies(data);
   }, []);
 
   useEffect(() => {
@@ -77,13 +69,8 @@ export default function StrategyPage() {
     if (description.trim().length < 10) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/strategies/suggest-signals`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description }),
-      });
-      if (!res.ok) throw new Error("Erro ao gerar sinais");
-      const data = await res.json();
+      const data = await apiPost<{ signals: Signal[] }>("/api/v1/strategies/suggest-signals", { description });
+      if (!data) throw new Error("Erro ao gerar sinais");
       setSignals(data.signals || []);
       setStep(2);
     } catch (err) {
@@ -142,24 +129,20 @@ export default function StrategyPage() {
     if (!strategyName.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/strategies`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: strategyName,
-          description,
-          is_active: true,
-          signals: signals.map((s) => ({
-            id: s.id,
-            signal_text: s.signal_text,
-            signal_category: s.signal_category,
-            is_positive: s.is_positive,
-            priority: s.priority,
-            is_ai_suggested: s.is_ai_suggested,
-          })),
-        }),
+      const result = await apiPost("/api/v1/strategies", {
+        name: strategyName,
+        description,
+        is_active: true,
+        signals: signals.map((s) => ({
+          id: s.id,
+          signal_text: s.signal_text,
+          signal_category: s.signal_category,
+          is_positive: s.is_positive,
+          priority: s.priority,
+          is_ai_suggested: s.is_ai_suggested,
+        })),
       });
-      if (!res.ok) throw new Error("Erro ao guardar");
+      if (!result) throw new Error("Erro ao guardar");
       await fetchStrategies();
       // Reset
       setStep(1);
@@ -174,15 +157,13 @@ export default function StrategyPage() {
   };
 
   const activateStrategy = async (id: string) => {
-    await fetch(`${API_BASE}/api/v1/strategies/${id}/activate`, {
-      method: "POST",
-    });
+    await apiPost(`/api/v1/strategies/${id}/activate`);
     await fetchStrategies();
   };
 
   const deleteStrategy = async (id: string) => {
     if (!confirm("Tem a certeza que deseja remover esta estrategia?")) return;
-    await fetch(`${API_BASE}/api/v1/strategies/${id}`, { method: "DELETE" });
+    await apiDelete(`/api/v1/strategies/${id}`);
     await fetchStrategies();
   };
 

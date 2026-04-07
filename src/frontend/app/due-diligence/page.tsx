@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
+import { apiGet, apiPost, apiPatch, API_BASE, getAuthHeaders } from "@/lib/api";
 
 /* ------------------------------------------------------------------ */
 /*  Tipos locais                                                       */
@@ -41,20 +40,6 @@ interface DDChecklist {
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
-
-async function api<T = any>(path: string, opts?: RequestInit): Promise<T | null> {
-  try {
-    const res = await fetch(`${API_BASE}${path}`, {
-      headers: { "Content-Type": "application/json" },
-      ...opts,
-    });
-    if (!res.ok) return null;
-    const text = await res.text();
-    return text ? JSON.parse(text) : ({} as T);
-  } catch {
-    return null;
-  }
-}
 
 const STATUS_ICONS: Record<string, string> = {
   pendente: "[ ]",
@@ -107,7 +92,7 @@ export default function DueDiligencePage() {
   /* --- Load deals --- */
   useEffect(() => {
     (async () => {
-      const data = await api<{ items: Deal[] }>("/api/v1/deals?limit=50");
+      const data = await apiGet<{ items: Deal[] }>("/api/v1/deals?limit=50");
       if (data?.items) {
         const active = data.items.filter(
           (d) => d.status !== "descartado" && d.status !== "fechado"
@@ -120,7 +105,7 @@ export default function DueDiligencePage() {
   /* --- Load checklist when deal selected --- */
   const loadChecklist = useCallback(async (dealId: string) => {
     setLoading(true);
-    const data = await api<DDChecklist>(
+    const data = await apiGet<DDChecklist>(
       `/api/v1/due-diligence/deals/${dealId}/checklist`
     );
     setChecklist(data);
@@ -133,10 +118,7 @@ export default function DueDiligencePage() {
 
   /* --- Update item status --- */
   async function handleStatusChange(itemId: string, newStatus: string) {
-    await api(`/api/v1/due-diligence/items/${itemId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: newStatus }),
-    });
+    await apiPatch(`/api/v1/due-diligence/items/${itemId}`, { status: newStatus });
     if (selectedDealId) loadChecklist(selectedDealId);
   }
 
@@ -144,9 +126,7 @@ export default function DueDiligencePage() {
   async function handleGenerate() {
     if (!selectedDealId) return;
     setGenerating(true);
-    await api(`/api/v1/due-diligence/deals/${selectedDealId}/generate`, {
-      method: "POST",
-    });
+    await apiPost(`/api/v1/due-diligence/deals/${selectedDealId}/generate`);
     await loadChecklist(selectedDealId);
     setGenerating(false);
   }
@@ -156,23 +136,17 @@ export default function DueDiligencePage() {
     const description = prompt("Descrição da red flag:");
     if (!description) return;
     const severity = prompt("Severidade (low, medium, high, critical):", "medium");
-    await api(`/api/v1/due-diligence/items/${itemId}/red-flag`, {
-      method: "POST",
-      body: JSON.stringify({
-        red_flag: true,
-        red_flag_description: description,
-        red_flag_severity: severity || "medium",
-      }),
+    await apiPost(`/api/v1/due-diligence/items/${itemId}/red-flag`, {
+      red_flag: true,
+      red_flag_description: description,
+      red_flag_severity: severity || "medium",
     });
     if (selectedDealId) loadChecklist(selectedDealId);
   }
 
   /* --- Resolve red flag --- */
   async function handleResolveRedFlag(itemId: string) {
-    await api(`/api/v1/due-diligence/items/${itemId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ red_flag: false, red_flag_description: null }),
-    });
+    await apiPatch(`/api/v1/due-diligence/items/${itemId}`, { red_flag: false, red_flag_description: null });
     if (selectedDealId) loadChecklist(selectedDealId);
   }
 
@@ -187,9 +161,11 @@ export default function DueDiligencePage() {
       const formData = new FormData();
       formData.append("file", file);
       try {
+        const authHeaders = await getAuthHeaders();
+        delete authHeaders["Content-Type"];
         const res = await fetch(
           `${API_BASE}/api/v1/due-diligence/items/${itemId}/upload`,
-          { method: "POST", body: formData }
+          { method: "POST", headers: authHeaders, body: formData }
         );
         if (res.ok && selectedDealId) loadChecklist(selectedDealId);
       } catch {

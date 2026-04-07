@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { fetcher } from "@/lib/api";
+import { fetcher, apiPost, apiPatch, API_BASE } from "@/lib/api";
 import { formatEUR, cn } from "@/lib/utils";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
 
 interface BrandKit {
   brand_name?: string;
@@ -159,26 +157,22 @@ export default function MarketingPage() {
   async function saveBrandKit() {
     if (!bkName) return;
     const forbidden = bkForbidden.split(",").map((w) => w.trim()).filter(Boolean);
-    await fetch(`${API_BASE}/api/v1/marketing/brand-kit`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        brand_name: bkName,
-        tagline: bkTagline,
-        website_url: bkWebsite,
-        color_primary: bkPrimary,
-        color_secondary: bkSecondary,
-        color_accent: bkAccent,
-        font_heading: bkFontH,
-        font_body: bkFontB,
-        voice_tone: bkTone,
-        voice_description: bkVoiceDesc,
-        voice_forbidden_words: forbidden,
-        contact_phone: bkPhone,
-        contact_email: bkEmail,
-        contact_whatsapp: bkWhatsapp,
-        active_languages: bkLangs.length > 0 ? bkLangs : ["pt-PT"],
-      }),
+    await apiPost("/api/v1/marketing/brand-kit", {
+      brand_name: bkName,
+      tagline: bkTagline,
+      website_url: bkWebsite,
+      color_primary: bkPrimary,
+      color_secondary: bkSecondary,
+      color_accent: bkAccent,
+      font_heading: bkFontH,
+      font_body: bkFontB,
+      voice_tone: bkTone,
+      voice_description: bkVoiceDesc,
+      voice_forbidden_words: forbidden,
+      contact_phone: bkPhone,
+      contact_email: bkEmail,
+      contact_whatsapp: bkWhatsapp,
+      active_languages: bkLangs.length > 0 ? bkLangs : ["pt-PT"],
     });
     setShowBkForm(false);
     loadData();
@@ -190,27 +184,18 @@ export default function MarketingPage() {
   }
 
   async function generateCreatives(listingId: string) {
-    await fetch(`${API_BASE}/api/v1/marketing/listings/${listingId}/creatives/generate-all`, {
-      method: "POST",
-    });
+    await apiPost(`/api/v1/marketing/listings/${listingId}/creatives/generate-all`);
     loadCreatives(listingId);
   }
 
   async function createListing() {
     if (!createDealId || createPrice <= 0) return;
-    const res = await fetch(`${API_BASE}/api/v1/marketing/deals/${createDealId}/listing`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ listing_type: createType, listing_price: createPrice, auto_generate: false }),
+    const result = await apiPost<{ id: string }>(`/api/v1/marketing/deals/${createDealId}/listing`, {
+      listing_type: createType, listing_price: createPrice, auto_generate: false,
     });
-    if (res.ok) {
-      const result = await res.json();
-      if (createTitle && result?.id) {
-        await fetch(`${API_BASE}/api/v1/marketing/listings/${result.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title_pt: createTitle }),
-        });
+    if (result) {
+      if (createTitle && result.id) {
+        await apiPatch(`/api/v1/marketing/listings/${result.id}`, { title_pt: createTitle });
       }
       setShowCreate(false);
       loadData();

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 
-const API_BASE =
+export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
 const ACTIVE_ORG_KEY = "imoia_active_org_id";
 
@@ -8,7 +8,7 @@ const ACTIVE_ORG_KEY = "imoia_active_org_id";
  * Constroi headers de auth para chamadas ao FastAPI backend.
  * Inclui JWT do Supabase Auth e X-Organization-Id activo.
  */
-async function getAuthHeaders(): Promise<Record<string, string>> {
+export async function getAuthHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };

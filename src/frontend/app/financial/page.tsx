@@ -2,10 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { formatEUR, formatPercent, GRADE_COLORS } from "@/lib/utils";
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://jurzdyncaxkgvcatyfdu.supabase.co";
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1cnpkeW5jYXhrZ3ZjYXR5ZmR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNzM2MDcsImV4cCI6MjA4OTk0OTYwN30.2DCCWcrhdwBLMxJ9hUbYkhOBQIgE_aD2jGNaZlAhO5k";
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
+import { apiGet, apiPost, apiDelete, API_BASE, getAuthHeaders } from "@/lib/api";
 
 interface CashFlowEntry {
   label: string;
@@ -150,40 +147,32 @@ export default function FinancialPage() {
   const [showCfpModal, setShowCfpModal] = useState(false);
 
   function loadCfpProjects() {
-    fetch(`${API_BASE}/api/v1/financial/cashflow-pro/projects`)
-      .then(r => r.ok ? r.json() : [])
-      .then(setCfpProjects)
+    apiGet<{id: string; name: string}[]>("/api/v1/financial/cashflow-pro/projects")
+      .then(data => setCfpProjects(data ?? []))
       .catch(() => {});
   }
 
   async function fetchSavedScenarios() {
     setScenariosLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/financial/scenarios`);
-      if (res.ok) setSavedScenarios(await res.json());
+      const data = await apiGet("/api/v1/financial/scenarios");
+      if (data) setSavedScenarios(data as any);
     } catch { /* ignore */ }
     finally { setScenariosLoading(false); }
   }
 
   async function loadScenarioDetail(modelId: string) {
-    try {
-      const res = await fetch(`${API_BASE}/api/v1/financial/${modelId}/projections`);
-      if (res.ok) {
-        const data = await res.json();
-        setSelectedScenario(data);
-      }
-    } catch { /* ignore */ }
+    const data = await apiGet(`/api/v1/financial/${modelId}/projections`);
+    if (data) setSelectedScenario(data as any);
   }
 
   async function handleDeleteScenario(scenarioId: string) {
     if (!confirm("Excluir este cenário? Esta acção não pode ser desfeita.")) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/v1/financial/${scenarioId}`, { method: "DELETE" });
-      if (res.ok) {
-        setSavedScenarios((prev) => prev.filter((s: any) => s.id !== scenarioId));
-        if (selectedScenario?.model_id === scenarioId) setSelectedScenario(null);
-      }
-    } catch { /* ignore */ }
+    const result = await apiDelete(`/api/v1/financial/${scenarioId}`);
+    if (result) {
+      setSavedScenarios((prev) => prev.filter((s: any) => s.id !== scenarioId));
+      if (selectedScenario?.model_id === scenarioId) setSelectedScenario(null);
+    }
   }
 
   async function handleSimulate(e: React.FormEvent<HTMLFormElement>) {
@@ -256,9 +245,10 @@ export default function FinancialPage() {
     setLastPayload(payload);
 
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch(`${API_BASE}/api/v1/financial/simulate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(payload),
       });
       if (res.ok) {
@@ -330,9 +320,10 @@ export default function FinancialPage() {
     };
 
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch(`${API_BASE}/api/v1/financial/save-scenario`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(body),
       });
       if (res.ok) {
@@ -364,15 +355,8 @@ export default function FinancialPage() {
   }
 
   async function fetchScenarios(mId: string) {
-    try {
-      const res = await fetch(`${API_BASE}/api/v1/financial/scenarios/${mId}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.scenarios) setScenarios(data.scenarios);
-      }
-    } catch {
-      // ignore
-    }
+    const data = await apiGet<{ scenarios: any[] }>(`/api/v1/financial/scenarios/${mId}`);
+    if (data?.scenarios) setScenarios(data.scenarios);
   }
 
   async function handleIMT(e: React.FormEvent<HTMLFormElement>) {
@@ -386,12 +370,8 @@ export default function FinancialPage() {
       is_hpp: fd.get("imt_hpp") === "on",
     };
     try {
-      const res = await fetch(`${API_BASE}/api/v1/financial/quick-imt`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) setImtResult(await res.json());
+      const data = await apiPost("/api/v1/financial/quick-imt", body);
+      if (data) setImtResult(data as any);
     } catch {
       // ignore
     } finally {
@@ -409,12 +389,8 @@ export default function FinancialPage() {
       renovation_total: Number(fd.get("mao_reno")) || 100000,
     };
     try {
-      const res = await fetch(`${API_BASE}/api/v1/financial/mao`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) setMaoResult(await res.json());
+      const data = await apiPost("/api/v1/financial/mao", body);
+      if (data) setMaoResult(data as any);
     } catch {
       // ignore
     } finally {
@@ -1055,9 +1031,8 @@ export default function FinancialPage() {
                     onClick={() => {
                       setShowSaveModal(true);
                       // Carregar propriedades existentes
-                      fetch(`${API_BASE}/api/v1/properties/?limit=50`)
-                        .then(r => r.ok ? r.json() : { items: [] })
-                        .then(data => setExistingProperties(data.items || []))
+                      apiGet<{ items: any[] }>("/api/v1/properties/?limit=50")
+                        .then(data => setExistingProperties(data?.items || []))
                         .catch(e => console.error("Props error:", e));
                     }}
                     className="w-full bg-teal-700 text-white py-2.5 rounded-lg font-medium hover:bg-teal-800 transition-colors text-sm"
@@ -1510,9 +1485,10 @@ export default function FinancialPage() {
                           if (!municipality) { alert("Preencha pelo menos o concelho."); return; }
                           setNewPropLoading(true);
                           try {
+                            const authHeaders = await getAuthHeaders();
                             const res = await fetch(`${API_BASE}/api/v1/financial/create-property`, {
                               method: "POST",
-                              headers: { "Content-Type": "application/json" },
+                              headers: authHeaders,
                               body: JSON.stringify({
                                 municipality,
                                 parish: (document.getElementById("new_prop_parish") as HTMLInputElement).value || null,
@@ -1715,9 +1691,10 @@ export default function FinancialPage() {
               onClick={async () => {
                 setCfpExporting(true);
                 try {
+                  const authHeaders = await getAuthHeaders();
                   const res = await fetch(`${API_BASE}/api/v1/financial/${selectedScenario.model_id}/export-cashflow`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: authHeaders,
                     body: JSON.stringify({ project_id: cfpProjectId || null }),
                   });
                   if (res.ok) {

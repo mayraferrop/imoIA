@@ -12,9 +12,7 @@ import {
   Cell,
 } from "recharts";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://jurzdyncaxkgvcatyfdu.supabase.co";
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1cnpkeW5jYXhrZ3ZjYXR5ZmR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNzM2MDcsImV4cCI6MjA4OTk0OTYwN30.2DCCWcrhdwBLMxJ9hUbYkhOBQIgE_aD2jGNaZlAhO5k";
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
+import { apiGet, apiPost, apiPatch, API_BASE, getAuthHeaders } from "@/lib/api";
 
 interface Property {
   id: string;
@@ -107,40 +105,6 @@ const STATUS_COLORS: Record<string, string> = {
   marketing_activo: "#14B8A6",
 };
 
-const SUPA_HEADERS = {
-  apikey: SUPABASE_KEY,
-  Authorization: `Bearer ${SUPABASE_KEY}`,
-};
-
-async function fetchSupabaseProperties(): Promise<Property[]> {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/properties?select=id,source,source_opportunity_id,district,municipality,parish,property_type,typology,gross_area_m2,bedrooms,condition,asking_price,status,contact_name,contact_phone,notes,created_at&order=created_at.desc&limit=200`,
-    { headers: SUPA_HEADERS }
-  );
-  if (!res.ok) throw new Error("Supabase fetch failed");
-  return res.json();
-}
-
-async function fetchSupabaseOpportunities(): Promise<Opportunity[]> {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/opportunities?select=id,deal_grade,deal_score,confidence,opportunity_type,original_message,ai_reasoning,location_extracted,price_mentioned,area_m2,property_type,status,messages(group_name)&is_opportunity=eq.true`,
-    { headers: SUPA_HEADERS }
-  );
-  if (!res.ok) return [];
-  return res.json();
-}
-
-function enrichProperties(properties: Property[], opportunities: Opportunity[]): Property[] {
-  const oppMap = new Map<number, Opportunity>();
-  for (const opp of opportunities) oppMap.set(opp.id, opp);
-  return properties.map((p) => {
-    if (p.source_opportunity_id && oppMap.has(p.source_opportunity_id)) {
-      const opp = oppMap.get(p.source_opportunity_id)!;
-      return { ...p, deal_grade: opp.deal_grade, deal_score: opp.deal_score, confidence: opp.confidence, opportunity_type: opp.opportunity_type, _opp: opp } as any;
-    }
-    return p;
-  });
-}
 
 export default function PropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -167,44 +131,14 @@ export default function PropertiesPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      let props: Property[] = [];
-      try {
-        const [rawProps, opps] = await Promise.all([
-          fetchSupabaseProperties(),
-          fetchSupabaseOpportunities(),
-        ]);
-        props = enrichProperties(rawProps, opps);
-        setDataSource("supabase");
-        setTotal(props.length);
-      } catch {
-        try {
-          const c = new AbortController();
-          const t = setTimeout(() => c.abort(), 8000);
-          const propsRes = await fetch(`${API_BASE}/api/v1/properties/?limit=200`, { signal: c.signal });
-          clearTimeout(t);
-          if (propsRes.ok) {
-            const data = await propsRes.json();
-            props = data.items ?? [];
-            setTotal(data.total ?? 0);
-          }
-          setDataSource("fastapi");
-        } catch {
-          setDataSource("fastapi");
-        }
-      }
-      setProperties(props);
-
-      try {
-        const c = new AbortController();
-        const t = setTimeout(() => c.abort(), 8000);
-        const statsRes = await fetch(`${API_BASE}/api/v1/ingest/stats`, { signal: c.signal });
-        clearTimeout(t);
-        if (statsRes.ok) {
-          setStats(await statsRes.json());
-        }
-      } catch {
-        // Stats unavailable
-      }
+      const [propsData, statsData] = await Promise.all([
+        apiGet<{ items: Property[]; total: number }>("/api/v1/properties/?limit=200"),
+        apiGet<IngestStats>("/api/v1/ingest/stats"),
+      ]);
+      setProperties(propsData?.items ?? []);
+      setTotal(propsData?.total ?? 0);
+      setDataSource("fastapi");
+      if (statsData) setStats(statsData);
     } catch {
       // ignore
     } finally {
@@ -240,7 +174,8 @@ export default function PropertiesPage() {
       try {
         const c = new AbortController();
         const t = setTimeout(() => c.abort(), 10000);
-        const res = await fetch(`${API_BASE}/api/v1/ingest/status`, { signal: c.signal });
+        const headers = await getAuthHeaders();
+        const res = await fetch(`${API_BASE}/api/v1/ingest/status`, { headers, signal: c.signal });
         clearTimeout(t);
         if (!res.ok) return;
         const data = await res.json();
@@ -316,7 +251,8 @@ export default function PropertiesPage() {
       setTriggerMsg("Servidor acordado. A disparar pipeline...");
       const c = new AbortController();
       const t = setTimeout(() => c.abort(), 15000);
-      const res = await fetch(`${API_BASE}/api/v1/ingest/trigger`, { method: "POST", signal: c.signal });
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE}/api/v1/ingest/trigger`, { method: "POST", headers, signal: c.signal });
       clearTimeout(t);
       if (res.ok) {
         const data = await res.json();
@@ -347,7 +283,8 @@ export default function PropertiesPage() {
     setTriggerMsg("A preparar reprocessamento...");
     try {
       // Passo 1: Preparar lista de grupos
-      const initRes = await fetch(`${API_BASE}/api/v1/ingest/reprocess?days=10`, { method: "POST" });
+      const reprocessHeaders = await getAuthHeaders();
+      const initRes = await fetch(`${API_BASE}/api/v1/ingest/reprocess?days=10`, { method: "POST", headers: reprocessHeaders });
       if (!initRes.ok) {
         const detail = await initRes.text().catch(() => "");
         setTriggerMsg(`Erro ao preparar reprocessamento. ${detail}`);
@@ -375,7 +312,8 @@ export default function PropertiesPage() {
           `A reprocessar... batch ${batchNum} | ${groupsDone}/${totalGroups} grupos | ${totalMsgs} msgs | ${totalOpps} oportunidades`
         );
 
-        const batchRes = await fetch(`${API_BASE}/api/v1/ingest/reprocess/batch?batch_size=10`, { method: "POST" });
+        const batchHeaders = await getAuthHeaders();
+        const batchRes = await fetch(`${API_BASE}/api/v1/ingest/reprocess/batch?batch_size=10`, { method: "POST", headers: batchHeaders });
         if (!batchRes.ok) {
           setTriggerMsg(`Erro no batch ${batchNum}. A tentar continuar...`);
           break;
@@ -418,9 +356,10 @@ export default function PropertiesPage() {
     if (fd.get("contact_phone")) body.contact_phone = fd.get("contact_phone");
 
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch(`${API_BASE}/api/v1/properties/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(body),
       });
       if (res.ok) {
@@ -441,9 +380,10 @@ export default function PropertiesPage() {
   async function handleStatusChange(propertyId: string, newStatus: string) {
     setActionMsg("");
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch(`${API_BASE}/api/v1/properties/${propertyId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {

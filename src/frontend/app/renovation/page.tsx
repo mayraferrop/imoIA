@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { formatEUR } from "@/lib/utils";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
+import { apiGet, apiPost } from "@/lib/api";
 
 /* ------------------------------------------------------------------ */
 /*  Tipos locais                                                       */
@@ -77,20 +76,6 @@ interface RenovationStats {
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-async function api<T = any>(path: string, opts?: RequestInit): Promise<T | null> {
-  try {
-    const res = await fetch(`${API_BASE}${path}`, {
-      headers: { "Content-Type": "application/json" },
-      ...opts,
-    });
-    if (!res.ok) return null;
-    const text = await res.text();
-    return text ? JSON.parse(text) : ({} as T);
-  } catch {
-    return null;
-  }
-}
-
 const MILESTONE_STATUS_ICONS: Record<string, string> = {
   pendente: "[ ]",
   em_curso: "[~]",
@@ -139,13 +124,13 @@ export default function RenovationPage() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const dealsData = await api<{ items: Deal[] }>("/api/v1/deals?limit=50");
+      const dealsData = await apiGet<{ items: Deal[] }>("/api/v1/deals?limit=50");
       const dealsList = dealsData?.items ?? [];
       setDeals(dealsList);
 
       const renos: Renovation[] = [];
       for (const deal of dealsList.slice(0, 20)) {
-        const ren = await api<Renovation | Renovation[]>(
+        const ren = await apiGet<Renovation | Renovation[]>(
           `/api/v1/renovations/deals/${deal.id}`
         );
         if (ren && !Array.isArray(ren)) {
@@ -167,8 +152,8 @@ export default function RenovationPage() {
     if (!reno) return;
 
     const [detailData, expensesData] = await Promise.all([
-      api<RenovationDetail>(`/api/v1/renovations/deals/${reno.deal_id}`),
-      api<Expense[]>(`/api/v1/renovations/${renoId}/expenses`),
+      apiGet<RenovationDetail>(`/api/v1/renovations/deals/${reno.deal_id}`),
+      apiGet<Expense[]>(`/api/v1/renovations/${renoId}/expenses`),
     ]);
 
     if (detailData) setDetail(detailData);
@@ -181,16 +166,12 @@ export default function RenovationPage() {
 
   /* --- Milestone actions --- */
   async function handleStartMilestone(milestoneId: string) {
-    await api(`/api/v1/renovations/milestones/${milestoneId}/start`, {
-      method: "POST",
-    });
+    await apiPost(`/api/v1/renovations/milestones/${milestoneId}/start`);
     if (selectedRenoId) loadDetail(selectedRenoId);
   }
 
   async function handleCompleteMilestone(milestoneId: string) {
-    await api(`/api/v1/renovations/milestones/${milestoneId}/complete`, {
-      method: "POST",
-    });
+    await apiPost(`/api/v1/renovations/milestones/${milestoneId}/complete`);
     if (selectedRenoId) loadDetail(selectedRenoId);
   }
 
@@ -201,16 +182,13 @@ export default function RenovationPage() {
     const fd = new FormData(e.currentTarget);
     const today = new Date().toISOString().split("T")[0];
 
-    await api(`/api/v1/renovations/${selectedRenoId}/expenses`, {
-      method: "POST",
-      body: JSON.stringify({
-        description: fd.get("exp_desc"),
-        amount: Number(fd.get("exp_amount") || 0),
-        expense_date: `${today}T00:00:00`,
-        category: fd.get("exp_category"),
-        payment_method: fd.get("exp_payment"),
-        has_valid_invoice: fd.get("exp_invoice") === "on",
-      }),
+    await apiPost(`/api/v1/renovations/${selectedRenoId}/expenses`, {
+      description: fd.get("exp_desc"),
+      amount: Number(fd.get("exp_amount") || 0),
+      expense_date: `${today}T00:00:00`,
+      category: fd.get("exp_category"),
+      payment_method: fd.get("exp_payment"),
+      has_valid_invoice: fd.get("exp_invoice") === "on",
     });
 
     e.currentTarget.reset();
