@@ -1,11 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { fetcher } from "@/lib/api";
+import { apiGet, apiPost, apiPatch } from "@/lib/api";
 import { formatEUR, cn } from "@/lib/utils";
-import { supabaseGet } from "@/lib/supabase-direct";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
 
 interface Closing {
   id: string;
@@ -122,38 +119,17 @@ export default function ClosingPage() {
   /* ------------------------------------------------------------------ */
 
   const loadClosings = useCallback(async () => {
-    // PRIMARY: Supabase direct query (instant, no cold start)
-    const supaClosings = await supabaseGet<Closing>("closing_processes", "select=*&order=created_at.desc");
-
-    if (supaClosings.length > 0) {
-      setClosings(supaClosings);
-    } else {
-      // FALLBACK: FastAPI
-      const data = await fetcher("/api/v1/closing");
-      setClosings(data ?? []);
-    }
+    const data = await apiGet<Closing[]>("/api/v1/closing");
+    setClosings(data ?? []);
   }, []);
 
   const loadDeals = useCallback(async () => {
-    // PRIMARY: Supabase for deals list
-    const supaDeals = await supabaseGet<any>("deals", "select=id,title,property_id&order=created_at.desc&limit=100");
-
-    if (supaDeals.length > 0) {
-      const items = supaDeals.map((d: any) => ({ id: d.id, title: d.title ?? d.id.slice(0, 8), property_id: d.property_id }));
-      setDeals(items);
-      if (items.length > 0) {
-        setCreateDealId(items[0].id);
-        setPnlDealId(items[0].id);
-      }
-    } else {
-      // FALLBACK: FastAPI
-      const resp = await fetcher("/api/v1/deals?limit=100");
-      const items = resp?.items ?? (Array.isArray(resp) ? resp : []);
-      setDeals(items.map((d: any) => ({ id: d.id, title: d.title ?? d.id.slice(0, 8), property_id: d.property_id })));
-      if (items.length > 0) {
-        setCreateDealId(items[0].id);
-        setPnlDealId(items[0].id);
-      }
+    const resp = await apiGet<{ items: any[] }>("/api/v1/deals?limit=100");
+    const items = resp?.items ?? [];
+    setDeals(items.map((d: any) => ({ id: d.id, title: d.title ?? d.id.slice(0, 8), property_id: d.property_id })));
+    if (items.length > 0) {
+      setCreateDealId(items[0].id);
+      setPnlDealId(items[0].id);
     }
   }, []);
 
@@ -166,91 +142,65 @@ export default function ClosingPage() {
   async function createClosing() {
     if (!createDealId) return;
     const dealData = deals.find((d) => d.id === createDealId);
-    const res = await fetch(`${API_BASE}/api/v1/closing`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        deal_id: createDealId,
-        property_id: dealData?.property_id ?? "",
-        closing_type: createType,
-        transaction_price: createPrice > 0 ? createPrice : null,
-      }),
+    const result = await apiPost("/api/v1/closing", {
+      deal_id: createDealId,
+      property_id: dealData?.property_id ?? "",
+      closing_type: createType,
+      transaction_price: createPrice > 0 ? createPrice : null,
     });
-    if (res.ok) {
+    if (result) {
       setShowCreate(false);
       loadClosings();
     }
   }
 
   async function advanceStatus(closingId: string, targetStatus: string) {
-    await fetch(`${API_BASE}/api/v1/closing/${closingId}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ target_status: targetStatus }),
-    });
+    await apiPatch(`/api/v1/closing/${closingId}/status`, { target_status: targetStatus });
     loadClosings();
   }
 
   async function toggleChecklist(closingId: string, key: string, done: boolean) {
-    await fetch(`${API_BASE}/api/v1/closing/${closingId}/checklist/${key}?done=${done}`, {
-      method: "PATCH",
-    });
+    await apiPatch(`/api/v1/closing/${closingId}/checklist/${key}?done=${done}`);
     loadClosings();
   }
 
   async function emitTaxGuide(closingId: string, guideType: string, amount: number) {
     if (amount <= 0) return;
-    await fetch(`${API_BASE}/api/v1/closing/${closingId}/tax-guide`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ guide_type: guideType, amount }),
-    });
+    await apiPost(`/api/v1/closing/${closingId}/tax-guide`, { guide_type: guideType, amount });
     loadClosings();
   }
 
   async function notifyPreference(closingId: string, entitiesStr: string) {
     const entities = entitiesStr.split(",").map((e) => e.trim()).filter(Boolean);
     if (entities.length === 0) return;
-    await fetch(`${API_BASE}/api/v1/closing/${closingId}/preference-right`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entities }),
-    });
+    await apiPost(`/api/v1/closing/${closingId}/preference-right`, { entities });
     loadClosings();
   }
 
   async function loadPnl(dealId: string) {
-    // P&L data from Supabase first, then FastAPI
-    const supaPnl = await supabaseGet<PnlData>("deal_pnl", `select=*&deal_id=eq.${dealId}`);
-    if (supaPnl.length > 0) {
-      setPnlData(supaPnl[0]);
-    } else {
-      const data = await fetcher(`/api/v1/pnl/${dealId}`);
-      setPnlData(data);
-    }
+    const data = await apiGet<PnlData>(`/api/v1/pnl/${dealId}`);
+    setPnlData(data);
   }
 
   async function calculatePnl() {
     if (!pnlDealId) return;
-    await fetch(`${API_BASE}/api/v1/pnl/${pnlDealId}/calculate?sale_price=${pnlSalePrice}&holding_months=${pnlMonths}`, {
-      method: "POST",
-    });
+    await apiPost(`/api/v1/pnl/${pnlDealId}/calculate?sale_price=${pnlSalePrice}&holding_months=${pnlMonths}`);
     loadPnl(pnlDealId);
   }
 
   async function finalizePnl() {
     if (!pnlDealId) return;
-    await fetch(`${API_BASE}/api/v1/pnl/${pnlDealId}/finalize`, { method: "POST" });
+    await apiPost(`/api/v1/pnl/${pnlDealId}/finalize`);
     loadPnl(pnlDealId);
   }
 
   async function loadPortfolio() {
-    const data = await fetcher("/api/v1/portfolio/summary");
+    const data = await apiGet<PortfolioSummary>("/api/v1/portfolio/summary");
     setPortfolio(data);
   }
 
   async function loadFiscal(year: number) {
-    const data = await fetcher(`/api/v1/portfolio/fiscal-report?year=${year}`);
+    const data = await apiGet<FiscalReport>(`/api/v1/portfolio/fiscal-report?year=${year}`);
     setFiscalReport(data);
   }
 

@@ -25,7 +25,6 @@ from src.modules.m8_leads.router import router as leads_router
 from src.modules.m9_closing.router import router as closing_router
 from src.shared.document_router import router as document_router
 from src.modules.m1_ingestor.strategy_router import router as strategy_router
-from src.api.auth_routes import router as auth_api_router
 from src.database.db import init_db
 
 
@@ -374,8 +373,6 @@ def create_app() -> FastAPI:
     auth_deps = [Depends(get_current_user), Depends(get_current_organization)]
 
     app.include_router(health_router, tags=["Sistema"])
-    # Auth profile — so requer JWT, sem X-Organization-Id
-    app.include_router(auth_api_router, prefix="/api/v1/auth", tags=["Auth"])
     app.include_router(
         ingestor_router, prefix="/api/v1/ingest",
         tags=["Propriedades (retrocompat)"], dependencies=auth_deps,

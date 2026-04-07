@@ -2,9 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { formatEUR } from "@/lib/utils";
-import { supabaseGet } from "@/lib/supabase-direct";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
+import { apiGet, apiPost, apiDelete } from "@/lib/api";
 
 /* ------------------------------------------------------------------ */
 /*  Tipos locais                                                       */
@@ -113,19 +111,6 @@ interface BPstatIndex {
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-async function api<T = any>(path: string, opts?: RequestInit): Promise<T | null> {
-  try {
-    const res = await fetch(`${API_BASE}${path}`, {
-      headers: { "Content-Type": "application/json" },
-      ...opts,
-    });
-    if (!res.ok) return null;
-    const text = await res.text();
-    return text ? JSON.parse(text) : ({} as T);
-  } catch {
-    return null;
-  }
-}
 
 /* ------------------------------------------------------------------ */
 /*  Componentes reutilizáveis                                          */
@@ -266,28 +251,12 @@ export default function MarketPage() {
 
   /* --- Load overview + alerts on mount --- */
   const loadData = useCallback(async () => {
-    // PRIMARY: Load alerts from Supabase (instant, no cold start)
-    const supaAlerts = await supabaseGet<MarketAlert>("market_alerts", "select=*&order=created_at.desc");
-
-    if (supaAlerts.length > 0) {
-      setAlerts(supaAlerts);
-      // Build a basic overview from Supabase data
-      const activeAlerts = supaAlerts.filter((a) => a.is_active !== false);
-      setOverview((prev) => ({
-        ...prev,
-        alerts_active: activeAlerts.length,
-      }));
-    }
-
-    // Also try to get full overview from FastAPI (has CASAFARI status etc.)
-    const ov = await api<MarketOverview>("/api/v1/market/overview");
+    const [ov, al] = await Promise.all([
+      apiGet<MarketOverview>("/api/v1/market/overview"),
+      apiGet<MarketAlert[]>("/api/v1/market/alerts"),
+    ]);
     if (ov) setOverview(ov);
-
-    // FALLBACK: If Supabase returned nothing, try FastAPI for alerts
-    if (supaAlerts.length === 0) {
-      const al = await api<MarketAlert[]>("/api/v1/market/alerts");
-      if (al) setAlerts(Array.isArray(al) ? al : []);
-    }
+    if (al) setAlerts(Array.isArray(al) ? al : []);
   }, []);
 
   useEffect(() => {
@@ -299,16 +268,13 @@ export default function MarketPage() {
     e.preventDefault();
     setLoading(true);
     const fd = new FormData(e.currentTarget);
-    const result = await api<ComparablesResult>("/api/v1/market/comparables/search", {
-      method: "POST",
-      body: JSON.stringify({
-        municipality: fd.get("municipality") || "Lisboa",
-        property_type: fd.get("property_type") || "apartamento",
-        bedrooms: Number(fd.get("bedrooms") || 2),
-        area_m2: Number(fd.get("area_m2") || 80),
-        max_results: Number(fd.get("max_results") || 20),
-        months_back: Number(fd.get("months_back") || 12),
-      }),
+    const result = await apiPost<ComparablesResult>("/api/v1/market/comparables/search", {
+      municipality: fd.get("municipality") || "Lisboa",
+      property_type: fd.get("property_type") || "apartamento",
+      bedrooms: Number(fd.get("bedrooms") || 2),
+      area_m2: Number(fd.get("area_m2") || 80),
+      max_results: Number(fd.get("max_results") || 20),
+      months_back: Number(fd.get("months_back") || 12),
     });
     if (result) {
       setComparables(result.comparables ?? []);
@@ -322,15 +288,12 @@ export default function MarketPage() {
     e.preventDefault();
     setLoading(true);
     const fd = new FormData(e.currentTarget);
-    const result = await api<ValuationResult>("/api/v1/market/valuate", {
-      method: "POST",
-      body: JSON.stringify({
-        municipality: fd.get("v_municipality") || "Lisboa",
-        property_type: fd.get("v_property_type") || "apartamento",
-        bedrooms: Number(fd.get("v_bedrooms") || 2),
-        gross_area_m2: Number(fd.get("v_area") || 80),
-        condition: fd.get("v_condition") || "usado",
-      }),
+    const result = await apiPost<ValuationResult>("/api/v1/market/valuate", {
+      municipality: fd.get("v_municipality") || "Lisboa",
+      property_type: fd.get("v_property_type") || "apartamento",
+      bedrooms: Number(fd.get("v_bedrooms") || 2),
+      gross_area_m2: Number(fd.get("v_area") || 80),
+      condition: fd.get("v_condition") || "usado",
     });
     if (result) setValuation(result);
     setLoading(false);
@@ -352,15 +315,12 @@ export default function MarketPage() {
       .filter(Boolean);
     const priceMax = Number(fd.get("al_price_max") || 0);
 
-    await api("/api/v1/market/alerts", {
-      method: "POST",
-      body: JSON.stringify({
-        alert_name: fd.get("al_name"),
-        alert_type: fd.get("al_type"),
-        districts,
-        property_types: propertyTypes,
-        price_max: priceMax > 0 ? priceMax : null,
-      }),
+    await apiPost("/api/v1/market/alerts", {
+      alert_name: fd.get("al_name"),
+      alert_type: fd.get("al_type"),
+      districts,
+      property_types: propertyTypes,
+      price_max: priceMax > 0 ? priceMax : null,
     });
     form.reset();
     await loadData();
@@ -369,7 +329,7 @@ export default function MarketPage() {
 
   /* --- Delete alert (FastAPI) --- */
   async function handleDeleteAlert(id: string) {
-    await api(`/api/v1/market/alerts/${id}`, { method: "DELETE" });
+    await apiDelete(`/api/v1/market/alerts/${id}`);
     setConfirmDelete(null);
     await loadData();
   }
@@ -377,7 +337,7 @@ export default function MarketPage() {
   /* --- Check alerts (FastAPI — needs CASAFARI) --- */
   async function handleCheckAlerts() {
     setLoading(true);
-    await api("/api/v1/market/alerts/check", { method: "POST" });
+    await apiPost("/api/v1/market/alerts/check");
     await loadData();
     setLoading(false);
   }
@@ -392,8 +352,8 @@ export default function MarketPage() {
     const op = (fd.get("mp_operation") as string) || operation;
 
     const [sir, bpstat] = await Promise.all([
-      api<SIRSearchResult>(`/api/v1/market/sir/search?q=${q}&operation=${op}`),
-      api<BPstatIndex>(`/api/v1/market/bpstat/index`),
+      apiGet<SIRSearchResult>(`/api/v1/market/sir/search?q=${q}&operation=${op}`),
+      apiGet<BPstatIndex>("/api/v1/market/bpstat/index"),
     ]);
 
     if (sir) setSirResult(sir);

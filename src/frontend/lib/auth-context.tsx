@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { User, Session } from "@supabase/supabase-js";
+import type { SupabaseClient, User, Session } from "@supabase/supabase-js";
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -33,7 +33,6 @@ interface AuthContextType {
 }
 
 const ACTIVE_ORG_KEY = "imoia_active_org_id";
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 // ---------------------------------------------------------------------------
 // Context
@@ -49,23 +48,26 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-async function fetchOrganizations(
-  accessToken: string
+async function fetchOrganizationsViaRLS(
+  supabase: SupabaseClient,
+  userId: string
 ): Promise<Organization[]> {
-  try {
-    const res = await fetch(`${API_BASE}/api/v1/auth/me`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.organizations ?? [];
-  } catch {
-    return [];
-  }
+  const { data, error } = await supabase
+    .from("organization_members")
+    .select("role, organizations(id, name, slug)")
+    .eq("user_id", userId);
+
+  if (error || !data) return [];
+
+  return data.map((m: Record<string, unknown>) => {
+    const org = m.organizations as Record<string, string> | null;
+    return {
+      id: org?.id ?? "",
+      name: org?.name ?? "",
+      slug: org?.slug ?? "",
+      role: (m.role as string) ?? "member",
+    };
+  });
 }
 
 function restoreActiveOrg(orgs: Organization[]): Organization | null {
@@ -111,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (s?.user) {
         setUser(s.user);
         setSession(s);
-        const orgs = await fetchOrganizations(s.access_token);
+        const orgs = await fetchOrganizationsViaRLS(supabase, s.user.id);
         setOrganizations(orgs);
         setActiveOrgState(restoreActiveOrg(orgs));
       }
@@ -128,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(newSession?.user ?? null);
 
       if (event === "SIGNED_IN" && newSession) {
-        const orgs = await fetchOrganizations(newSession.access_token);
+        const orgs = await fetchOrganizationsViaRLS(supabase, newSession.user.id);
         setOrganizations(orgs);
         setActiveOrgState(restoreActiveOrg(orgs));
       } else if (event === "SIGNED_OUT") {

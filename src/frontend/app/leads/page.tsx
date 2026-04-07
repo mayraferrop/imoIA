@@ -1,11 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { fetcher } from "@/lib/api";
+import { apiGet, apiPost, apiPatch } from "@/lib/api";
 import { formatEUR, cn, GRADE_COLORS } from "@/lib/utils";
-import { supabaseGet } from "@/lib/supabase-direct";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
 
 interface Lead {
   id: string;
@@ -127,102 +124,32 @@ export default function LeadsPage() {
   const [newFinancing, setNewFinancing] = useState("unknown");
   const [newNotes, setNewNotes] = useState("");
 
-  /* ------------------------------------------------------------------ */
-  /*  PRIMARY: Load leads from Supabase, with FastAPI fallback           */
-  /* ------------------------------------------------------------------ */
-
   const loadOverview = useCallback(async () => {
-    // PRIMARY: Read leads from Supabase to compute stats locally
-    const supaLeads = await supabaseGet<Lead>("leads", "select=*&order=created_at.desc");
-
-    if (supaLeads.length > 0) {
-      // Compute stats from Supabase data
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      const thisMonthLeads = supaLeads.filter((l) => (l.created_at ?? "") >= monthStart);
-      const scores = supaLeads.filter((l) => l.score != null).map((l) => l.score!);
-      const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-      const wonLeads = supaLeads.filter((l) => l.stage === "won" || l.stage === "closed_won");
-      const convRate = supaLeads.length > 0 ? (wonLeads.length / supaLeads.length) * 100 : 0;
-
-      setStats({
-        total_leads: supaLeads.length,
-        leads_this_month: thisMonthLeads.length,
-        avg_score: avgScore,
-        conversion_rate: convRate,
-      });
-
-      // Pipeline stages
-      const stageCounts: Record<string, number> = {};
-      for (const lead of supaLeads) {
-        const stage = lead.stage ?? "new";
-        stageCounts[stage] = (stageCounts[stage] ?? 0) + 1;
-      }
-      setPipeline(Object.entries(stageCounts).map(([stage, count]) => ({ stage, count })));
-
-      // Source breakdown
-      const sourceCounts: Record<string, number> = {};
-      for (const lead of supaLeads) {
-        const source = lead.source ?? "unknown";
-        sourceCounts[source] = (sourceCounts[source] ?? 0) + 1;
-      }
-      setSourceBreakdown(Object.entries(sourceCounts).map(([source, count]) => ({ source, count })));
-
-      // Grade summary
-      const grades: Record<string, number> = {};
-      for (const lead of supaLeads) {
-        const grade = lead.grade ?? "D";
-        grades[grade] = (grades[grade] ?? 0) + 1;
-      }
-      setGradesSummary(grades);
-    } else {
-      // FALLBACK: FastAPI for overview data
-      const [s, p, sb, gr] = await Promise.all([
-        fetcher("/api/v1/leads/stats"),
-        fetcher("/api/v1/leads/pipeline-summary"),
-        fetcher("/api/v1/leads/source-breakdown"),
-        fetcher("/api/v1/leads/grades-summary"),
-      ]);
-      setStats(s);
-      setPipeline(p ?? []);
-      setSourceBreakdown(sb ?? []);
-      setGradesSummary(gr ?? {});
-    }
+    const [s, p, sb, gr] = await Promise.all([
+      apiGet<LeadStats>("/api/v1/leads/stats"),
+      apiGet<PipelineStage[]>("/api/v1/leads/pipeline-summary"),
+      apiGet<SourceBreakdown[]>("/api/v1/leads/source-breakdown"),
+      apiGet<Record<string, number>>("/api/v1/leads/grades-summary"),
+    ]);
+    setStats(s);
+    setPipeline(p ?? []);
+    setSourceBreakdown(sb ?? []);
+    setGradesSummary(gr ?? {});
   }, []);
 
   const loadLeads = useCallback(async () => {
-    // PRIMARY: Read leads from Supabase with filters
-    let query = "select=*&order=created_at.desc&limit=50";
-
+    const params = new URLSearchParams({ limit: "50" });
     if (fStage !== "Todos") {
       const key = Object.entries(STAGE_LABELS).find(([, v]) => v === fStage)?.[0];
-      if (key) query += `&stage=eq.${key}`;
+      if (key) params.set("stage", key);
     }
-    if (fGrade !== "Todos") query += `&grade=eq.${fGrade}`;
-    if (fSource) query += `&source=eq.${fSource}`;
-    if (fSearch) query += `&name=ilike.*${fSearch}*`;
+    if (fGrade !== "Todos") params.set("grade", fGrade);
+    if (fSource) params.set("source", fSource);
+    if (fSearch) params.set("search", fSearch);
 
-    const supaLeads = await supabaseGet<Lead>("leads", query);
-
-    if (supaLeads.length > 0 || !fSearch) {
-      // Use Supabase data (may be empty if no matches)
-      setLeads(supaLeads);
-      setTotalLeads(supaLeads.length);
-    } else {
-      // FALLBACK: FastAPI for filtered leads (supports full-text search)
-      const params = new URLSearchParams({ limit: "50" });
-      if (fStage !== "Todos") {
-        const key = Object.entries(STAGE_LABELS).find(([, v]) => v === fStage)?.[0];
-        if (key) params.set("stage", key);
-      }
-      if (fGrade !== "Todos") params.set("grade", fGrade);
-      if (fSource) params.set("source", fSource);
-      if (fSearch) params.set("search", fSearch);
-
-      const data = await fetcher(`/api/v1/leads/?${params.toString()}`);
-      setLeads(data?.items ?? []);
-      setTotalLeads(data?.total ?? 0);
-    }
+    const data = await apiGet<{ items: Lead[]; total: number }>(`/api/v1/leads/?${params.toString()}`);
+    setLeads(data?.items ?? []);
+    setTotalLeads(data?.total ?? 0);
   }, [fStage, fGrade, fSource, fSearch]);
 
   useEffect(() => {
@@ -243,12 +170,8 @@ export default function LeadsPage() {
     if (newFinancing !== "unknown") body.financing = newFinancing;
     if (newNotes) body.notes = newNotes;
 
-    const res = await fetch(`${API_BASE}/api/v1/leads/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (res.ok) {
+    const result = await apiPost("/api/v1/leads/", body);
+    if (result) {
       setShowCreate(false);
       setNewName(""); setNewEmail(""); setNewPhone("");
       setNewBudgetMin(0); setNewBudgetMax(0);
@@ -259,27 +182,23 @@ export default function LeadsPage() {
   }
 
   async function changeStage(leadId: string, stage: string) {
-    await fetch(`${API_BASE}/api/v1/leads/${leadId}/stage`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stage }),
-    });
+    await apiPatch(`/api/v1/leads/${leadId}/stage`, { stage });
     loadLeads();
     loadOverview();
   }
 
   async function recalculateScore(leadId: string) {
-    await fetch(`${API_BASE}/api/v1/leads/${leadId}/recalculate-score`, { method: "POST" });
+    await apiPost(`/api/v1/leads/${leadId}/recalculate-score`);
     loadLeads();
   }
 
   async function loadTimeline(leadId: string) {
-    const data = await fetcher(`/api/v1/leads/${leadId}/timeline`);
+    const data = await apiGet<Interaction[]>(`/api/v1/leads/${leadId}/timeline`);
     setLeadTimelines((prev) => ({ ...prev, [leadId]: data ?? [] }));
   }
 
   async function syncHabta() {
-    await fetch(`${API_BASE}/api/v1/leads/sync-habta`, { method: "POST" });
+    await apiPost("/api/v1/leads/sync-habta");
     loadOverview();
     loadLeads();
   }

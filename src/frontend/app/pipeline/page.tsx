@@ -2,9 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { formatEUR, GRADE_COLORS } from "@/lib/utils";
-import { supabaseGet } from "@/lib/supabase-direct";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
+import { apiGet, apiPost } from "@/lib/api";
 
 interface Deal {
   id: string;
@@ -148,70 +146,17 @@ export default function PipelinePage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // PRIMARY: Supabase direct query for deals (instant, no cold start)
-      const query = strategyFilter
-        ? `select=*,properties(*)&order=created_at.desc&investment_strategy=eq.${strategyFilter}`
-        : "select=*,properties(*)&order=created_at.desc";
-      const supaDeals = await supabaseGet<Deal>("deals", query);
-
-      if (supaDeals.length > 0) {
-        // Group deals by current_state for kanban columns
-        const columns: Record<string, Deal[]> = {};
-        for (const deal of supaDeals) {
-          const state = deal.current_state ?? deal.status ?? "triagem";
-          if (!columns[state]) columns[state] = [];
-          // Map properties relation to property for compatibility
-          if (deal.properties && !deal.property) {
-            (deal as any).property = deal.properties;
-          }
-          columns[state].push(deal);
-        }
-
-        // Build status config from DEFAULT_STATUS_CONFIG
-        const statusConfig: Record<string, { label: string; color: string; icon: string }> = {};
-        for (const state of Object.keys(columns)) {
-          statusConfig[state] = DEFAULT_STATUS_CONFIG[state] ?? { label: state, color: "#94A3B8", icon: "" };
-        }
-
-        setKanban({ columns, total_deals: supaDeals.length, status_config: statusConfig });
-        setDealsList(supaDeals);
-
-        // Calculate basic stats from Supabase data
-        const active = supaDeals.filter((d) => !["concluido", "descartado"].includes(d.current_state ?? d.status ?? ""));
-        const completed = supaDeals.filter((d) => (d.current_state ?? d.status) === "concluido");
-        const discarded = supaDeals.filter((d) => (d.current_state ?? d.status) === "descartado");
-        const totalInvested = supaDeals.reduce((sum, d) => sum + (d.purchase_price ?? 0), 0);
-        const totalRent = supaDeals.reduce((sum, d) => sum + (d.monthly_rent ?? 0), 0);
-        setStats({
-          active_deals: active.length,
-          completed_deals: completed.length,
-          discarded_deals: discarded.length,
-          total_invested: totalInvested,
-          total_monthly_rent: totalRent,
-        });
-      } else {
-        // FALLBACK: FastAPI (handles cold start gracefully)
-        const params = strategyFilter ? `?strategy=${strategyFilter}` : "";
-        const [kanbanRes, statsRes, dealsRes] = await Promise.all([
-          fetch(`${API_BASE}/api/v1/deals/kanban${params}`),
-          fetch(`${API_BASE}/api/v1/deals/stats`),
-          fetch(`${API_BASE}/api/v1/deals/?limit=100`),
-        ]);
-        if (kanbanRes.ok) setKanban(await kanbanRes.json());
-        if (statsRes.ok) setStats(await statsRes.json());
-        if (dealsRes.ok) {
-          const data = await dealsRes.json();
-          setDealsList(data.items ?? []);
-        }
-      }
-
-      // Always fetch strategies from FastAPI (static config, not in DB)
-      try {
-        const strategiesRes = await fetch(`${API_BASE}/api/v1/deals/strategies`);
-        if (strategiesRes.ok) setStrategies(await strategiesRes.json());
-      } catch {
-        // strategies not critical
-      }
+      const params = strategyFilter ? `?strategy=${strategyFilter}` : "";
+      const [kanbanRes, statsRes, dealsRes, strats] = await Promise.all([
+        apiGet<KanbanData>(`/api/v1/deals/kanban${params}`),
+        apiGet<DealStats>("/api/v1/deals/stats"),
+        apiGet<{ items: Deal[] }>("/api/v1/deals/?limit=100"),
+        apiGet<Strategy[]>("/api/v1/deals/strategies"),
+      ]);
+      if (kanbanRes) setKanban(kanbanRes);
+      if (statsRes) setStats(statsRes);
+      if (dealsRes) setDealsList(dealsRes.items ?? []);
+      if (strats) setStrategies(strats);
     } catch {
       // ignore
     } finally {
@@ -226,31 +171,15 @@ export default function PipelinePage() {
   // Fetch properties for create form
   useEffect(() => {
     if (activeTab === "create") {
-      // PRIMARY: Supabase for properties list
-      supabaseGet("properties", "select=id,municipality,typology,asking_price&order=created_at.desc&limit=100")
-        .then((items) => {
-          if (items.length > 0) {
+      apiGet<{ items: any[] }>("/api/v1/properties/?limit=100")
+        .then((data) => {
+          if (data?.items) {
             setProperties(
-              items.map((p: any) => ({
+              data.items.map((p: any) => ({
                 id: p.id,
                 label: `${p.municipality ?? "?"} — ${p.typology ?? "?"} (${formatEUR(p.asking_price)})`,
               }))
             );
-          } else {
-            // FALLBACK: FastAPI
-            fetch(`${API_BASE}/api/v1/properties/?limit=100`)
-              .then((r) => r.ok ? r.json() : null)
-              .then((data) => {
-                if (data?.items) {
-                  setProperties(
-                    data.items.map((p: any) => ({
-                      id: p.id,
-                      label: `${p.municipality ?? "?"} — ${p.typology ?? "?"} (${formatEUR(p.asking_price)})`,
-                    }))
-                  );
-                }
-              })
-              .catch(() => {});
           }
         });
     }
@@ -259,59 +188,30 @@ export default function PipelinePage() {
   // Fetch mediation data
   useEffect(() => {
     if (activeTab === "mediation") {
-      // PRIMARY: Supabase for mediation deals
-      supabaseGet<Deal>("deals", "select=*,properties(*)&investment_strategy=eq.mediacao_venda&order=created_at.desc")
-        .then((medDeals) => {
-          if (medDeals.length > 0) {
-            const columns: Record<string, Deal[]> = {};
-            for (const deal of medDeals) {
-              const state = deal.current_state ?? deal.status ?? "triagem";
-              if (!columns[state]) columns[state] = [];
-              columns[state].push(deal);
-            }
-            const statusConfig: Record<string, { label: string; color: string; icon: string }> = {};
-            for (const state of Object.keys(columns)) {
-              statusConfig[state] = DEFAULT_STATUS_CONFIG[state] ?? { label: state, color: "#94A3B8", icon: "" };
-            }
-            setMedKanban({ columns, total_deals: medDeals.length, status_config: statusConfig });
-          } else {
-            // FALLBACK: FastAPI
-            fetch(`${API_BASE}/api/v1/deals/kanban?strategy=mediacao_venda`)
-              .then(async (kRes) => { if (kRes.ok) setMedKanban(await kRes.json()); })
-              .catch(() => {});
-          }
-        });
+      apiGet<KanbanData>("/api/v1/deals/kanban?strategy=mediacao_venda")
+        .then((data) => { if (data) setMedKanban(data); });
 
-      // Stats always from FastAPI (computed endpoint)
-      fetch(`${API_BASE}/api/v1/deals/stats/mediation`)
-        .then(async (sRes) => { if (sRes.ok) setMedStats(await sRes.json()); })
-        .catch(() => {});
+      apiGet<Record<string, any>>("/api/v1/deals/stats/mediation")
+        .then((data) => { if (data) setMedStats(data); });
     }
   }, [activeTab]);
 
-  // Fetch deal detail — keep FastAPI for detail, proposals, history, next-actions (business logic)
+  // Fetch deal detail
   useEffect(() => {
     if (!selectedDealId) {
       setSelectedDeal(null);
       return;
     }
     Promise.all([
-      fetch(`${API_BASE}/api/v1/deals/${selectedDealId}`),
-      fetch(`${API_BASE}/api/v1/deals/${selectedDealId}/proposals`),
-      fetch(`${API_BASE}/api/v1/deals/${selectedDealId}/history`),
-      fetch(`${API_BASE}/api/v1/deals/${selectedDealId}/next-actions`),
-    ]).then(async ([dealRes, propRes, histRes, actRes]) => {
-      if (dealRes.ok) setSelectedDeal(await dealRes.json());
-      if (propRes.ok) setProposals(await propRes.json());
-      else setProposals([]);
-      if (histRes.ok) setHistory(await histRes.json());
-      else setHistory([]);
-      if (actRes.ok) {
-        const data = await actRes.json();
-        setNextActions(data.next_statuses ?? []);
-      } else {
-        setNextActions([]);
-      }
+      apiGet<Deal>(`/api/v1/deals/${selectedDealId}`),
+      apiGet<Proposal[]>(`/api/v1/deals/${selectedDealId}/proposals`),
+      apiGet<HistoryEntry[]>(`/api/v1/deals/${selectedDealId}/history`),
+      apiGet<{ next_statuses: NextAction[] }>(`/api/v1/deals/${selectedDealId}/next-actions`),
+    ]).then(([dealRes, propRes, histRes, actRes]) => {
+      if (dealRes) setSelectedDeal(dealRes);
+      setProposals(propRes ?? []);
+      setHistory(histRes ?? []);
+      setNextActions(actRes?.next_statuses ?? []);
     }).catch(() => {});
   }, [selectedDealId]);
 
@@ -332,13 +232,8 @@ export default function PipelinePage() {
     if (fd.get("renovation_budget")) body.renovation_budget = Number(fd.get("renovation_budget"));
 
     try {
-      const res = await fetch(`${API_BASE}/api/v1/deals/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        const data = await res.json();
+      const data = await apiPost<Deal>("/api/v1/deals/", body);
+      if (data) {
         setCreateMsg(`Deal criado: ${data.title ?? data.id}`);
         (e.target as HTMLFormElement).reset();
         fetchData();
@@ -357,18 +252,13 @@ export default function PipelinePage() {
     setAdvanceLoading(true);
     setAdvanceMsg("");
     try {
-      const res = await fetch(`${API_BASE}/api/v1/deals/${selectedDealId}/advance`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target_status: targetStatus, reason: reason || null }),
-      });
-      if (res.ok) {
+      const result = await apiPost(`/api/v1/deals/${selectedDealId}/advance`, { target_status: targetStatus, reason: reason || null });
+      if (result) {
         setAdvanceMsg(`Avançado para ${targetStatus}`);
         setPendingAction(null);
         setAdvanceReason("");
         fetchData();
-        // Refresh detail
-        setSelectedDealId((prev) => prev); // trigger re-fetch
+        setSelectedDealId((prev) => prev);
       } else {
         setAdvanceMsg("Erro ao avançar deal.");
       }
@@ -391,17 +281,12 @@ export default function PipelinePage() {
       conditions: (fd.get("p_conditions") as string) || null,
     };
     try {
-      const res = await fetch(`${API_BASE}/api/v1/deals/${selectedDealId}/proposals`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
+      const result = await apiPost(`/api/v1/deals/${selectedDealId}/proposals`, body);
+      if (result) {
         setProposalMsg("Proposta criada!");
         (e.target as HTMLFormElement).reset();
-        // Refresh proposals
-        const pRes = await fetch(`${API_BASE}/api/v1/deals/${selectedDealId}/proposals`);
-        if (pRes.ok) setProposals(await pRes.json());
+        const updated = await apiGet<Proposal[]>(`/api/v1/deals/${selectedDealId}/proposals`);
+        setProposals(updated ?? []);
       } else {
         setProposalMsg("Erro ao criar proposta.");
       }
