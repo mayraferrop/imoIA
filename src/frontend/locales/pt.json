@@ -1,0 +1,80 @@
+{
+  "app": {
+    "name": "ImoIA",
+    "tagline": "Gestao de Investimento Imobiliario"
+  },
+  "auth": {
+    "login": {
+      "title": "Entrar",
+      "subtitle": "Insira o seu email para receber um link de acesso",
+      "email_placeholder": "seu@email.com",
+      "submit": "Enviar link de acesso",
+      "sending": "A enviar...",
+      "success_title": "Email enviado!",
+      "success_message": "Verifique a sua caixa de entrada e clique no link para entrar.",
+      "error_generic": "Erro ao enviar email. Tente novamente.",
+      "no_account": "Nao tem conta?",
+      "signup_link": "Criar conta"
+    },
+    "signup": {
+      "title": "Criar conta",
+      "subtitle": "Registe-se para comecar a usar o ImoIA",
+      "email_placeholder": "seu@email.com",
+      "org_name_label": "Nome da organizacao",
+      "org_name_placeholder": "Ex: HABTA, Iron Capitals",
+      "org_name_hint": "Uma organizacao sera criada automaticamente para si",
+      "submit": "Criar conta",
+      "creating": "A criar...",
+      "success_title": "Conta criada!",
+      "success_message": "Verifique o seu email para confirmar o registo.",
+      "error_generic": "Erro ao criar conta. Tente novamente.",
+      "has_account": "Ja tem conta?",
+      "login_link": "Entrar"
+    },
+    "logout": "Sair",
+    "loading": "A carregar..."
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "strategy": "Estrategia IA",
+    "properties": "M1 — Propriedades",
+    "market": "M2 — Mercado",
+    "financial": "M3 — Financeiro",
+    "pipeline": "M4 — Pipeline",
+    "due_diligence": "M5 — Due Diligence",
+    "renovation": "M6 — Obra",
+    "marketing": "M7 — Marketing",
+    "leads": "M8 — Leads CRM",
+    "closing": "M9 — Fecho + P&L"
+  },
+  "org_switcher": {
+    "label": "Organizacao"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Visao geral do portfolio",
+    "properties": "Propriedades",
+    "opportunities": "Oportunidades",
+    "active_deals": "Deals Activos",
+    "pipeline_value": "Valor Pipeline",
+    "grade_distribution": "Distribuicao por Deal Grade",
+    "top_municipalities": "Top 10 Concelhos",
+    "opportunity_types": "Tipos de Oportunidade",
+    "pipeline_by_status": "Pipeline por Estado",
+    "recent_properties": "Propriedades Recentes",
+    "no_properties": "Sem propriedades",
+    "no_municipality": "Sem concelho",
+    "loading": "A carregar dashboard..."
+  },
+  "common": {
+    "loading": "A carregar...",
+    "error": "Erro",
+    "retry": "Tentar novamente",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Fechar"
+  }
+}

@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
+import { OrganizationSwitcher } from "./organization-switcher";
+import { t } from "@/lib/i18n";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: "📊" },
@@ -20,15 +23,18 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user, activeOrg, signOut } = useAuth();
 
   return (
     <aside className="sidebar-nav min-h-screen bg-white border-r border-slate-200 flex flex-col">
       <div className="sidebar-header p-6 border-b border-slate-200">
         <h1 className="text-xl font-bold text-teal-700">ImoIA</h1>
         <p className="sidebar-subtitle text-xs text-slate-500 mt-1">
-          Gestão de Investimento Imobiliário
+          {activeOrg?.name ?? t("app.tagline")}
         </p>
       </div>
+
+      <OrganizationSwitcher />
 
       <nav className="flex-1 p-3 space-y-1">
         {NAV_ITEMS.map((item) => {
@@ -54,8 +60,25 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-slate-200 text-xs text-slate-400">
-        ImoIA v0.3.0
+      {/* Footer: user + logout */}
+      <div className="p-4 border-t border-slate-200">
+        {user && (
+          <div className="flex items-center justify-between">
+            <span
+              className="text-xs text-slate-500 truncate max-w-[160px]"
+              title={user.email ?? ""}
+            >
+              {user.email}
+            </span>
+            <button
+              onClick={signOut}
+              className="text-xs text-slate-400 hover:text-red-600 transition-colors"
+            >
+              {t("auth.logout")}
+            </button>
+          </div>
+        )}
+        <p className="text-xs text-slate-400 mt-2">ImoIA v0.3.0</p>
       </div>
     </aside>
   );

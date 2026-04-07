@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { fetcher } from "@/lib/api";
 import { formatEUR, cn } from "@/lib/utils";
-import { supabaseGet } from "@/lib/supabase";
+import { supabaseGet } from "@/lib/supabase-direct";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
 

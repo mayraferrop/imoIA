@@ -6,9 +6,11 @@ Uso:
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
+
+from src.api.dependencies.auth import get_current_organization, get_current_user
 
 from src.api.health import router as health_router
 from src.api.ingestor import router as ingestor_router
@@ -23,6 +25,7 @@ from src.modules.m8_leads.router import router as leads_router
 from src.modules.m9_closing.router import router as closing_router
 from src.shared.document_router import router as document_router
 from src.modules.m1_ingestor.strategy_router import router as strategy_router
+from src.api.auth_routes import router as auth_api_router
 from src.database.db import init_db
 
 
@@ -367,62 +370,59 @@ def create_app() -> FastAPI:
 
         logger.info("ImoIA API iniciada")
 
+    # Auth dependencies aplicadas a todos os routers excepto health
+    auth_deps = [Depends(get_current_user), Depends(get_current_organization)]
+
     app.include_router(health_router, tags=["Sistema"])
+    # Auth profile — so requer JWT, sem X-Organization-Id
+    app.include_router(auth_api_router, prefix="/api/v1/auth", tags=["Auth"])
     app.include_router(
-        ingestor_router, prefix="/api/v1/ingest", tags=["Propriedades (retrocompat)"]
+        ingestor_router, prefix="/api/v1/ingest",
+        tags=["Propriedades (retrocompat)"], dependencies=auth_deps,
     )
     app.include_router(
-        properties_router, prefix="/api/v1/properties", tags=["Propriedades"]
+        properties_router, prefix="/api/v1/properties",
+        tags=["Propriedades"], dependencies=auth_deps,
     )
     app.include_router(
-        market_router,
-        prefix="/api/v1/market",
-        tags=["M2 - Pesquisa de Mercado"],
+        market_router, prefix="/api/v1/market",
+        tags=["M2 - Pesquisa de Mercado"], dependencies=auth_deps,
     )
     app.include_router(
-        financial_router,
-        prefix="/api/v1/financial",
-        tags=["M3 - Motor Financeiro"],
+        financial_router, prefix="/api/v1/financial",
+        tags=["M3 - Motor Financeiro"], dependencies=auth_deps,
     )
     app.include_router(
-        deal_pipeline_router,
-        prefix="/api/v1/deals",
-        tags=["M4 - Deal Pipeline"],
+        deal_pipeline_router, prefix="/api/v1/deals",
+        tags=["M4 - Deal Pipeline"], dependencies=auth_deps,
     )
     app.include_router(
-        due_diligence_router,
-        prefix="/api/v1/due-diligence",
-        tags=["M5 - Due Diligence"],
+        due_diligence_router, prefix="/api/v1/due-diligence",
+        tags=["M5 - Due Diligence"], dependencies=auth_deps,
     )
     app.include_router(
-        renovation_router,
-        prefix="/api/v1/renovations",
-        tags=["M6 - Gestao de Obra"],
+        renovation_router, prefix="/api/v1/renovations",
+        tags=["M6 - Gestao de Obra"], dependencies=auth_deps,
     )
     app.include_router(
-        marketing_router,
-        prefix="/api/v1/marketing",
-        tags=["M7 - Marketing"],
+        marketing_router, prefix="/api/v1/marketing",
+        tags=["M7 - Marketing"], dependencies=auth_deps,
     )
     app.include_router(
-        leads_router,
-        prefix="/api/v1/leads",
-        tags=["M8 - CRM de Leads"],
+        leads_router, prefix="/api/v1/leads",
+        tags=["M8 - CRM de Leads"], dependencies=auth_deps,
     )
     app.include_router(
-        closing_router,
-        prefix="/api/v1",
-        tags=["M9 - Fecho + P&L"],
+        closing_router, prefix="/api/v1",
+        tags=["M9 - Fecho + P&L"], dependencies=auth_deps,
     )
     app.include_router(
-        document_router,
-        prefix="/api/v1/documents",
-        tags=["Documentos"],
+        document_router, prefix="/api/v1/documents",
+        tags=["Documentos"], dependencies=auth_deps,
     )
     app.include_router(
-        strategy_router,
-        prefix="/api/v1/strategies",
-        tags=["Estratégias de Investimento"],
+        strategy_router, prefix="/api/v1/strategies",
+        tags=["Estratégias de Investimento"], dependencies=auth_deps,
     )
 
     return app

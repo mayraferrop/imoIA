@@ -1,8 +1,44 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
+import { createClient } from "@/lib/supabase/client";
 
-export async function apiGet<T = any>(path: string): Promise<T | null> {
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
+const ACTIVE_ORG_KEY = "imoia_active_org_id";
+
+/**
+ * Constroi headers de auth para chamadas ao FastAPI backend.
+ * Inclui JWT do Supabase Auth e X-Organization-Id activo.
+ */
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (typeof window === "undefined") return headers;
+
   try {
-    const res = await fetch(`${API_BASE}${path}`, { next: { revalidate: 30 } });
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      headers["Authorization"] = `Bearer ${session.access_token}`;
+    }
+  } catch {
+    // Sem sessao — headers sem auth
+  }
+
+  const orgId = localStorage.getItem(ACTIVE_ORG_KEY);
+  if (orgId) {
+    headers["X-Organization-Id"] = orgId;
+  }
+
+  return headers;
+}
+
+export async function apiGet<T = unknown>(path: string): Promise<T | null> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE}${path}`, { headers });
     if (!res.ok) return null;
     return res.json();
   } catch {
@@ -10,11 +46,15 @@ export async function apiGet<T = any>(path: string): Promise<T | null> {
   }
 }
 
-export async function apiPost<T = any>(path: string, body?: any): Promise<T | null> {
+export async function apiPost<T = unknown>(
+  path: string,
+  body?: unknown
+): Promise<T | null> {
   try {
+    const headers = await getAuthHeaders();
     const res = await fetch(`${API_BASE}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     });
     if (!res.ok) return null;
@@ -24,11 +64,15 @@ export async function apiPost<T = any>(path: string, body?: any): Promise<T | nu
   }
 }
 
-export async function apiPatch<T = any>(path: string, body?: any): Promise<T | null> {
+export async function apiPatch<T = unknown>(
+  path: string,
+  body?: unknown
+): Promise<T | null> {
   try {
+    const headers = await getAuthHeaders();
     const res = await fetch(`${API_BASE}${path}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     });
     if (!res.ok) return null;
@@ -38,11 +82,14 @@ export async function apiPatch<T = any>(path: string, body?: any): Promise<T | n
   }
 }
 
-export async function apiDelete<T = any>(path: string): Promise<T | null> {
+export async function apiDelete<T = unknown>(path: string): Promise<T | null> {
   try {
-    const res = await fetch(`${API_BASE}${path}`, { method: "DELETE" });
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "DELETE",
+      headers,
+    });
     if (!res.ok) return null;
-    // Some DELETE endpoints return 204 with no body
     const text = await res.text();
     return text ? JSON.parse(text) : ({} as T);
   } catch {
@@ -50,6 +97,9 @@ export async function apiDelete<T = any>(path: string): Promise<T | null> {
   }
 }
 
-// SWR fetcher for client components
-export const fetcher = (path: string) =>
-  fetch(`${API_BASE}${path}`).then((r) => (r.ok ? r.json() : null));
+// SWR fetcher com auth
+export const fetcher = async (path: string) => {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}${path}`, { headers });
+  return res.ok ? res.json() : null;
+};

@@ -2,12 +2,27 @@
 
 Todas as operacoes CRUD passam por aqui via PostgREST API do Supabase.
 Sem SQLAlchemy, sem SQLite, sem conexao PostgreSQL directa.
-Arquitectura igual ao CashFlow Pro.
+
+Isolamento multi-tenant:
+  - Em contexto de request HTTP, current_org_id e' definido pelo
+    middleware auth. Todas as queries sao filtradas automaticamente
+    por organization_id. INSERTs injectam organization_id no body.
+  - Em contexto admin (workers, scripts), usar admin_client() para
+    bypass do filtro.
+
+# TODO (pos Dia 3, antes da Fase 2B): refactor para usar JWT do
+# utilizador em vez de SERVICE_ROLE_KEY para contextos de request.
+# Manter SERVICE_ROLE_KEY apenas para workers Celery e scripts
+# administrativos. Isto da defense in depth via RLS alem do filtro
+# aplicacional. Razao para ter ficado para depois: evitar atrasar
+# a Fase 2A com refactoring de 15+ ficheiros.
 """
 
 from __future__ import annotations
 
+import contextvars
 import os
+from contextlib import contextmanager
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -15,20 +30,113 @@ from uuid import uuid4
 import httpx
 from loguru import logger
 
+# ---------------------------------------------------------------------------
+# Contexto de organizacao (multi-tenant)
+# ---------------------------------------------------------------------------
+# Definido pelo middleware auth em cada request HTTP.
+# Workers/scripts usam admin_client() para bypass.
+
+current_org_id: contextvars.ContextVar[str] = contextvars.ContextVar("current_org_id")
+_admin_mode: contextvars.ContextVar[bool] = contextvars.ContextVar("admin_mode", default=False)
+
+# Tabelas que NAO tem coluna organization_id
+_TABLES_WITHOUT_ORG = {"tenants", "organizations", "organization_members"}
+
+
+@contextmanager
+def admin_client():
+    """Context manager para operacoes admin (bypass do filtro de org).
+
+    Uso:
+        from src.database.supabase_rest import admin_client
+        with admin_client():
+            rows = _get("deals", "status=eq.active")  # sem filtro org
+    """
+    token = _admin_mode.set(True)
+    try:
+        yield
+    finally:
+        _admin_mode.reset(token)
+
+
+def _org_filter(table: str) -> str:
+    """Retorna filtro organization_id para a tabela.
+
+    Fail-closed: se nao ha org_id no contexto e nao estamos em admin mode,
+    lanca RuntimeError. Nunca retorna "" silenciosamente para tabelas com org.
+    """
+    if table in _TABLES_WITHOUT_ORG:
+        return ""
+    if _admin_mode.get(False):
+        return ""
+    try:
+        org_id = current_org_id.get()
+    except LookupError:
+        raise RuntimeError(
+            f"Query sem contexto de organizacao na tabela '{table}'. "
+            f"Em contexto de request, garante que o middleware auth corre antes. "
+            f"Em contexto admin (workers, scripts), envolve em 'with admin_client():'."
+        )
+    return f"organization_id=eq.{org_id}"
+
+
+def _inject_org_id(table: str, data: Dict | List[Dict]) -> Dict | List[Dict]:
+    """Injecta organization_id nos dados de INSERT se em contexto de request.
+
+    Se organization_id ja estiver no body, valida que e igual ao do contexto.
+    Se for diferente, lanca ValueError (tentativa de cross-org write).
+    """
+    if table in _TABLES_WITHOUT_ORG:
+        return data
+    if _admin_mode.get(False):
+        return data
+    try:
+        org_id = current_org_id.get()
+    except LookupError:
+        raise RuntimeError(
+            f"INSERT sem contexto de organizacao na tabela '{table}'. "
+            f"Em contexto de request, garante que o middleware auth corre antes. "
+            f"Em contexto admin (workers, scripts), envolve em 'with admin_client():'."
+        )
+
+    if isinstance(data, list):
+        for item in data:
+            _validate_and_set_org(item, org_id)
+    else:
+        _validate_and_set_org(data, org_id)
+    return data
+
+
+def _validate_and_set_org(item: Dict, org_id: str) -> None:
+    """Valida/injecta organization_id num dict."""
+    existing = item.get("organization_id")
+    if existing and existing != org_id:
+        raise ValueError(
+            f"organization_id no body ({existing[:8]}...) difere do contexto "
+            f"({org_id[:8]}...). Operacao bloqueada."
+        )
+    item["organization_id"] = org_id
+
+
 # Cache do URL e key
 _SUPA_URL: str = ""
 _SUPA_KEY: str = ""
 
 
 def _ensure_config():
-    """Carrega e valida config do Supabase (uma vez)."""
+    """Carrega e valida config do Supabase (uma vez).
+
+    Usa SERVICE_ROLE_KEY porque o backend e trusted e as policies
+    anon_select foram removidas na Fase 1 (organizacoes + RLS real).
+    A validacao de acesso e feita pelo middleware JWT no FastAPI.
+    """
     global _SUPA_URL, _SUPA_KEY
     if not _SUPA_URL:
         _SUPA_URL = os.getenv("SUPABASE_URL", "")
-        _SUPA_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+        _SUPA_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
     if not _SUPA_URL or not _SUPA_KEY:
         raise ValueError(
-            "SUPABASE_URL e SUPABASE_ANON_KEY nao configurados. "
+            "SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY nao configurados. "
             f"URL={_SUPA_URL!r}, KEY_LEN={len(_SUPA_KEY)}"
         )
 
@@ -56,6 +164,9 @@ def new_id() -> str:
 def _get(table: str, params: str = "", timeout: int = 10) -> List[Dict]:
     """SELECT — retorna lista de dicts. Retorna [] em caso de erro."""
     _ensure_config()
+    org = _org_filter(table)
+    if org:
+        params = f"{params}&{org}" if params else org
     url = f"{_SUPA_URL}/rest/v1/{table}?{params}"
     try:
         resp = httpx.get(url, headers=_headers(), timeout=timeout)
@@ -71,6 +182,7 @@ def _get(table: str, params: str = "", timeout: int = 10) -> List[Dict]:
 def _post(table: str, data: Dict | List[Dict], timeout: int = 15) -> List[Dict]:
     """INSERT — retorna lista de registos criados. Lanca ValueError em caso de erro."""
     _ensure_config()
+    data = _inject_org_id(table, data)
     url = f"{_SUPA_URL}/rest/v1/{table}"
     try:
         resp = httpx.post(url, headers=_headers(), json=data, timeout=timeout)
@@ -91,6 +203,7 @@ def _post(table: str, data: Dict | List[Dict], timeout: int = 15) -> List[Dict]:
 def _upsert(table: str, data: Dict | List[Dict], timeout: int = 15) -> List[Dict]:
     """INSERT ON CONFLICT UPDATE (upsert)."""
     _ensure_config()
+    data = _inject_org_id(table, data)
     url = f"{_SUPA_URL}/rest/v1/{table}"
     headers = _headers("return=representation,resolution=merge-duplicates")
     try:
@@ -109,6 +222,9 @@ def _upsert(table: str, data: Dict | List[Dict], timeout: int = 15) -> List[Dict
 def _patch(table: str, filter_str: str, data: Dict, timeout: int = 10) -> List[Dict]:
     """UPDATE — actualiza registos que correspondem ao filtro. Retorna registos actualizados."""
     _ensure_config()
+    org = _org_filter(table)
+    if org:
+        filter_str = f"{filter_str}&{org}" if filter_str else org
     url = f"{_SUPA_URL}/rest/v1/{table}?{filter_str}"
     try:
         resp = httpx.patch(url, headers=_headers(), json=data, timeout=timeout)
@@ -126,6 +242,9 @@ def _patch(table: str, filter_str: str, data: Dict, timeout: int = 10) -> List[D
 def _delete(table: str, filter_str: str, timeout: int = 10) -> bool:
     """DELETE — exclui registos que correspondem ao filtro."""
     _ensure_config()
+    org = _org_filter(table)
+    if org:
+        filter_str = f"{filter_str}&{org}" if filter_str else org
     url = f"{_SUPA_URL}/rest/v1/{table}?{filter_str}"
     try:
         resp = httpx.delete(url, headers=_headers(), timeout=timeout)
@@ -141,6 +260,9 @@ def _delete(table: str, filter_str: str, timeout: int = 10) -> bool:
 def _count(table: str, filter_str: str = "") -> int:
     """COUNT — retorna total de registos que correspondem ao filtro."""
     _ensure_config()
+    org = _org_filter(table)
+    if org:
+        filter_str = f"{filter_str}&{org}" if filter_str else org
     params = "select=id" + (f"&{filter_str}" if filter_str else "")
     url = f"{_SUPA_URL}/rest/v1/{table}?{params}"
     try:
