@@ -108,19 +108,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Inicializacao + listener de auth state
   useEffect(() => {
     async function init() {
-      const {
-        data: { session: s },
-      } = await supabase.auth.getSession();
+      try {
+        const {
+          data: { session: s },
+        } = await supabase.auth.getSession();
 
-      if (s?.user) {
-        setUser(s.user);
-        setSession(s);
-        const orgs = await fetchOrganizationsViaRLS(supabase, s.user.id);
-        setOrganizations(orgs);
-        setActiveOrgState(restoreActiveOrg(orgs));
+        if (s?.user) {
+          setUser(s.user);
+          setSession(s);
+          const orgs = await fetchOrganizationsViaRLS(supabase, s.user.id);
+          setOrganizations(orgs);
+          setActiveOrgState(restoreActiveOrg(orgs));
+        }
+      } catch (err) {
+        console.warn("[auth-context] init failed:", err);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     }
 
     init();
