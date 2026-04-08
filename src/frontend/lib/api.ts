@@ -1,31 +1,11 @@
+import { createClient } from "@/lib/supabase/client";
+
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
-const ACTIVE_ORG_KEY = "imoia_active_org_id";
-const COOKIE_PREFIX = "sb-";
-
-/**
- * Le o access_token directamente do cookie Supabase.
- * Evita getSession() que pode pendurar com Web Locks.
- */
-function getTokenFromCookie(): string | null {
-  if (typeof document === "undefined") return null;
-  const cookie = document.cookie.split(";").find((c) => c.trim().startsWith(COOKIE_PREFIX));
-  if (!cookie) return null;
-  const value = cookie.split("=").slice(1).join("=").trim();
-  if (value.startsWith("base64-")) {
-    try {
-      const decoded = JSON.parse(atob(value.slice(7)));
-      return decoded.access_token ?? null;
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
 
 /**
  * Constroi headers de auth para chamadas ao FastAPI backend.
- * Le token do cookie directamente (sem Supabase client = sem locks).
+ * Usa supabase.auth.getSession() que gere refresh automatico do token.
  */
 export async function getAuthHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = {
@@ -34,12 +14,14 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
 
   if (typeof window === "undefined") return headers;
 
-  const token = getTokenFromCookie();
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (session?.access_token) {
+    headers["Authorization"] = `Bearer ${session.access_token}`;
   }
 
-  const orgId = localStorage.getItem(ACTIVE_ORG_KEY);
+  const orgId = localStorage.getItem("imoia_active_org_id");
   if (orgId) {
     headers["X-Organization-Id"] = orgId;
   }
