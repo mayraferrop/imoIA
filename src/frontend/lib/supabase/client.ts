@@ -8,6 +8,13 @@ import { createBrowserClient } from "@supabase/ssr";
 export function createClient() {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        // Desactivar Web Locks API — causa lock orphan com React Strict Mode
+        // e bloqueia getSession() indefinidamente. Seguro para single-user SPA.
+        lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<unknown>) => fn(),
+      },
+    }
   );
 }
