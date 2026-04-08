@@ -47,6 +47,12 @@ interface Interaction {
   created_at?: string;
 }
 
+function safeArray(val: unknown): string[] {
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") { try { const parsed = JSON.parse(val); if (Array.isArray(parsed)) return parsed; } catch {} }
+  return [];
+}
+
 const STAGE_LABELS: Record<string, string> = {
   new: "Novo",
   contacted: "Contactado",
@@ -508,8 +514,8 @@ export default function LeadsPage() {
                         <p className="text-slate-500">Email: <span className="text-slate-900">{lead.email || "—"}</span></p>
                         <p className="text-slate-500">Phone: <span className="text-slate-900">{lead.phone || "—"}</span></p>
                         <p className="text-slate-500">Tipologia: <span className="text-slate-900">{lead.preferred_typology || "—"}</span></p>
-                        {lead.preferred_locations && lead.preferred_locations.length > 0 && (
-                          <p className="text-slate-500">Localizações: <span className="text-slate-900">{lead.preferred_locations.join(", ")}</span></p>
+                        {lead.preferred_locations && safeArray(lead.preferred_locations).length > 0 && (
+                          <p className="text-slate-500">Localizações: <span className="text-slate-900">{safeArray(lead.preferred_locations).join(", ")}</span></p>
                         )}
                         {lead.notes && (
                           <p className="text-slate-500">Notas: <span className="text-slate-900">{lead.notes.slice(0, 200)}</span></p>

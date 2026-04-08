@@ -75,6 +75,13 @@ const ALL_LANGS: Record<string, string> = {
   zh: "Zhongwen",
 };
 
+// Backend pode retornar arrays JSON como string — parse seguro
+function safeArray(val: unknown): string[] {
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") { try { const parsed = JSON.parse(val); if (Array.isArray(parsed)) return parsed; } catch {} }
+  return [];
+}
+
 const STATUS_COLORS: Record<string, string> = {
   draft: "#94A3B8",
   active: "#16A34A",
@@ -152,11 +159,12 @@ export default function MarketingPage() {
     setBkFontB(bk?.font_body ?? "Inter");
     setBkTone(bk?.voice_tone ?? "profissional");
     setBkVoiceDesc(bk?.voice_description ?? "");
-    setBkForbidden(bk?.voice_forbidden_words?.join(", ") ?? "");
+    setBkForbidden(safeArray(bk?.voice_forbidden_words).join(", "));
     setBkPhone(bk?.contact_phone ?? "");
     setBkEmail(bk?.contact_email ?? "");
     setBkWhatsapp(bk?.contact_whatsapp ?? "");
-    setBkLangs(bk?.active_languages ?? ["pt-PT"]);
+    const langs = safeArray(bk?.active_languages);
+    setBkLangs(langs.length > 0 ? langs : ["pt-PT"]);
   }, []);
 
   async function saveBrandKit() {
@@ -292,7 +300,7 @@ export default function MarketingPage() {
                     {brandKit.website_url} | {brandKit.contact_phone} | {brandKit.contact_email}
                   </p>
                   <p className="text-sm text-slate-500">
-                    Tom: {brandKit.voice_tone} | Idiomas: {brandKit.active_languages?.join(", ")} | Fontes: {brandKit.font_heading} / {brandKit.font_body}
+                    Tom: {brandKit.voice_tone} | Idiomas: {safeArray(brandKit.active_languages).join(", ")} | Fontes: {brandKit.font_heading} / {brandKit.font_body}
                   </p>
                   <div className="flex gap-3 mt-2">
                     {[
