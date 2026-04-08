@@ -10,7 +10,6 @@ import {
   type ReactNode,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { warmupBackend } from "@/lib/api";
 import type { SupabaseClient, User, Session } from "@supabase/supabase-js";
 
 // ---------------------------------------------------------------------------
@@ -114,9 +113,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (initRef.current) return;
     initRef.current = true;
-
-    // Acordar backend Render enquanto carrega auth (fire-and-forget)
-    warmupBackend();
 
     async function init() {
       try {
