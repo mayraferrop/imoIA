@@ -6,6 +6,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -105,8 +106,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(ACTIVE_ORG_KEY);
   }, [supabase.auth]);
 
+  // Guard contra dupla inicializacao (React Strict Mode)
+  const initRef = useRef(false);
+
   // Inicializacao + listener de auth state
   useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
+
     async function init() {
       try {
         const {
