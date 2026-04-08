@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { Suspense } from "react";
+
+const COOKIE_NAME = "sb-jurzdyncaxkgvcatyfdu-auth-token";
+const ORG_KEY = "imoia_active_org_id";
+const HABTA_ORG_ID = "a0a450ff-2897-4431-be2f-440e7762629c";
 
 function SetSessionInner() {
   const searchParams = useSearchParams();
@@ -18,17 +20,32 @@ function SetSessionInner() {
       return;
     }
 
-    const supabase = createClient();
-    supabase.auth
-      .setSession({ access_token, refresh_token })
-      .then(({ error }) => {
-        if (error) {
-          setStatus("Erro: " + error.message);
-        } else {
-          setStatus("Sessao configurada. A redirecionar...");
-          window.location.href = "/";
-        }
-      });
+    // Limpar cookies e storage antigos
+    document.cookie.split(";").forEach((c) => {
+      const name = c.trim().split("=")[0];
+      if (name.startsWith("sb-")) {
+        document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      }
+    });
+
+    // Construir cookie no formato @supabase/ssr
+    const session = {
+      access_token,
+      token_type: "bearer",
+      expires_in: 3600,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      refresh_token,
+    };
+    const encoded = btoa(JSON.stringify(session));
+    document.cookie = `${COOKIE_NAME}=base64-${encoded}; path=/; max-age=3600; SameSite=Lax`;
+
+    // Definir org activa
+    localStorage.setItem(ORG_KEY, HABTA_ORG_ID);
+
+    setStatus("Sessao configurada. A redirecionar...");
+    setTimeout(() => {
+      window.location.href = "/";
+    }, 500);
   }, [searchParams]);
 
   return (
