@@ -154,7 +154,9 @@ export default function LeadsPage() {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([loadOverview(), loadLeads()]).then(() => setLoading(false));
+    Promise.all([loadOverview(), loadLeads()])
+      .catch((err) => console.warn("[M8] load failed:", err))
+      .finally(() => setLoading(false));
   }, [loadOverview, loadLeads]);
 
   // Write operations: always via FastAPI (needs business logic)

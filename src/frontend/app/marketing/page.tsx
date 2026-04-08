@@ -120,16 +120,21 @@ export default function MarketingPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [bk, listingsData, mktStats] = await Promise.all([
-      fetcher("/api/v1/marketing/brand-kit"),
-      fetcher("/api/v1/marketing/listings?limit=100"),
-      fetcher("/api/v1/marketing/stats"),
-    ]);
-    setBrandKit(bk);
-    setListings(listingsData?.items ?? []);
-    setStats(mktStats);
-    if (!bk?.brand_name) setShowBkForm(true);
-    setLoading(false);
+    try {
+      const [bk, listingsData, mktStats] = await Promise.all([
+        fetcher("/api/v1/marketing/brand-kit"),
+        fetcher("/api/v1/marketing/listings?limit=100"),
+        fetcher("/api/v1/marketing/stats"),
+      ]);
+      setBrandKit(bk);
+      setListings(listingsData?.items ?? []);
+      setStats(mktStats);
+      if (!bk?.brand_name) setShowBkForm(true);
+    } catch (err) {
+      console.warn("[M7] loadData failed:", err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -203,10 +208,14 @@ export default function MarketingPage() {
   }
 
   async function loadDeals() {
-    const data = await fetcher("/api/v1/deals/?limit=100");
-    if (data?.items) {
-      setDeals(data.items.map((d: any) => ({ id: d.id, title: d.title ?? d.id.slice(0, 8), status: d.status })));
-      if (data.items.length > 0) setCreateDealId(data.items[0].id);
+    try {
+      const data = await fetcher("/api/v1/deals/?limit=100");
+      if (data?.items) {
+        setDeals(data.items.map((d: any) => ({ id: d.id, title: d.title ?? d.id.slice(0, 8), status: d.status })));
+        if (data.items.length > 0) setCreateDealId(data.items[0].id);
+      }
+    } catch (err) {
+      console.warn("[M7] loadDeals failed:", err);
     }
   }
 

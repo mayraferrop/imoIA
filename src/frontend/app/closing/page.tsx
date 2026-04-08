@@ -135,7 +135,9 @@ export default function ClosingPage() {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([loadClosings(), loadDeals()]).then(() => setLoading(false));
+    Promise.all([loadClosings(), loadDeals()])
+      .catch((err) => console.warn("[M9] load failed:", err))
+      .finally(() => setLoading(false));
   }, [loadClosings, loadDeals]);
 
   // Write operations: always via FastAPI (needs business logic)
