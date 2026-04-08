@@ -73,7 +73,9 @@ async function fetchOrganizationsViaRLS(
 function restoreActiveOrg(orgs: Organization[]): Organization | null {
   if (orgs.length === 0) return null;
   const savedId = localStorage.getItem(ACTIVE_ORG_KEY);
-  return orgs.find((o) => o.id === savedId) ?? orgs[0];
+  const org = orgs.find((o) => o.id === savedId) ?? orgs[0];
+  if (org) localStorage.setItem(ACTIVE_ORG_KEY, org.id);
+  return org;
 }
 
 // ---------------------------------------------------------------------------
