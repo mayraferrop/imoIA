@@ -1,0 +1,23 @@
+name: Keep Render Alive
+
+on:
+  schedule:
+    # A cada 10 minutos — impede cold start do Render free tier
+    - cron: "*/10 * * * *"
+  workflow_dispatch: # permite trigger manual
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping backend
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "https://imoia.onrender.com/health")
+          echo "Health check: HTTP $STATUS"
+          if [ "$STATUS" -ge 500 ]; then
+            echo "Backend a acordar... retry em 30s"
+            sleep 30
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "https://imoia.onrender.com/health")
+            echo "Retry: HTTP $STATUS"
+          fi

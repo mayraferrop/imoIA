@@ -4,6 +4,14 @@ export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "https://imoia.onrender.com";
 const ACTIVE_ORG_KEY = "imoia_active_org_id";
 
+// Warmup do backend Render (free tier adormece apos 15min inactivo)
+let _warmedUp = false;
+export function warmupBackend() {
+  if (_warmedUp || typeof window === "undefined") return;
+  _warmedUp = true;
+  fetch(`${API_BASE}/health`, { method: "HEAD" }).catch(() => {});
+}
+
 /**
  * Constroi headers de auth para chamadas ao FastAPI backend.
  * Inclui JWT do Supabase Auth e X-Organization-Id activo.
