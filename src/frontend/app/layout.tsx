@@ -16,6 +16,11 @@ export default function RootLayout({
   return (
     <html lang="pt">
       <body className="antialiased">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `fetch("https://imoia.onrender.com/health",{method:"HEAD"}).catch(function(){})`,
+          }}
+        />
         <AuthProvider>
           <AppShell>{children}</AppShell>
         </AuthProvider>
