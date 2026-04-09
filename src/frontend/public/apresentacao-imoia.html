@@ -1074,6 +1074,8 @@
       <li><a href="#modulos" data-i18n="nav_modulos">Módulos</a></li>
       <li><a href="#ia">IA</a></li>
       <li><a href="#dashboard">Dashboard</a></li>
+      <li><a href="#portal" data-i18n="nav_portal">Portal</a></li>
+      <li><a href="#social" data-i18n="nav_social">Social</a></li>
       <li><a href="#porque" data-i18n="nav_porque">Porquê</a></li>
     </ul>
   </div>
@@ -1093,10 +1095,14 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       <span data-i18n="profile_investidor">Sou Investidor</span>
     </button>
+    <button type="button" class="profile-btn" id="btn-construtora" onclick="setProfile('construtora')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M5 20V8l7-5 7 5v12"/><path d="M9 20v-6h6v6"/><path d="M9 12h6"/></svg>
+      <span data-i18n="profile_construtora">Sou Construtora</span>
+    </button>
   </div>
 
   <h1 class="fade-in" data-i18n-html="hero_title">Da captação ao<br><span class="highlight">negócio fechado</span>,<br>com <span class="highlight-gold">inteligência artificial</span>.</h1>
-  <p class="subtitle fade-in" data-i18n="hero_subtitle">A imoIA não é mais um software imobiliário. É a primeira plataforma end-to-end com IA que cobre todo o ciclo do negócio — da captação ao lucro — automatizando o que é repetitivo para que consultores e investidores foquem no que é insubstituivelmente humano: relações, intuição e interpretar o não-dito. No Brasil e na Europa.</p>
+  <p class="subtitle fade-in" data-i18n="hero_subtitle">A imoIA não é mais um software imobiliário. É a primeira plataforma end-to-end com IA que cobre todo o ciclo do negócio — da captação ao lucro — automatizando o que é repetitivo para que consultores, investidores e construtoras foquem no que é insubstituivelmente humano: relações, intuição e interpretar o não-dito. No Brasil e na Europa.</p>
 
   <div class="countries-banner fade-in">
     <div class="country-item">
@@ -1685,6 +1691,86 @@
   </div>
 </section>
 
+<!-- PORTAL IMOIA -->
+<section id="portal">
+  <div class="section-label fade-in" data-i18n="portal_label">Portal imoIA</div>
+  <h2 class="fade-in" data-i18n-html="portal_title">Seu portal de imóveis <span class="highlight-gold">tipo Quinto Andar</span>, com a cara da <span class="highlight">sua marca</span>.</h2>
+  <p class="subtitle fade-in" data-i18n="portal_subtitle">Construtoras, imobiliárias e investidores publicam os seus imóveis num portal moderno, rápido e integrado ao pipeline — sem pagar comissão a ninguém. White-label, responsivo, SEO otimizado.</p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-top: 2rem; width: 100%;" class="fade-in">
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--primary);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="portal_c1_title">Listagens integradas</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="portal_c1_desc">Os imóveis do seu pipeline aparecem automaticamente no portal — com fotos, plantas, descrições geradas por IA e dados técnicos. Zero trabalho manual.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--accent);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="portal_c2_title">Busca avançada e mapa</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="portal_c2_desc">Filtros por tipologia, preço, bairro, características. Mapa interativo, tour virtual, comparador de imóveis. Experiência de Quinto Andar, com o seu branding.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--success);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="portal_c3_title">Captação de leads</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="portal_c3_desc">Cada visitante do portal vira um lead no M8 CRM. Formulários, WhatsApp integrado, qualificação automática por IA e nutrição até ao fechamento.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #8b5cf6;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="portal_c4_title">White-label total</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="portal_c4_desc">Domínio próprio, logotipo, cores e identidade da sua marca. Construtora, imobiliária ou investidor — o portal é 100% seu. Sem logotipo da imoIA.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #06b6d4;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="portal_c5_title">SEO otimizado</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="portal_c5_desc">Páginas rápidas, metadados automáticos, schema.org, sitemap dinâmico. Google indexa cada imóvel — tráfego orgânico sem pagar anúncios.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #ec4899;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="portal_c6_title">Multi-dispositivo</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="portal_c6_desc">Desktop, tablet e mobile — tudo responsivo e rápido. Tour virtual 360°, galeria, vídeos e documentos, acessível de qualquer lado.</p>
+    </div>
+  </div>
+</section>
+
+<!-- REDES SOCIAIS -->
+<section id="social">
+  <div class="section-label fade-in" data-i18n="social_label">Redes Sociais Automatizadas</div>
+  <h2 class="fade-in" data-i18n-html="social_title">Presença total nas redes, <span class="highlight">zero trabalho manual</span>.</h2>
+  <p class="subtitle fade-in" data-i18n="social_subtitle">A imoIA publica automaticamente em Instagram, Facebook, LinkedIn, TikTok e YouTube. Conteúdo criado por IA, agenda inteligente, campanhas geridas — com a identidade da sua marca em todas.</p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-top: 2rem; width: 100%;" class="fade-in">
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--primary);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c1_title">Publicação multi-canal</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c1_desc">Instagram, Facebook, LinkedIn, TikTok e YouTube. Um clique publica em todos. Formatos adaptados automaticamente a cada rede.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--accent);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c2_title">Agenda inteligente</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c2_desc">A IA decide o melhor dia e hora para publicar cada conteúdo baseado no comportamento do seu público. Calendário editorial automático.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--success);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c3_title">Reels e vídeos curtos</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c3_desc">Vídeos de 15 a 60 segundos gerados automaticamente a partir de fotos e dados dos imóveis. Prontos para Reels, Stories e TikTok.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #8b5cf6;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c4_title">Respostas automáticas</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c4_desc">Comentários e mensagens directas respondidos pela IA com o tom da sua marca. Leads qualificados enviados directamente ao CRM.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #06b6d4;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c5_title">Campanhas pagas geridas</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c5_desc">Meta Ads, Google Ads e TikTok Ads geridos pela IA. Público, orçamento e criativos otimizados automaticamente para o menor custo por lead.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #ec4899;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c6_title">Dashboard unificado</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c6_desc">Veja todas as métricas de todas as redes num único painel. Engajamento, conversão, custo por lead e ROI por imóvel.</p>
+    </div>
+  </div>
+</section>
+
 <!-- PORQUÊ IMOIA (COMPARATIVO) -->
 <section id="porque">
   <div class="section-label fade-in" data-i18n="porque_label">Porquê a imoIA</div>
@@ -1787,7 +1873,7 @@ const T = {
     // Hero
     hero_badge: 'Sua vantagem competitiva no mercado imobiliário',
     hero_title: 'Da captação ao<br><span class="highlight">negócio fechado</span>,<br>com <span class="highlight-gold">inteligência artificial</span>.',
-    hero_subtitle: 'A imoIA não é mais um software imobiliário. É a primeira plataforma end-to-end com IA que cobre todo o ciclo do negócio — da captação ao lucro — automatizando o que é repetitivo para que consultores e investidores foquem no que é insubstituivelmente humano: relações, intuição e interpretar o não-dito. No Brasil e na Europa.',
+    hero_subtitle: 'A imoIA não é mais um software imobiliário. É a primeira plataforma end-to-end com IA que cobre todo o ciclo do negócio — da captação ao lucro — automatizando o que é repetitivo para que consultores, investidores e construtoras foquem no que é insubstituivelmente humano: relações, intuição e interpretar o não-dito. No Brasil e na Europa.',
 
     // Visão
     visao_label: 'Visão Geral',
@@ -1945,10 +2031,13 @@ const T = {
     // Profile toggle
     profile_mediador: 'Sou Consultor',
     profile_investidor: 'Sou Investidor',
+    profile_construtora: 'Sou Construtora',
 
     // Nav extras
     nav_problema: 'Problema',
     nav_porque: 'Porquê',
+    nav_portal: 'Portal',
+    nav_social: 'Social',
 
     // Problema (comum aos dois perfis)
     problema_label: 'O Problema',
@@ -2017,9 +2106,26 @@ const PROFILE_TEXTS = {
       m3_desc: 'Saiba seu lucro antes de investir. Regra dos 70%, 3 cenários, TIR, fluxo de caixa e todas as métricas que um investidor profissional usa.',
       m4_desc: 'Todos os seus projetos de investimento organizados visualmente. Fix &amp; Flip, Buy &amp; Hold e mais — um só painel.',
       m4_f1: 'Fix &amp; Flip, Buy &amp; Hold, Value-Add, Wholesale, Temporada e Mediação',
-      m7_desc: 'Promove os teus imóveis com marketing profissional no piloto automático. Conteúdo, posts e descrições criados por IA.',
+      m7_desc: 'Promove os seus imóveis com marketing profissional no piloto automático. Conteúdo, posts e descrições criados por IA.',
+      m8_desc: 'Cada oportunidade off-market vira um lead rastreado. Compradores, vendedores e co-investidores organizados por status e potencial — do primeiro contacto ao fecho.',
       m9_desc: 'Do compromisso ao lucro real no bolso. Relatórios fiscais, P&amp;L real vs projetado e visão completa do portfólio de investimento.',
       porque_title: 'Não é mais uma calculadora. É a plataforma que faltava ao <span class="highlight">investidor moderno.</span>',
+    },
+    construtora: {
+      hero_title: 'Da <span class="highlight">obra do zero</span> ao <span class="highlight-gold">empreendimento vendido</span>,<br>com inteligência artificial.',
+      hero_subtitle: 'A imoIA não é mais um software imobiliário. É a primeira plataforma end-to-end com IA que cobre todo o ciclo da sua construtora — da obra à venda, do lançamento ao pós-venda — automatizando o que é repetitivo para que a sua equipa foque no que é insubstituivelmente humano: visão, relações comerciais e decisões estratégicas. No Brasil e na Europa.',
+      problema_title: 'A construtora <span class="highlight">evoluiu</span>. As ferramentas para vender o que constrói, <span class="highlight-gold">não.</span>',
+      problema_subtitle: 'Obras tocadas em planilhas, vendas dependentes de intermediários, marketing terceirizado, leads perdidos em caixas de e-mail. A sua construtora precisa de uma plataforma única — não de mais 5 sistemas desconectados.',
+      visao_title: 'O problema que a imoIA resolve para a construtora',
+      visao_subtitle: 'A sua construtora constrói bem — mas vender, divulgar e gerir leads depende de portais caros e ferramentas desconectadas. A imoIA integra obra, portal próprio, redes sociais e CRM num só fluxo automatizado.',
+      m1_desc: 'Capta leads compradores automaticamente para os seus empreendimentos — WhatsApp, Facebook, portais e o seu próprio portal imoIA.',
+      m3_desc: 'Saiba a rentabilidade real de cada empreendimento antes, durante e depois da obra. Custos, impostos, cenários e margem por unidade — em tempo real.',
+      m4_desc: 'Todos os seus empreendimentos organizados visualmente. Lançamento, pré-venda, venda, entrega e pós-venda — um só painel.',
+      m4_f1: 'Lançamento, Pré-venda, Venda, Entrega, Pós-venda',
+      m7_desc: 'Marketing profissional no piloto automático. Conteúdo, posts, vídeos e campanhas criados por IA — com a identidade visual da sua construtora.',
+      m8_desc: 'Cada visitante do seu portal e cada interacção nas redes vira um lead qualificado. Nutrição automática até à venda.',
+      m9_desc: 'P&amp;L real por empreendimento: quanto gastou em obra, quanto vendeu, qual a margem. Relatórios fiscais e visão completa do portfólio.',
+      porque_title: 'Não é mais um ERP de obra. Nem só um CRM. É a plataforma que faltava à <span class="highlight">construtora moderna.</span>',
     }
   }
 };
