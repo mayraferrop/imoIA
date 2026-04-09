@@ -193,14 +193,21 @@
       .profile-toggle {
         flex-wrap: nowrap;
         width: 100%;
-        max-width: 340px;
+        max-width: 360px;
+        gap: 2px;
+        padding: 4px;
       }
       .profile-btn {
-        padding: 0.85rem 1rem;
-        font-size: 0.82rem;
+        padding: 0.75rem 0.4rem;
+        font-size: 0.72rem;
         flex: 1;
         justify-content: center;
         min-height: 44px;
+        gap: 0.3rem;
+        white-space: nowrap;
+      }
+      .profile-btn svg {
+        display: none;
       }
     }
 
@@ -1048,8 +1055,6 @@
       }
       .subtitle { font-size: 1rem; }
       .nav-logo { font-size: 1.3rem; }
-      .profile-btn { padding: 0.65rem 1rem; font-size: 0.78rem; }
-      .profile-btn svg { width: 14px; height: 14px; }
       .country-item { padding: 0.85rem 1.2rem; }
       .country-name { font-size: 1rem; }
       .country-flag { font-size: 1.6rem; }
@@ -1748,11 +1753,6 @@
       <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
       <h3 style="font-size: 1rem;" data-i18n="obra_c2_title">Orçamento e custos</h3>
       <p class="module-desc" style="margin-bottom: 0;" data-i18n="obra_c2_desc">Orçamento por rubrica, custo previsto vs. real, alertas de desvio automático. A IA cruza preços de fornecedores e sugere otimizações.</p>
-    </div>
-    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--success);">
-      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-      <h3 style="font-size: 1rem;" data-i18n="obra_c3_title">Fornecedores e empreiteiros</h3>
-      <p class="module-desc" style="margin-bottom: 0;" data-i18n="obra_c3_desc">Base de dados com histórico, avaliações, prazos e preços. Ranking automático por desempenho em obras anteriores.</p>
     </div>
     <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #8b5cf6;">
       <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
