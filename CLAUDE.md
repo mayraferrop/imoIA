@@ -18,6 +18,32 @@
 
 ---
 
+## 🎯 Estado Actual das Fases
+
+| Fase | Estado | Notas |
+|------|--------|-------|
+| **Fase 1** — Fundação (BD, backend base, frontend base) | ✅ **CONCLUÍDA** | Supabase migration, modelos v2, 11 módulos M0-M9 |
+| **Fase 2A** — Activação de Autenticação | ✅ **CONCLUÍDA** (Abr/2026) | Dia 1 backend + Dia 2 frontend + Dia 3 PV-D (8/8 testes passaram) |
+| **Fase 2B** — SSO (Google / Microsoft) | ⏸️ PENDENTE (futuro) | Adiado |
+| **Fase 3** — Cleanup (remover Streamlit, legacy refs, update README) | ⏸️ PENDENTE (adiado) | Prioridade baixa — adiado por frente comercial urgente (piloto Santos/BR) |
+
+**Fase 2A — Detalhe da validação PV-D (Abr/2026):**
+- Teste 1: Redirect sem sessão ✅
+- Teste 2: Login real com magic link (PKCE) ✅
+- Teste 3: Navegação em todas as 11 páginas com Authorization header ✅
+- Teste 4: Logout limpo (cookies + localStorage) ✅
+- Teste 5: Re-login após logout ✅
+- Teste 6: API rejeita sem auth (401/403/200 consistentes) ✅
+- Teste 7: Isolamento por organização (multi-tenant em 4 endpoints) ✅
+- Teste 8: Refresh automático de token ✅
+
+**Próximas prioridades (pós Fase 2A):**
+1. Frente comercial urgente — apresentação a cliente piloto em Santos/Brasil
+2. Fase 3 cleanup (adiado)
+3. Fase 2B SSO (futuro)
+
+---
+
 ## 🏗️ Arquitetura e Stack
 
 - **Runtime:** Node.js (gerenciado via NVM)
@@ -224,6 +250,7 @@ Quando receber instruções para trabalhar em paralelo, monte este time automati
 | Abr/2026 | User `imoia_app` para SQLAlchemy, RLS ativado em todas tabelas | anon=SELECT only, imoia_app=ALL, service_role=bypass |
 | Abr/2026 | SQLite removido, DATABASE_URL obrigatório | Sem fallback — PostgreSQL é o único BD suportado |
 | Abr/2026 | Backup semanal via cron + scripts/backup_supabase.py | Domingos 3h, exporta JSON para backups/ |
+| Abr/2026 | Fase 2A Auth concluída e validada (PV-D 8/8 passou) | Magic link PKCE + middleware SSR + RLS multi-tenant + isolamento por org (X-Organization-Id) |
 
 > Adicionar novas entradas aqui quando decisões técnicas relevantes forem tomadas.
 
