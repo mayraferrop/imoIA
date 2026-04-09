@@ -16,14 +16,3 @@ services:
         sync: false
       - key: WHAPI_TOKEN
         sync: false
-  - type: web
-    name: imoia-dashboard
-    runtime: docker
-    plan: free
-    region: frankfurt
-    dockerfilePath: ./Dockerfile.streamlit
-    envVars:
-      - key: API_BASE_URL
-        value: https://imoia.onrender.com
-      - key: DATABASE_URL
-        sync: false
