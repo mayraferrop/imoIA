@@ -134,6 +134,7 @@
       margin: 0 auto 2rem;
       position: relative;
       z-index: 10;
+      align-self: center;
     }
 
     .profile-btn {
@@ -338,7 +339,7 @@
 
     /* ===== SECTIONS ===== */
     section {
-      padding: 60px 1rem 3rem;
+      padding: 80px 1.5rem 3rem;
       max-width: 1200px;
       margin: 0 auto;
       width: 100%;
@@ -400,6 +401,10 @@
     /* ===== HERO ===== */
     #hero {
       text-align: center;
+      padding-top: 140px; /* nav 64px + espaco visual para nao colar aos badges */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     .hero-badge {
@@ -414,13 +419,15 @@
       font-weight: 600;
       color: var(--primary-light);
       margin-bottom: 2rem;
+      max-width: 100%;
+      text-align: center;
     }
 
     .hero-stats {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 1.5rem;
-      margin-top: 3rem;
+      margin: 3rem auto 0; /* centralizar horizontalmente */
       max-width: 800px;
       width: 100%;
     }
@@ -452,9 +459,10 @@
     .countries-banner {
       display: flex;
       justify-content: center;
-      gap: 3rem;
+      gap: 2rem;
       margin-top: 2.5rem;
       flex-wrap: wrap;
+      width: 100%;
     }
 
     .country-item {
@@ -969,9 +977,16 @@
     }
 
     /* ===== RESPONSIVE ===== */
+    @media (max-width: 1024px) {
+      nav { padding: 0 1rem; }
+      .nav-inner { max-width: 100%; }
+    }
+
     @media (max-width: 768px) {
       section { padding: 80px 1.25rem 3rem; }
+      #hero { padding-top: 110px; }
 
+      nav { padding: 0 1rem; }
       .nav-links { display: none; }
       .nav-links.open {
         display: flex;
@@ -985,16 +1000,30 @@
         padding: 1rem;
         border-bottom: 1px solid rgba(99, 102, 241, 0.15);
       }
+      .nav-links.open li { text-align: center; padding: 0.3rem 0; }
       .hamburger { display: block; }
 
       .modules-grid { grid-template-columns: 1fr; }
-      .pipeline-flow { flex-wrap: wrap; justify-content: center; }
+      .pipeline-flow { flex-wrap: wrap; justify-content: center; gap: 0.3rem; }
+      .pipeline-step { padding: 0.5rem 0.75rem; }
       .dash-body { grid-template-columns: 1fr; }
       .hero-stats { grid-template-columns: repeat(2, 1fr); }
       .tech-grid { grid-template-columns: 1fr; }
       .kanban-col { flex-direction: column; }
       .sources-grid { grid-template-columns: 1fr; }
-      .countries-banner { gap: 1rem; }
+      .countries-banner {
+        gap: 1rem;
+        flex-direction: column;
+        align-items: center;
+      }
+      .country-item {
+        width: 100%;
+        max-width: 340px;
+        justify-content: center;
+      }
+      .problem-grid { grid-template-columns: 1fr; }
+      .chat-content { max-width: 100%; }
+      .chat-bubble { flex-direction: column; gap: 0.5rem; }
 
       .lang-switcher {
         margin-left: 0;
@@ -1003,10 +1032,30 @@
     }
 
     @media (max-width: 480px) {
+      section { padding: 70px 1rem 2.5rem; }
+      #hero { padding-top: 100px; }
       h1 { font-size: 2rem; }
       h2 { font-size: 1.6rem; }
-      .hero-stats { grid-template-columns: 1fr 1fr; }
+      h3 { font-size: 1.1rem; }
+      .hero-stats { grid-template-columns: 1fr 1fr; gap: 1rem; }
+      .stat-card { padding: 1.2rem 0.8rem; }
       .stat-number { font-size: 1.8rem; }
+      .stat-label { font-size: 0.75rem; }
+      .hero-badge {
+        font-size: 0.72rem;
+        padding: 0.4rem 0.9rem;
+        margin-bottom: 1.5rem;
+      }
+      .subtitle { font-size: 1rem; }
+      .nav-logo { font-size: 1.3rem; }
+      .profile-btn { padding: 0.65rem 1rem; font-size: 0.78rem; }
+      .profile-btn svg { width: 14px; height: 14px; }
+      .country-item { padding: 0.85rem 1.2rem; }
+      .country-name { font-size: 1rem; }
+      .country-flag { font-size: 1.6rem; }
+      .module-card { padding: 1.2rem; }
+      .source-card { padding: 1.2rem; }
+      .section-label { font-size: 0.68rem; letter-spacing: 2px; }
     }
   </style>
 </head>
