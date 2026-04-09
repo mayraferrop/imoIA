@@ -1,8 +1,8 @@
 /**
- * ImoScout WhatsApp Bridge
+ * imoIA WhatsApp Bridge
  *
  * Servidor Express local que expoe a API do WhatsApp via Baileys.
- * O Python (ImoScout) chama http://localhost:3000 em vez de Whapi.Cloud.
+ * O Python (imoIA) chama http://localhost:3000 em vez de Whapi.Cloud.
  *
  * Endpoints:
  *   GET  /status           — estado da conexao + QR code
@@ -593,7 +593,7 @@ app.post("/logout", async (req, res) => {
 const PORT = process.env.BRIDGE_PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`\nImoScout WhatsApp Bridge a correr na porta ${PORT}`);
+  console.log(`\nimoIA WhatsApp Bridge a correr na porta ${PORT}`);
   console.log("A iniciar conexao com o WhatsApp...\n");
   startWhatsApp();
 });
