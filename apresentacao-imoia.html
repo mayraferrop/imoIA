@@ -1073,8 +1073,9 @@
     <ul class="nav-links">
       <li><a href="#hero" data-i18n="nav_inicio">Início</a></li>
       <li><a href="#problema" data-i18n="nav_problema">Problema</a></li>
-      <li><a href="#portal" data-i18n="nav_portal">Portal</a></li>
       <li><a href="#social" data-i18n="nav_social">Social</a></li>
+      <li><a href="#portal" data-i18n="nav_portal">Portal</a></li>
+      <li><a href="#obra" data-i18n="nav_obra">Obra</a></li>
       <li><a href="#fluxo" data-i18n="nav_fluxo">Fluxo</a></li>
       <li><a href="#modulos" data-i18n="nav_modulos">Módulos</a></li>
       <li><a href="#ia">IA</a></li>
@@ -1089,17 +1090,17 @@
 
   <!-- Profile Toggle -->
   <div class="profile-toggle">
-    <button type="button" class="profile-btn active" id="btn-construtora" onclick="setProfile('construtora')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M5 20V8l7-5 7 5v12"/><path d="M9 20v-6h6v6"/><path d="M9 12h6"/></svg>
-      <span data-i18n="profile_construtora">Sou Construtora</span>
+    <button type="button" class="profile-btn active" id="btn-imobiliaria" onclick="setProfile('imobiliaria')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span data-i18n="profile_imobiliaria">Sou Imobiliária</span>
     </button>
     <button type="button" class="profile-btn" id="btn-investidor" onclick="setProfile('investidor')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       <span data-i18n="profile_investidor">Sou Investidor</span>
     </button>
-    <button type="button" class="profile-btn" id="btn-imobiliaria" onclick="setProfile('imobiliaria')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      <span data-i18n="profile_imobiliaria">Sou Imobiliária</span>
+    <button type="button" class="profile-btn" id="btn-construtora" onclick="setProfile('construtora')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M5 20V8l7-5 7 5v12"/><path d="M9 20v-6h6v6"/><path d="M9 12h6"/></svg>
+      <span data-i18n="profile_construtora">Sou Construtora</span>
     </button>
   </div>
 
@@ -1240,31 +1241,6 @@
     </div>
   </div>
 
-  <!-- CONSTRUCAO & REFORMA -->
-  <div style="margin-top: 3rem; width: 100%;" class="fade-in">
-    <h3 style="font-size: 1.1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M5 20V8l7-5 7 5v12"/><path d="M9 20v-6h6v6"/></svg>
-      <span data-i18n="fontes_obra_titulo">Para construtoras e reformas</span>
-    </h3>
-    <div class="sources-grid">
-      <div class="source-card">
-        <div class="source-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
-        <h3 data-i18n="fonte_obra_orcamento_title">Orçamentos e fornecedores</h3>
-        <p data-i18n="fonte_obra_orcamento">Base integrada de fornecedores, insumos e empreiteiros. Compare cotações, histórico de preços e avaliações — tudo dentro do sistema.</p>
-      </div>
-      <div class="source-card">
-        <div class="source-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-        <h3 data-i18n="fonte_obra_cronograma_title">Cronograma de obra</h3>
-        <p data-i18n="fonte_obra_cronograma">Milestones, pagamentos por medição, alertas automáticos de desvio de prazo ou orçamento. A IA avisa antes do problema acontecer.</p>
-      </div>
-      <div class="source-card">
-        <div class="source-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
-        <h3 data-i18n="fonte_obra_relatorios_title">Relatórios de obra</h3>
-        <p data-i18n="fonte_obra_relatorios">Fotos do antes/durante/depois, medições no campo, evolução em tempo real. Clientes e investidores acompanham de qualquer lugar.</p>
-      </div>
-    </div>
-  </div>
-
   <!-- BRASIL -->
   <div style="margin-top: 3rem; width: 100%;" class="fade-in">
     <h3 style="font-size: 1.1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
@@ -1314,6 +1290,46 @@
   </div>
 </section>
 
+<!-- REDES SOCIAIS AUTOMATIZADAS -->
+<section id="social">
+  <div class="section-label fade-in" data-i18n="social_label">Redes Sociais Automatizadas</div>
+  <h2 class="fade-in" data-i18n-html="social_title">Todas as redes sociais, <span class="highlight">no piloto automático</span>.</h2>
+  <p class="subtitle fade-in" data-i18n="social_subtitle">A imoIA publica, agenda, responde e gere campanhas em todas as redes sociais — automaticamente. Você foca em fechar negócios; a IA cuida do resto.</p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-top: 2rem; width: 100%;" class="fade-in">
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--primary);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c1_title">Publicação automática</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c1_desc">Instagram, Facebook, LinkedIn, TikTok, Threads, WhatsApp Status e YouTube — tudo publicado automaticamente a partir de um só clique no pipeline.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--accent);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c2_title">Agendamento inteligente</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c2_desc">A IA aprende o horário de pico da sua audiência em cada rede e agenda as publicações para máximo alcance. Sem achismo.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--success);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c3_title">Respostas automáticas</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c3_desc">A IA responde comentários e DMs com contexto do imóvel, qualifica o interessado e cria o lead no CRM. 24/7, em múltiplos idiomas.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #8b5cf6;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c4_title">Conteúdo multi-formato</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c4_desc">Carrossel, reels, stories, vídeos curtos e longos — gerados automaticamente pela IA com fotos do imóvel e narração. Cada rede recebe o formato ideal.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #06b6d4;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c5_title">Campanhas pagas geridas</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c5_desc">Meta Ads, Google Ads e TikTok Ads geridos pela IA. Público, orçamento e criativos otimizados automaticamente para o menor custo por lead.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #ec4899;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c6_title">Dashboard unificado</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c6_desc">Veja todas as métricas de todas as redes num único painel. Engajamento, conversão, custo por lead e ROI por imóvel.</p>
+    </div>
+  </div>
+</section>
+
 <!-- PORTAL IMOIA -->
 <section id="portal">
   <div class="section-label fade-in" data-i18n="portal_label">Portal imoIA</div>
@@ -1354,42 +1370,42 @@
   </div>
 </section>
 
-<!-- REDES SOCIAIS AUTOMATIZADAS -->
-<section id="social">
-  <div class="section-label fade-in" data-i18n="social_label">Redes Sociais Automatizadas</div>
-  <h2 class="fade-in" data-i18n-html="social_title">Todas as redes sociais, <span class="highlight">no piloto automático</span>.</h2>
-  <p class="subtitle fade-in" data-i18n="social_subtitle">A imoIA publica, agenda, responde e gere campanhas em todas as redes sociais — automaticamente. Você foca em fechar negócios; a IA cuida do resto.</p>
+<!-- OBRA & CONSTRUÇÃO -->
+<section id="obra">
+  <div class="section-label fade-in" data-i18n="obra_label">Obra & Construção</div>
+  <h2 class="fade-in" data-i18n-html="obra_title">Da primeira pedra à <span class="highlight-gold">chave na mão</span>, com <span class="highlight">controle total</span>.</h2>
+  <p class="subtitle fade-in" data-i18n="obra_subtitle">O único sistema que gere a obra e a venda no mesmo lugar. Orçamento, cronograma, fornecedores, medições, fotos e P&L em tempo real — integrado ao pipeline comercial.</p>
 
   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-top: 2rem; width: 100%;" class="fade-in">
     <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--primary);">
-      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
-      <h3 style="font-size: 1rem;" data-i18n="social_c1_title">Publicação automática</h3>
-      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c1_desc">Instagram, Facebook, LinkedIn, TikTok, Threads, WhatsApp Status e YouTube — tudo publicado automaticamente a partir de um só clique no pipeline.</p>
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="obra_c1_title">Gestão de obra completa</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="obra_c1_desc">Do projeto executivo à entrega das chaves. Gerir lotes, fases, cronograma físico-financeiro e milestones críticos — tudo num só lugar.</p>
     </div>
     <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--accent);">
-      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-      <h3 style="font-size: 1rem;" data-i18n="social_c2_title">Agendamento inteligente</h3>
-      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c2_desc">A IA aprende o horário de pico da sua audiência em cada rede e agenda as publicações para máximo alcance. Sem achismo.</p>
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="obra_c2_title">Orçamento e custos</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="obra_c2_desc">Orçamento por rubrica, custo previsto vs. real, alertas de desvio automático. A IA cruza preços de fornecedores e sugere otimizações.</p>
     </div>
     <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--success);">
-      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
-      <h3 style="font-size: 1rem;" data-i18n="social_c3_title">Respostas automáticas</h3>
-      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c3_desc">A IA responde comentários e DMs com contexto do imóvel, qualifica o interessado e cria o lead no CRM. 24/7, em múltiplos idiomas.</p>
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="obra_c3_title">Fornecedores e empreiteiros</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="obra_c3_desc">Base de dados de fornecedores com histórico, avaliações, prazos e preços. Ranking automático por desempenho em obras anteriores.</p>
     </div>
     <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #8b5cf6;">
-      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></div>
-      <h3 style="font-size: 1rem;" data-i18n="social_c4_title">Conteúdo multi-formato</h3>
-      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c4_desc">Carrossel, reels, stories, vídeos curtos e longos — gerados automaticamente pela IA com fotos do imóvel e narração. Cada rede recebe o formato ideal.</p>
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="obra_c4_title">Medições e pagamentos</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="obra_c4_desc">Auto-medições, aprovações em cadeia, geração de faturas e ordens de pagamento. Integração com contabilidade e fluxo de caixa.</p>
     </div>
     <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #06b6d4;">
-      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
-      <h3 style="font-size: 1rem;" data-i18n="social_c5_title">Campanhas pagas geridas</h3>
-      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c5_desc">Meta Ads, Google Ads e TikTok Ads geridos pela IA. Público, orçamento e criativos otimizados automaticamente para o menor custo por lead.</p>
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="obra_c5_title">Fotos e relatórios de obra</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="obra_c5_desc">Registo fotográfico diário, relatórios semanais gerados por IA, timeline visual da obra. Cliente final vê o progresso em tempo real no portal.</p>
     </div>
     <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #ec4899;">
       <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
-      <h3 style="font-size: 1rem;" data-i18n="social_c6_title">Dashboard unificado</h3>
-      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c6_desc">Veja todas as métricas de todas as redes num único painel. Engajamento, conversão, custo por lead e ROI por imóvel.</p>
+      <h3 style="font-size: 1rem;" data-i18n="obra_c6_title">P&L real em tempo real</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="obra_c6_desc">Custo de obra + marketing + comissões + impostos cruzados com vendas. A margem real de cada empreendimento aparece em tempo real, unidade por unidade.</p>
     </div>
   </div>
 </section>
@@ -1926,6 +1942,7 @@ const T = {
     nav_visao: 'Visão Geral',
     nav_fontes: 'Fontes',
     nav_fluxo: 'Fluxo',
+    nav_obra: 'Obra',
     nav_modulos: 'Módulos',
 
     // Hero
@@ -2134,15 +2151,6 @@ const T = {
     comp_r13: 'Publicação e gestão automática de redes sociais',
     comp_r14: 'Integração obra → venda → pós-venda',
 
-    // Fontes — obra e reforma
-    fontes_obra_titulo: 'Para construtoras e reformas',
-    fonte_obra_orcamento_title: 'Orçamentos e fornecedores',
-    fonte_obra_orcamento: 'Base integrada de fornecedores, insumos e empreiteiros. Compare cotações, histórico de preços e avaliações — tudo dentro do sistema.',
-    fonte_obra_cronograma_title: 'Cronograma de obra',
-    fonte_obra_cronograma: 'Milestones, pagamentos por medição, alertas automáticos de desvio de prazo ou orçamento. A IA avisa antes do problema acontecer.',
-    fonte_obra_relatorios_title: 'Relatórios de obra',
-    fonte_obra_relatorios: 'Fotos do antes/durante/depois, medições no campo, evolução em tempo real. Clientes e investidores acompanham de qualquer lugar.',
-
     // Portal imoIA
     portal_label: 'Portal imoIA',
     portal_title: 'Seu portal de imóveis <span class="highlight-gold">tipo Quinto Andar</span>, com a cara da <span class="highlight">sua marca</span>.',
@@ -2176,6 +2184,23 @@ const T = {
     social_c5_desc: 'Meta Ads, Google Ads e TikTok Ads geridos pela IA. Público, orçamento e criativos otimizados automaticamente para o menor custo por lead.',
     social_c6_title: 'Dashboard unificado',
     social_c6_desc: 'Veja todas as métricas de todas as redes num único painel. Engajamento, conversão, custo por lead e ROI por imóvel.',
+
+    // Obra & Construção
+    obra_label: 'Obra & Construção',
+    obra_title: 'Da primeira pedra à <span class="highlight-gold">chave na mão</span>, com <span class="highlight">controle total</span>.',
+    obra_subtitle: 'O único sistema que gere a obra e a venda no mesmo lugar. Orçamento, cronograma, fornecedores, medições, fotos e P&L em tempo real — integrado ao pipeline comercial.',
+    obra_c1_title: 'Gestão de obra completa',
+    obra_c1_desc: 'Do projeto executivo à entrega das chaves. Gerir lotes, fases, cronograma físico-financeiro e milestones críticos — tudo num só lugar.',
+    obra_c2_title: 'Orçamento e custos',
+    obra_c2_desc: 'Orçamento por rubrica, custo previsto vs. real, alertas de desvio automático. A IA cruza preços de fornecedores e sugere otimizações.',
+    obra_c3_title: 'Fornecedores e empreiteiros',
+    obra_c3_desc: 'Base de dados de fornecedores com histórico, avaliações, prazos e preços. Ranking automático por desempenho em obras anteriores.',
+    obra_c4_title: 'Medições e pagamentos',
+    obra_c4_desc: 'Auto-medições, aprovações em cadeia, geração de faturas e ordens de pagamento. Integração com contabilidade e fluxo de caixa.',
+    obra_c5_title: 'Fotos e relatórios de obra',
+    obra_c5_desc: 'Registo fotográfico diário, relatórios semanais gerados por IA, timeline visual da obra. Cliente final vê o progresso em tempo real no portal.',
+    obra_c6_title: 'P&L real em tempo real',
+    obra_c6_desc: 'Custo de obra + marketing + comissões + impostos cruzados com vendas. A margem real de cada empreendimento aparece em tempo real, unidade por unidade.',
 
     // Hero stats (atualizados)
     hero_stat_1: 'Módulos integrados',
@@ -2240,7 +2265,7 @@ const PROFILE_TEXTS = {
 };
 
 let currentLang = 'pt-BR';
-let currentProfile = 'construtora';
+let currentProfile = 'imobiliaria';
 
 function applyProfileTexts() {
   const overrides = PROFILE_TEXTS[currentLang] && PROFILE_TEXTS[currentLang][currentProfile];
@@ -2309,7 +2334,7 @@ setLang(currentLang);
 // 2. pointerdown (moderno, funciona em iOS 13+)
 // 3. touchstart com preventDefault (força resposta imediata em iOS)
 // 4. click como último recurso
-['construtora', 'investidor', 'imobiliaria'].forEach(profile => {
+['imobiliaria', 'investidor', 'construtora'].forEach(profile => {
   const btn = document.getElementById('btn-' + profile);
   if (!btn) return;
 
