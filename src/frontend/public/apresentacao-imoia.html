@@ -205,8 +205,12 @@
     }
 
     /* Hide/show elements by profile */
-    body[data-profile="mediador"] .show-investidor { display: none !important; }
-    body[data-profile="investidor"] .show-mediador { display: none !important; }
+    body[data-profile="construtora"] .show-investidor,
+    body[data-profile="construtora"] .show-imobiliaria { display: none !important; }
+    body[data-profile="investidor"] .show-construtora,
+    body[data-profile="investidor"] .show-imobiliaria { display: none !important; }
+    body[data-profile="imobiliaria"] .show-construtora,
+    body[data-profile="imobiliaria"] .show-investidor { display: none !important; }
 
     /* ===== COMPARATIVE TABLE ===== */
     .comparative-section {
@@ -1069,11 +1073,11 @@
     <ul class="nav-links">
       <li><a href="#hero" data-i18n="nav_inicio">Início</a></li>
       <li><a href="#problema" data-i18n="nav_problema">Problema</a></li>
-      <li><a href="#visao" data-i18n="nav_visao">Visão</a></li>
+      <li><a href="#portal" data-i18n="nav_portal">Portal</a></li>
+      <li><a href="#social" data-i18n="nav_social">Social</a></li>
       <li><a href="#fluxo" data-i18n="nav_fluxo">Fluxo</a></li>
       <li><a href="#modulos" data-i18n="nav_modulos">Módulos</a></li>
       <li><a href="#ia">IA</a></li>
-      <li><a href="#dashboard">Dashboard</a></li>
       <li><a href="#porque" data-i18n="nav_porque">Porquê</a></li>
     </ul>
   </div>
@@ -1081,22 +1085,26 @@
 
 <!-- HERO -->
 <section id="hero">
-  <div class="hero-badge" data-i18n="hero_badge">Sua vantagem competitiva no mercado imobiliário</div>
+  <div class="hero-badge" data-i18n="hero_badge">Construção · Reforma · Captação · Venda — tudo automatizado</div>
 
   <!-- Profile Toggle -->
   <div class="profile-toggle">
-    <button type="button" class="profile-btn active" id="btn-mediador" onclick="setProfile('mediador')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      <span data-i18n="profile_mediador">Sou Consultor</span>
+    <button type="button" class="profile-btn active" id="btn-construtora" onclick="setProfile('construtora')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M5 20V8l7-5 7 5v12"/><path d="M9 20v-6h6v6"/><path d="M9 12h6"/></svg>
+      <span data-i18n="profile_construtora">Sou Construtora</span>
     </button>
     <button type="button" class="profile-btn" id="btn-investidor" onclick="setProfile('investidor')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       <span data-i18n="profile_investidor">Sou Investidor</span>
     </button>
+    <button type="button" class="profile-btn" id="btn-imobiliaria" onclick="setProfile('imobiliaria')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span data-i18n="profile_imobiliaria">Sou Imobiliária</span>
+    </button>
   </div>
 
-  <h1 class="fade-in" data-i18n-html="hero_title">Da captação ao<br><span class="highlight">negócio fechado</span>,<br>com <span class="highlight-gold">inteligência artificial</span>.</h1>
-  <p class="subtitle fade-in" data-i18n="hero_subtitle">A imoIA não é mais um software imobiliário. É a primeira plataforma end-to-end com IA que cobre todo o ciclo do negócio — da captação ao lucro — automatizando o que é repetitivo para que consultores e investidores foquem no que é insubstituivelmente humano: relações, intuição e interpretar o não-dito. No Brasil e na Europa.</p>
+  <h1 class="fade-in" data-i18n-html="hero_title">Da <span class="highlight">construção e reforma</span><br>ao <span class="highlight-gold">negócio fechado</span>,<br>com inteligência artificial.</h1>
+  <p class="subtitle fade-in" data-i18n="hero_subtitle">A imoIA é a primeira plataforma end-to-end com IA que cobre todo o ciclo imobiliário — da obra à venda, da captação ao lucro — para construtoras, investidores e imobiliárias. Portal próprio tipo Quinto Andar, publicação automática em todas as redes sociais e pipeline completo integrado. Tudo automatizado. No Brasil e na Europa.</p>
 
   <div class="countries-banner fade-in">
     <div class="country-item">
@@ -1138,8 +1146,8 @@
 <!-- PROBLEMA DO MERCADO -->
 <section id="problema">
   <div class="section-label fade-in" data-i18n="problema_label">O Problema</div>
-  <h2 class="fade-in" data-i18n-html="problema_title">O mercado imobiliário brasileiro <span class="highlight">evoluiu</span>. As ferramentas, <span class="highlight-gold">não.</span></h2>
-  <p class="subtitle fade-in" data-i18n="problema_subtitle">Enquanto você trabalha com planilhas, CRMs genéricos e grupos de WhatsApp sem organização, os melhores negócios passam pelos seus olhos — e você não tem como processá-los.</p>
+  <h2 class="fade-in" data-i18n-html="problema_title">O mercado imobiliário <span class="highlight">evoluiu</span>. As ferramentas das construtoras, investidores e imobiliárias, <span class="highlight-gold">não.</span></h2>
+  <p class="subtitle fade-in" data-i18n="problema_subtitle">Obras tocadas em planilhas, captação manual em WhatsApp, publicação dispersa em portais, marketing feito à mão. Nada conversa entre si — e o lucro evapora na fricção.</p>
 
   <div class="problem-grid fade-in">
     <div class="problem-card">
@@ -1161,6 +1169,11 @@
       <div class="problem-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
       <h3 data-i18n="problema_4_title">Sem inteligência de mercado</h3>
       <p data-i18n="problema_4_desc">Você precisa defender preços, argumentar com clientes e tomar decisões — mas os dados certos estão espalhados em 10 fontes diferentes. Resultado: decisões no feeling, não em dados.</p>
+    </div>
+    <div class="problem-card">
+      <div class="problem-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M5 20V8l7-5 7 5v12"/><path d="M9 20v-6h6v6"/></svg></div>
+      <h3 data-i18n="problema_5_title">Obra sem controle</h3>
+      <p data-i18n="problema_5_desc">Construtoras e investidores tocam obras em planilhas desconectadas. Atrasos, estouros de orçamento, retrabalho e fornecedores sem rastreio viram regra. Quando a obra termina, a margem já foi embora.</p>
     </div>
   </div>
 </section>
@@ -1227,6 +1240,31 @@
     </div>
   </div>
 
+  <!-- CONSTRUCAO & REFORMA -->
+  <div style="margin-top: 3rem; width: 100%;" class="fade-in">
+    <h3 style="font-size: 1.1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M5 20V8l7-5 7 5v12"/><path d="M9 20v-6h6v6"/></svg>
+      <span data-i18n="fontes_obra_titulo">Para construtoras e reformas</span>
+    </h3>
+    <div class="sources-grid">
+      <div class="source-card">
+        <div class="source-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+        <h3 data-i18n="fonte_obra_orcamento_title">Orçamentos e fornecedores</h3>
+        <p data-i18n="fonte_obra_orcamento">Base integrada de fornecedores, insumos e empreiteiros. Compare cotações, histórico de preços e avaliações — tudo dentro do sistema.</p>
+      </div>
+      <div class="source-card">
+        <div class="source-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <h3 data-i18n="fonte_obra_cronograma_title">Cronograma de obra</h3>
+        <p data-i18n="fonte_obra_cronograma">Milestones, pagamentos por medição, alertas automáticos de desvio de prazo ou orçamento. A IA avisa antes do problema acontecer.</p>
+      </div>
+      <div class="source-card">
+        <div class="source-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+        <h3 data-i18n="fonte_obra_relatorios_title">Relatórios de obra</h3>
+        <p data-i18n="fonte_obra_relatorios">Fotos do antes/durante/depois, medições no campo, evolução em tempo real. Clientes e investidores acompanham de qualquer lugar.</p>
+      </div>
+    </div>
+  </div>
+
   <!-- BRASIL -->
   <div style="margin-top: 3rem; width: 100%;" class="fade-in">
     <h3 style="font-size: 1.1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
@@ -1276,6 +1314,86 @@
   </div>
 </section>
 
+<!-- PORTAL IMOIA -->
+<section id="portal">
+  <div class="section-label fade-in" data-i18n="portal_label">Portal imoIA</div>
+  <h2 class="fade-in" data-i18n-html="portal_title">Seu portal de imóveis <span class="highlight-gold">tipo Quinto Andar</span>, com a cara da <span class="highlight">sua marca</span>.</h2>
+  <p class="subtitle fade-in" data-i18n="portal_subtitle">Construtoras, imobiliárias e investidores publicam os seus imóveis num portal moderno, rápido e integrado ao pipeline — sem pagar comissão a ninguém. White-label, responsivo, SEO otimizado.</p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-top: 2rem; width: 100%;" class="fade-in">
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--primary);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="portal_c1_title">Listagens integradas</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="portal_c1_desc">Os imóveis do seu pipeline aparecem automaticamente no portal — com fotos, plantas, descrições geradas por IA e dados técnicos. Zero trabalho manual.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--accent);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="portal_c2_title">Busca avançada e mapa</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="portal_c2_desc">Filtros por tipologia, preço, bairro, características. Mapa interativo, tour virtual, comparador de imóveis. Experiência de Quinto Andar, com o seu branding.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--success);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="portal_c3_title">Captação de leads</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="portal_c3_desc">Cada visitante do portal vira um lead no M8 CRM. Formulários, WhatsApp integrado, qualificação automática por IA e nutrição até ao fechamento.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #8b5cf6;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="portal_c4_title">White-label total</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="portal_c4_desc">Domínio próprio, logotipo, cores e identidade da sua marca. Construtora, imobiliária ou investidor — o portal é 100% seu. Sem logotipo da imoIA.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #06b6d4;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="portal_c5_title">SEO otimizado</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="portal_c5_desc">Páginas rápidas, metadados automáticos, schema.org, sitemap dinâmico. Google indexa cada imóvel — tráfego orgânico sem pagar anúncios.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #ec4899;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="portal_c6_title">Multi-dispositivo</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="portal_c6_desc">Desktop, tablet e mobile — tudo responsivo e rápido. Tour virtual 360°, galeria, vídeos e documentos, acessível de qualquer lado.</p>
+    </div>
+  </div>
+</section>
+
+<!-- REDES SOCIAIS AUTOMATIZADAS -->
+<section id="social">
+  <div class="section-label fade-in" data-i18n="social_label">Redes Sociais Automatizadas</div>
+  <h2 class="fade-in" data-i18n-html="social_title">Todas as redes sociais, <span class="highlight">no piloto automático</span>.</h2>
+  <p class="subtitle fade-in" data-i18n="social_subtitle">A imoIA publica, agenda, responde e gere campanhas em todas as redes sociais — automaticamente. Você foca em fechar negócios; a IA cuida do resto.</p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-top: 2rem; width: 100%;" class="fade-in">
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--primary);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c1_title">Publicação automática</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c1_desc">Instagram, Facebook, LinkedIn, TikTok, Threads, WhatsApp Status e YouTube — tudo publicado automaticamente a partir de um só clique no pipeline.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--accent);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c2_title">Agendamento inteligente</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c2_desc">A IA aprende o horário de pico da sua audiência em cada rede e agenda as publicações para máximo alcance. Sem achismo.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid var(--success);">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c3_title">Respostas automáticas</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c3_desc">A IA responde comentários e DMs com contexto do imóvel, qualifica o interessado e cria o lead no CRM. 24/7, em múltiplos idiomas.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #8b5cf6;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c4_title">Conteúdo multi-formato</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c4_desc">Carrossel, reels, stories, vídeos curtos e longos — gerados automaticamente pela IA com fotos do imóvel e narração. Cada rede recebe o formato ideal.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #06b6d4;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c5_title">Campanhas pagas geridas</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c5_desc">Meta Ads, Google Ads e TikTok Ads geridos pela IA. Público, orçamento e criativos otimizados automaticamente para o menor custo por lead.</p>
+    </div>
+    <div class="module-card" style="padding: 1.5rem; border-top: 3px solid #ec4899;">
+      <div style="margin-bottom: 0.75rem;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+      <h3 style="font-size: 1rem;" data-i18n="social_c6_title">Dashboard unificado</h3>
+      <p class="module-desc" style="margin-bottom: 0;" data-i18n="social_c6_desc">Veja todas as métricas de todas as redes num único painel. Engajamento, conversão, custo por lead e ROI por imóvel.</p>
+    </div>
+  </div>
+</section>
+
 <!-- FLUXO DETALHADO -->
 <section id="fluxo">
   <div class="section-label fade-in" data-i18n="fluxo_label">Como Funciona</div>
@@ -1313,8 +1431,8 @@
     <div class="flow-step">
       <div class="flow-number" style="background: rgba(236, 72, 153, 0.15); color: #f472b6;">5</div>
       <div class="flow-content">
-        <h3 data-i18n="fluxo_5_title">Due Diligence (M5) + Reforma (M6)</h3>
-        <p data-i18n="fluxo_5_desc">Checklists automáticos pra não esquecer nada. Acompanhe a reforma com orçamento, prazos e fotos — receba alertas se algo sair do previsto.</p>
+        <h3 data-i18n="fluxo_5_title">Due Diligence (M5) + Construção & Reforma (M6)</h3>
+        <p data-i18n="fluxo_5_desc">Checklists automáticos para não esquecer nada. Gerencie obras novas ou reformas: orçamento, cronograma, fornecedores, medições e fotos — com alertas automáticos de desvio de prazo ou custo.</p>
       </div>
     </div>
     <div class="flow-step">
@@ -1420,16 +1538,18 @@
 
     <div class="module-card">
       <div class="module-header">
-        <div class="module-icon" style="background: rgba(239, 68, 68, 0.15);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
-        <div><h3 data-i18n="m6_title">M6 — Reforma</h3></div>
+        <div class="module-icon" style="background: rgba(239, 68, 68, 0.15);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M5 20V8l7-5 7 5v12"/><path d="M9 20v-6h6v6"/></svg></div>
+        <div><h3 data-i18n="m6_title">M6 — Construção & Reforma</h3></div>
         <span class="module-tag" data-i18n="tag_obra">Obra</span>
       </div>
-      <p class="module-desc" data-i18n="m6_desc">Acompanhe cada centavo da reforma. Orçamento, prazos e fotos em um lugar só.</p>
+      <p class="module-desc" data-i18n="m6_desc">Para construtoras e investidores. Gerencie obras do zero ou reformas completas: orçamento, cronograma, fornecedores, medições e fotos — tudo integrado à simulação financeira.</p>
       <ul class="module-features">
-        <li data-i18n="m6_f1">Orçamento detalhado por categoria</li>
-        <li data-i18n="m6_f2">Pagamentos por milestone</li>
-        <li data-i18n="m6_f3">Alertas automáticos se prazo ou orçamento saírem do previsto</li>
-        <li data-i18n="m6_f4">Fotos de antes, durante e depois</li>
+        <li data-i18n="m6_f1">Gestão de múltiplas obras em paralelo (construção nova + reforma)</li>
+        <li data-i18n="m6_f2">Controle de empreiteiros, fornecedores e insumos</li>
+        <li data-i18n="m6_f3">Medições no campo e liberação automática de pagamentos por milestone</li>
+        <li data-i18n="m6_f4">Alertas automáticos de desvio de prazo ou orçamento</li>
+        <li data-i18n="m6_f5">Integração direta com M3 (simulação financeira) — recalcula o P&L a cada medição</li>
+        <li data-i18n="m6_f6">Fotos e relatórios de obra partilháveis com clientes e investidores</li>
       </ul>
     </div>
 
@@ -1688,8 +1808,8 @@
 <!-- PORQUÊ IMOIA (COMPARATIVO) -->
 <section id="porque">
   <div class="section-label fade-in" data-i18n="porque_label">Porquê a imoIA</div>
-  <h2 class="fade-in" data-i18n-html="porque_title">Não é mais um CRM. Nem só uma calculadora. <span class="highlight">É uma nova categoria.</span></h2>
-  <p class="subtitle fade-in" data-i18n="porque_subtitle">Os sistemas atuais resolvem pedaços do problema. A imoIA é a primeira plataforma que cobre todo o ciclo — da captação ao lucro — com inteligência artificial em cada etapa.</p>
+  <h2 class="fade-in" data-i18n-html="porque_title">Não é mais um CRM. Nem só uma calculadora. Nem apenas um portal. <span class="highlight">É uma nova categoria.</span></h2>
+  <p class="subtitle fade-in" data-i18n="porque_subtitle">Os sistemas atuais resolvem pedaços do problema. A imoIA é a primeira plataforma que cobre todo o ciclo — da obra à venda, da captação ao lucro — com inteligência artificial em cada etapa. Para construtoras, investidores e imobiliárias.</p>
 
   <div class="comparative-section fade-in">
     <table class="comparative-table">
@@ -1762,6 +1882,30 @@
           <td class="cross">✗</td>
           <td class="check imoia-cell">✓</td>
         </tr>
+        <tr>
+          <td data-i18n="comp_r11">Gestão de construção nova (obra do zero)</td>
+          <td class="cross">✗</td>
+          <td class="cross">✗</td>
+          <td class="check imoia-cell">✓</td>
+        </tr>
+        <tr>
+          <td data-i18n="comp_r12">Portal de imóveis white-label próprio (tipo Quinto Andar)</td>
+          <td class="cross">✗</td>
+          <td class="cross">✗</td>
+          <td class="check imoia-cell">✓</td>
+        </tr>
+        <tr>
+          <td data-i18n="comp_r13">Publicação e gestão automática de redes sociais</td>
+          <td class="cross">✗</td>
+          <td class="cross">✗</td>
+          <td class="check imoia-cell">✓</td>
+        </tr>
+        <tr>
+          <td data-i18n="comp_r14">Integração obra → venda → pós-venda</td>
+          <td class="cross">✗</td>
+          <td class="cross">✗</td>
+          <td class="check imoia-cell">✓</td>
+        </tr>
       </tbody>
     </table>
   </div>
@@ -1769,9 +1913,9 @@
 
 <!-- FOOTER -->
 <section class="footer-section" id="footer" style="min-height: auto;">
-  <h2 class="fade-in"><span class="highlight">imoIA</span> — <span data-i18n="footer_tagline">Inteligência Imobiliária</span></h2>
-  <p class="subtitle fade-in" style="margin: 1rem auto 0; text-align: center;" data-i18n-html="footer_desc">Captação automática. Análise inteligente. Pipeline completo.<br>Do WhatsApp ao lucro, tudo em um único sistema.</p>
-  <div class="footer-meta" data-i18n="footer_copy">imoIA &copy; 2026 &middot; Brasil & Europa &middot; Inteligência imobiliária para investidores</div>
+  <h2 class="fade-in"><span class="highlight">imoIA</span> — <span data-i18n="footer_tagline">Inteligência Imobiliária End-to-End</span></h2>
+  <p class="subtitle fade-in" style="margin: 1rem auto 0; text-align: center;" data-i18n-html="footer_desc">Construção. Reforma. Captação. Venda.<br>Tudo automatizado, tudo integrado — num único sistema.</p>
+  <div class="footer-meta" data-i18n="footer_copy">imoIA &copy; 2026 &middot; Brasil & Europa &middot; Para construtoras, investidores e imobiliárias</div>
 </section>
 
 <script>
@@ -1785,9 +1929,9 @@ const T = {
     nav_modulos: 'Módulos',
 
     // Hero
-    hero_badge: 'Sua vantagem competitiva no mercado imobiliário',
-    hero_title: 'Da captação ao<br><span class="highlight">negócio fechado</span>,<br>com <span class="highlight-gold">inteligência artificial</span>.',
-    hero_subtitle: 'A imoIA não é mais um software imobiliário. É a primeira plataforma end-to-end com IA que cobre todo o ciclo do negócio — da captação ao lucro — automatizando o que é repetitivo para que consultores e investidores foquem no que é insubstituivelmente humano: relações, intuição e interpretar o não-dito. No Brasil e na Europa.',
+    hero_badge: 'Construção · Reforma · Captação · Venda — tudo automatizado',
+    hero_title: 'Da <span class="highlight">construção e reforma</span><br>ao <span class="highlight-gold">negócio fechado</span>,<br>com inteligência artificial.',
+    hero_subtitle: 'A imoIA é a primeira plataforma end-to-end com IA que cobre todo o ciclo imobiliário — da obra à venda, da captação ao lucro — para construtoras, investidores e imobiliárias. Portal próprio tipo Quinto Andar, publicação automática em todas as redes sociais e pipeline completo integrado. Tudo automatizado. No Brasil e na Europa.',
 
     // Visão
     visao_label: 'Visão Geral',
@@ -1824,8 +1968,8 @@ const T = {
     fluxo_3_desc: 'Simulação financeira completa em segundos: impostos, custos de obra, 3 cenários de retorno e fluxo de caixa mensal. Você vê o lucro antes de investir.',
     fluxo_4_title: 'Pipeline de negócios (M4 — Deal Pipeline)',
     fluxo_4_desc: 'Organize todos os seus negócios em um kanban visual. 10 estratégias de investimento, cada uma com seu fluxo. Nada se perde.',
-    fluxo_5_title: 'Due Diligence (M5) + Reforma (M6)',
-    fluxo_5_desc: 'Checklists automáticos pra não esquecer nada. Acompanhe a reforma com orçamento, prazos e fotos — receba alertas se algo sair do previsto.',
+    fluxo_5_title: 'Due Diligence (M5) + Construção & Reforma (M6)',
+    fluxo_5_desc: 'Checklists automáticos para não esquecer nada. Gerencie obras novas ou reformas: orçamento, cronograma, fornecedores, medições e fotos — com alertas automáticos de desvio de prazo ou custo.',
     fluxo_6_title: 'Marketing & Leads (M7 + M8)',
     fluxo_6_desc: 'A IA cria descrições, posts e e-mails prontos pra publicar. O CRM qualifica cada lead de A a F e nutre automaticamente até a conversão.',
     fluxo_7_title: 'Fechamento & P&L (M9 — Closing)',
@@ -1867,12 +2011,14 @@ const T = {
     m5_f1: 'Checklists prontos por tipo de imóvel',
     m5_f2: 'Controle de certidões, alvarás e documentos',
     m5_f3: 'Só avança no pipeline com tudo verificado',
-    m6_title: 'M6 — Reforma',
-    m6_desc: 'Acompanhe cada centavo da reforma. Orçamento, prazos e fotos em um lugar só.',
-    m6_f1: 'Orçamento detalhado por categoria',
-    m6_f2: 'Pagamentos por milestone',
-    m6_f3: 'Alertas automáticos se prazo ou orçamento saírem do previsto',
-    m6_f4: 'Fotos de antes, durante e depois',
+    m6_title: 'M6 — Construção & Reforma',
+    m6_desc: 'Para construtoras e investidores. Gerencie obras do zero ou reformas completas: orçamento, cronograma, fornecedores, medições e fotos — tudo integrado à simulação financeira.',
+    m6_f1: 'Gestão de múltiplas obras em paralelo (construção nova + reforma)',
+    m6_f2: 'Controle de empreiteiros, fornecedores e insumos',
+    m6_f3: 'Medições no campo e liberação automática de pagamentos por milestone',
+    m6_f4: 'Alertas automáticos de desvio de prazo ou orçamento',
+    m6_f5: 'Integração direta com M3 (simulação financeira) — recalcula o P&amp;L a cada medição',
+    m6_f6: 'Fotos e relatórios de obra partilháveis com clientes e investidores',
     m7_desc: 'Marketing no piloto automático. A IA cria e publica em todos os canais.',
     m7_f1: 'Brand Kit (cores, fontes, tom de voz)',
     m7_f2: 'Conteúdo em 4 idiomas para captar investidores do mundo todo',
@@ -1938,17 +2084,20 @@ const T = {
     tech_br_data: 'AVM, precificação & deal flow BR',
 
     // Footer
-    footer_tagline: 'Inteligência Imobiliária',
-    footer_desc: 'Captação automática. Análise inteligente. Pipeline completo.<br>Do WhatsApp ao lucro, tudo em um único sistema.',
-    footer_copy: 'imoIA \u00a9 2026 \u00b7 Brasil & Europa \u00b7 Inteligência imobiliária para investidores',
+    footer_tagline: 'Inteligência Imobiliária End-to-End',
+    footer_desc: 'Construção. Reforma. Captação. Venda.<br>Tudo automatizado, tudo integrado — num único sistema.',
+    footer_copy: 'imoIA \u00a9 2026 \u00b7 Brasil & Europa \u00b7 Para construtoras, investidores e imobiliárias',
 
     // Profile toggle
-    profile_mediador: 'Sou Consultor',
+    profile_construtora: 'Sou Construtora',
     profile_investidor: 'Sou Investidor',
+    profile_imobiliaria: 'Sou Imobiliária',
 
     // Nav extras
     nav_problema: 'Problema',
     nav_porque: 'Porquê',
+    nav_portal: 'Portal',
+    nav_social: 'Social',
 
     // Problema (comum aos dois perfis)
     problema_label: 'O Problema',
@@ -1960,10 +2109,13 @@ const T = {
     problema_3_desc: 'CRM em um lugar, planilha de obra em outro, marketing num terceiro, e-mails num quarto. Nada conversa entre si. O tempo para fechar negócios é cada vez menor.',
     problema_4_title: 'Sem inteligência de mercado',
     problema_4_desc: 'Você precisa defender preços, argumentar com clientes e tomar decisões — mas os dados certos estão espalhados em 10 fontes diferentes. Decisões no feeling, não em dados.',
+    problema_5_title: 'Obra sem controle',
+    problema_5_desc: 'Construtoras e investidores tocam obras em planilhas desconectadas. Atrasos, estouros de orçamento, retrabalho e fornecedores sem rastreio viram regra. Quando a obra termina, a margem já foi embora.',
 
     // Porquê ImoIA (comparativo)
     porque_label: 'Porquê a imoIA',
-    porque_subtitle: 'Os sistemas atuais resolvem pedaços do problema. A imoIA é a primeira plataforma que cobre todo o ciclo — da captação ao lucro — com inteligência artificial em cada etapa.',
+    porque_title: 'Não é mais um CRM. Nem só uma calculadora. Nem apenas um portal. <span class="highlight">É uma nova categoria.</span>',
+    porque_subtitle: 'Os sistemas atuais resolvem pedaços do problema. A imoIA é a primeira plataforma que cobre todo o ciclo — da obra à venda, da captação ao lucro — com inteligência artificial em cada etapa. Para construtoras, investidores e imobiliárias.',
     comp_col_funcao: 'Função',
     comp_col_crm: 'CRMs tradicionais',
     comp_col_calc: 'Calculadoras fix & flip',
@@ -1977,6 +2129,53 @@ const T = {
     comp_r8: 'Marketing IA multicanal (texto, imagem, vídeo)',
     comp_r9: 'P&L real vs projetado de portfólio',
     comp_r10: 'Cobertura Brasil + Europa',
+    comp_r11: 'Gestão de construção nova (obra do zero)',
+    comp_r12: 'Portal de imóveis white-label próprio (tipo Quinto Andar)',
+    comp_r13: 'Publicação e gestão automática de redes sociais',
+    comp_r14: 'Integração obra → venda → pós-venda',
+
+    // Fontes — obra e reforma
+    fontes_obra_titulo: 'Para construtoras e reformas',
+    fonte_obra_orcamento_title: 'Orçamentos e fornecedores',
+    fonte_obra_orcamento: 'Base integrada de fornecedores, insumos e empreiteiros. Compare cotações, histórico de preços e avaliações — tudo dentro do sistema.',
+    fonte_obra_cronograma_title: 'Cronograma de obra',
+    fonte_obra_cronograma: 'Milestones, pagamentos por medição, alertas automáticos de desvio de prazo ou orçamento. A IA avisa antes do problema acontecer.',
+    fonte_obra_relatorios_title: 'Relatórios de obra',
+    fonte_obra_relatorios: 'Fotos do antes/durante/depois, medições no campo, evolução em tempo real. Clientes e investidores acompanham de qualquer lugar.',
+
+    // Portal imoIA
+    portal_label: 'Portal imoIA',
+    portal_title: 'Seu portal de imóveis <span class="highlight-gold">tipo Quinto Andar</span>, com a cara da <span class="highlight">sua marca</span>.',
+    portal_subtitle: 'Construtoras, imobiliárias e investidores publicam os seus imóveis num portal moderno, rápido e integrado ao pipeline — sem pagar comissão a ninguém. White-label, responsivo, SEO otimizado.',
+    portal_c1_title: 'Listagens integradas',
+    portal_c1_desc: 'Os imóveis do seu pipeline aparecem automaticamente no portal — com fotos, plantas, descrições geradas por IA e dados técnicos. Zero trabalho manual.',
+    portal_c2_title: 'Busca avançada e mapa',
+    portal_c2_desc: 'Filtros por tipologia, preço, bairro, características. Mapa interativo, tour virtual, comparador de imóveis. Experiência de Quinto Andar, com o seu branding.',
+    portal_c3_title: 'Captação de leads',
+    portal_c3_desc: 'Cada visitante do portal vira um lead no M8 CRM. Formulários, WhatsApp integrado, qualificação automática por IA e nutrição até ao fechamento.',
+    portal_c4_title: 'White-label total',
+    portal_c4_desc: 'Domínio próprio, logotipo, cores e identidade da sua marca. Construtora, imobiliária ou investidor — o portal é 100% seu. Sem logotipo da imoIA.',
+    portal_c5_title: 'SEO otimizado',
+    portal_c5_desc: 'Páginas rápidas, metadados automáticos, schema.org, sitemap dinâmico. Google indexa cada imóvel — tráfego orgânico sem pagar anúncios.',
+    portal_c6_title: 'Multi-dispositivo',
+    portal_c6_desc: 'Desktop, tablet e mobile — tudo responsivo e rápido. Tour virtual 360°, galeria, vídeos e documentos, acessível de qualquer lado.',
+
+    // Redes sociais automatizadas
+    social_label: 'Redes Sociais Automatizadas',
+    social_title: 'Todas as redes sociais, <span class="highlight">no piloto automático</span>.',
+    social_subtitle: 'A imoIA publica, agenda, responde e gere campanhas em todas as redes sociais — automaticamente. Você foca em fechar negócios; a IA cuida do resto.',
+    social_c1_title: 'Publicação automática',
+    social_c1_desc: 'Instagram, Facebook, LinkedIn, TikTok, Threads, WhatsApp Status e YouTube — tudo publicado automaticamente a partir de um só clique no pipeline.',
+    social_c2_title: 'Agendamento inteligente',
+    social_c2_desc: 'A IA aprende o horário de pico da sua audiência em cada rede e agenda as publicações para máximo alcance. Sem achismo.',
+    social_c3_title: 'Respostas automáticas',
+    social_c3_desc: 'A IA responde comentários e DMs com contexto do imóvel, qualifica o interessado e cria o lead no CRM. 24/7, em múltiplos idiomas.',
+    social_c4_title: 'Conteúdo multi-formato',
+    social_c4_desc: 'Carrossel, reels, stories, vídeos curtos e longos — gerados automaticamente pela IA com fotos do imóvel e narração. Cada rede recebe o formato ideal.',
+    social_c5_title: 'Campanhas pagas geridas',
+    social_c5_desc: 'Meta Ads, Google Ads e TikTok Ads geridos pela IA. Público, orçamento e criativos otimizados automaticamente para o menor custo por lead.',
+    social_c6_title: 'Dashboard unificado',
+    social_c6_desc: 'Veja todas as métricas de todas as redes num único painel. Engajamento, conversão, custo por lead e ROI por imóvel.',
 
     // Hero stats (atualizados)
     hero_stat_1: 'Módulos integrados',
@@ -1990,42 +2189,58 @@ const T = {
 // Estas strings são aplicadas quando o perfil muda (sobrepõem-se às de T[lang])
 const PROFILE_TEXTS = {
   'pt-BR': {
-    mediador: {
-      hero_title: 'Da captação à <span class="highlight">venda fechada</span>,<br>com <span class="highlight-gold">inteligência artificial</span>.',
-      hero_subtitle: 'A imoIA não é mais um software imobiliário. É a primeira plataforma end-to-end com IA que cobre todo o ciclo do seu negócio — da captação ao lucro — automatizando o que é repetitivo para que você possa focar no que é insubstituivelmente humano: construir relações, confiar na intuição e interpretar o não-dito. No Brasil e na Europa.',
-      problema_title: 'O consultor imobiliário <span class="highlight">evoluiu</span>. As ferramentas dele, <span class="highlight-gold">não.</span>',
-      problema_subtitle: 'Seus clientes pedem agilidade, dados confiáveis e resposta imediata. Enquanto você usa planilhas e CRMs genéricos, quem usa IA está fechando os seus negócios.',
-      visao_title: 'O problema que a imoIA resolve para o consultor imobiliário',
-      visao_subtitle: 'Você perde tempo com tarefas manuais. A imoIA capta, analisa, cria marketing, organiza leads e mostra números profissionais aos seus clientes — tudo automaticamente.',
-      m1_desc: 'Descobre oportunidades para seus clientes investidores e para captação própria — em WhatsApp, Facebook e portais, 24 horas por dia.',
-      m3_desc: 'Ofereça análises profissionais aos seus clientes em segundos. Simulação completa com impostos, cenários, ROI e fluxo de caixa — com o seu branding.',
-      m4_desc: 'Todos os seus negócios organizados visualmente. Mediação, venda e investimento — um só painel.',
-      m4_f1: 'Mediação, Buy &amp; Hold, Fix &amp; Flip, Value-Add, Wholesale e Temporada',
-      m7_desc: 'Marketing profissional no piloto automático. Conteúdo, posts, descrições e campanhas criados por IA — com a identidade visual da sua marca.',
-      m8_desc: 'Saiba quem são seus melhores compradores. Leads qualificados e nutridos automaticamente até a conversão.',
-      m9_desc: 'Acompanhe o P&amp;L dos projetos dos seus clientes investidores. Relatórios e visão completa do portfólio.',
-      porque_title: 'Não é mais um CRM. É a ferramenta que faltava ao <span class="highlight">consultor imobiliário moderno.</span>',
+    construtora: {
+      hero_title: 'Da <span class="highlight">obra do zero</span> à <span class="highlight-gold">venda fechada</span>,<br>com inteligência artificial.',
+      hero_subtitle: 'A imoIA é a primeira plataforma end-to-end com IA para construtoras. Gestão completa de obra (orçamento, cronograma, fornecedores e medições), publicação automática no seu portal tipo Quinto Andar e em todas as redes sociais, captação de leads qualificados e P&amp;L real por empreendimento — num único sistema. No Brasil e na Europa.',
+      problema_title: 'A construtora <span class="highlight">evoluiu</span>. As ferramentas para vender o que constrói, <span class="highlight-gold">não.</span>',
+      problema_subtitle: 'Obra tocada em planilhas, vendas dependentes de intermediários, marketing feito à mão, leads perdidos em caixas de e-mail. A imoIA fecha todo o ciclo: do primeiro tijolo à chave na mão do comprador.',
+      visao_title: 'O problema que a imoIA resolve para a construtora',
+      visao_subtitle: 'Você constrói bem — mas vender, divulgar e gerir leads depende de portais caros, marketing terceirizado e ferramentas desconectadas. A imoIA integra obra, portal próprio, redes sociais e CRM num só fluxo automatizado.',
+      m1_desc: 'Capta leads compradores e investidores dos seus empreendimentos automaticamente — WhatsApp, Facebook, portais e o seu próprio portal imoIA.',
+      m3_desc: 'Saiba a rentabilidade real de cada empreendimento antes e durante a obra. Custos, impostos, cenários, fluxo de caixa e margem por unidade — em tempo real.',
+      m4_desc: 'Todos os seus empreendimentos organizados visualmente. Lançamento, pré-venda, venda, entrega e pós-venda — um só painel.',
+      m4_f1: 'Lançamento, Pré-venda, Venda, Entrega, Pós-venda',
+      m7_desc: 'Marketing profissional no piloto automático. Conteúdo, posts, descrições, vídeos e campanhas pagas criados por IA — com a identidade visual da sua construtora.',
+      m8_desc: 'Cada visitante do seu portal e cada interacção nas redes vira um lead qualificado. Nutrição automática até a venda.',
+      m9_desc: 'P&amp;L real por empreendimento: quanto gastou em obra, quanto vendeu, qual a margem. Relatórios fiscais e visão completa do portfólio.',
+      porque_title: 'Não é um ERP de obra. Nem só um CRM. Nem apenas um portal. <span class="highlight">É tudo isso, integrado, com IA.</span>',
     },
     investidor: {
-      hero_title: 'Do <span class="highlight">deal off-market</span><br>ao <span class="highlight-gold">lucro real</span>, com IA.',
-      hero_subtitle: 'A imoIA não é mais um software imobiliário. É a primeira plataforma end-to-end com IA que cobre todo o ciclo do seu investimento — do deal ao lucro — automatizando o que é repetitivo para que você possa focar no que é insubstituivelmente humano: decisões estratégicas, intuição de mercado e interpretar o não-dito. No Brasil e na Europa.',
+      hero_title: 'Do <span class="highlight">deal off-market</span> à <span class="highlight-gold">venda com lucro real</span>,<br>com IA.',
+      hero_subtitle: 'A imoIA é a primeira plataforma end-to-end com IA para investidores imobiliários. Capta oportunidades off-market, simula o lucro, gere a reforma, publica no seu portal próprio e em todas as redes sociais — automaticamente. Do primeiro deal ao P&amp;L real no bolso. No Brasil e na Europa.',
       problema_title: 'Os melhores deals <span class="highlight">passam por você</span> todos os dias. Você <span class="highlight-gold">não os vê.</span>',
-      problema_subtitle: 'Estão em conversas de WhatsApp, grupos de Facebook e portais que você não tem tempo de acompanhar. Quando você descobre, outro investidor já fechou.',
+      problema_subtitle: 'Estão em conversas de WhatsApp, grupos de Facebook e portais que você não tem tempo de acompanhar. Quando você descobre, outro investidor já fechou — e ainda teve de gerir a reforma e a venda à mão.',
       visao_title: 'O problema que a imoIA resolve para o investidor',
-      visao_subtitle: 'O lucro é na compra — mas as melhores compras não estão nos portais. A imoIA capta as oportunidades off-market, analisa em segundos, organiza o pipeline e mostra o lucro real de cada operação.',
-      m1_desc: 'Os melhores deals estão em conversas de WhatsApp, grupos de Facebook, portais e redes de investidores. A imoIA captura-as 24/7 por você.',
+      visao_subtitle: 'O lucro é na compra — mas a margem pode ser perdida na reforma, na venda ou no marketing. A imoIA capta, analisa, gere a obra, publica nas redes e mostra o lucro real de cada operação.',
+      m1_desc: 'Os melhores deals estão em conversas de WhatsApp, grupos de Facebook, portais e redes de investidores. A imoIA captura-os 24/7 por você.',
       m3_desc: 'Saiba seu lucro antes de investir. Regra dos 70%, 3 cenários, TIR, fluxo de caixa e todas as métricas que um investidor profissional usa.',
       m4_desc: 'Todos os seus projetos de investimento organizados visualmente. Fix &amp; Flip, Buy &amp; Hold e mais — um só painel.',
       m4_f1: 'Fix &amp; Flip, Buy &amp; Hold, Value-Add, Wholesale, Temporada e Mediação',
-      m7_desc: 'Promove os teus imóveis com marketing profissional no piloto automático. Conteúdo, posts e descrições criados por IA.',
+      m7_desc: 'Promove os teus imóveis com marketing profissional no piloto automático. Conteúdo, posts, vídeos e campanhas criados por IA.',
       m9_desc: 'Do compromisso ao lucro real no bolso. Relatórios fiscais, P&amp;L real vs projetado e visão completa do portfólio de investimento.',
-      porque_title: 'Não é mais uma calculadora. É a plataforma que faltava ao <span class="highlight">investidor moderno.</span>',
+      porque_title: 'Não é mais uma calculadora. É a plataforma end-to-end que faltava ao <span class="highlight">investidor moderno.</span>',
+    },
+    imobiliaria: {
+      hero_title: 'Da <span class="highlight">captação do imóvel</span> à <span class="highlight-gold">comissão no bolso</span>,<br>com inteligência artificial.',
+      hero_subtitle: 'A imoIA é a primeira plataforma end-to-end com IA para imobiliárias. Capta imóveis automaticamente, publica no seu portal próprio tipo Quinto Andar e em todas as redes sociais, qualifica leads por IA e fecha mais negócios — com menos equipa e sem pagar comissão a portais terceiros. No Brasil e na Europa.',
+      problema_title: 'A imobiliária <span class="highlight">evoluiu</span>. As ferramentas que ela usa, <span class="highlight-gold">não.</span>',
+      problema_subtitle: 'Captação manual, publicação em portais caros, marketing terceirizado, leads espalhados por WhatsApp, e-mails e planilhas. Enquanto isso, quem usa IA está fechando os seus negócios.',
+      visao_title: 'O problema que a imoIA resolve para a imobiliária',
+      visao_subtitle: 'Você perde tempo com tarefas manuais e paga caro por portais de terceiros. A imoIA capta imóveis, gera marketing, publica no seu portal próprio e nas redes, qualifica os leads e fecha o ciclo — tudo automaticamente.',
+      m1_desc: 'Descobre imóveis para captação e compradores qualificados em WhatsApp, Facebook, portais e no seu portal imoIA — 24 horas por dia.',
+      m3_desc: 'Ofereça análises profissionais aos seus clientes em segundos. Simulação completa com impostos, cenários, ROI e fluxo de caixa — com o seu branding.',
+      m4_desc: 'Todos os seus negócios organizados visualmente. Mediação, venda e investimento — um só painel.',
+      m4_f1: 'Captação, Mediação, Venda, Arrendamento, Temporada, Fix &amp; Flip, Buy &amp; Hold',
+      m7_desc: 'Marketing profissional no piloto automático. Conteúdo, posts, descrições, vídeos e campanhas criados por IA — com a identidade visual da sua imobiliária.',
+      m8_desc: 'Saiba quem são seus melhores compradores. Leads qualificados e nutridos automaticamente até a conversão.',
+      m9_desc: 'Acompanhe comissões, fecho de negócio e performance da equipa. Relatórios e visão completa do portfólio.',
+      porque_title: 'Não é mais um CRM. É a ferramenta que faltava à <span class="highlight">imobiliária moderna.</span>',
     }
   }
 };
 
 let currentLang = 'pt-BR';
-let currentProfile = 'mediador';
+let currentProfile = 'construtora';
 
 function applyProfileTexts() {
   const overrides = PROFILE_TEXTS[currentLang] && PROFILE_TEXTS[currentLang][currentProfile];
@@ -2053,8 +2268,9 @@ function setProfile(profile) {
   document.body.setAttribute('data-profile', profile);
 
   // Update button states
-  document.getElementById('btn-mediador').classList.toggle('active', profile === 'mediador');
+  document.getElementById('btn-construtora').classList.toggle('active', profile === 'construtora');
   document.getElementById('btn-investidor').classList.toggle('active', profile === 'investidor');
+  document.getElementById('btn-imobiliaria').classList.toggle('active', profile === 'imobiliaria');
 
   // Re-apply base lang first, then profile overrides
   setLang(currentLang);
@@ -2093,7 +2309,7 @@ setLang(currentLang);
 // 2. pointerdown (moderno, funciona em iOS 13+)
 // 3. touchstart com preventDefault (força resposta imediata em iOS)
 // 4. click como último recurso
-['mediador', 'investidor'].forEach(profile => {
+['construtora', 'investidor', 'imobiliaria'].forEach(profile => {
   const btn = document.getElementById('btn-' + profile);
   if (!btn) return;
 
