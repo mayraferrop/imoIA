@@ -14,7 +14,29 @@
       "success_message": "Verifique a sua caixa de entrada e clique no link para entrar.",
       "error_generic": "Erro ao enviar email. Tente novamente.",
       "no_account": "Nao tem conta?",
-      "signup_link": "Criar conta"
+      "signup_link": "Criar conta",
+      "google": "Continuar com Google",
+      "or": "ou"
+    },
+    "invite": {
+      "title": "Convite de organizacao",
+      "subtitle": "Voce foi convidado(a) para",
+      "role": "Funcao",
+      "accept_google": "Aceitar com Google",
+      "accept_magic": "Aceitar com email",
+      "invalid_title": "Convite invalido",
+      "invalid_message": "Este convite e invalido, expirado ou ja foi utilizado.",
+      "loading": "A verificar convite...",
+      "accepting": "A aceitar convite...",
+      "accept_success": "Convite aceite com sucesso!",
+      "accept_error": "Erro ao aceitar convite.",
+      "back_to_login": "Voltar ao login"
+    },
+    "no_access": {
+      "title": "Sem acesso",
+      "message": "A sua conta nao esta associada a nenhuma organizacao. Precisa de um convite para aceder a plataforma.",
+      "contact": "Contacte o administrador da sua organizacao para obter um convite.",
+      "logout": "Sair"
     },
     "signup": {
       "title": "Criar conta",
