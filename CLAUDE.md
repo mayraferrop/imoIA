@@ -245,7 +245,7 @@ Quando receber instruções para trabalhar em paralelo, monte este time automati
 |------|---------|--------|
 | Mar/2026 | Whapi: endpoint de arquivar atualizado pelo fornecedor | Mudança no lado do Whapi, não bug nosso |
 | Mar/2026 | NVM adicionado ao `.zshrc` para persistência | Evitar `command not found: claude` em terminais novos |
-| Mar/2026 | Vercel: alias `imoia.vercel.app` → projecto `imo-ia` | URL principal usada em produção |
+| Mar/2026 | Vercel: projecto renomeado `imo-ia` → `imoia` | alias `imoia.vercel.app` agora é domain do projecto (auto-actualiza) |
 | Abr/2026 | Migração SQLite → Supabase PostgreSQL concluída | BD principal é Supabase (48 tabelas, pooler aws-1-eu-west-1:6543) |
 | Abr/2026 | User `imoia_app` para SQLAlchemy, RLS ativado em todas tabelas | anon=SELECT only, imoia_app=ALL, service_role=bypass |
 | Abr/2026 | SQLite removido, DATABASE_URL obrigatório | Sem fallback — PostgreSQL é o único BD suportado |
@@ -260,19 +260,17 @@ Quando receber instruções para trabalhar em paralelo, monte este time automati
 
 **URL de produção:** `https://imoia.vercel.app`
 
-**Projecto Vercel:** `imo-ia` (team: `mayraferrops-projects`)
+**Projecto Vercel:** `imoia` (team: `mayraferrops-projects`)
 - Root Directory configurado como `src/frontend` no dashboard Vercel
-- Push para `main` NÃO faz deploy automático — é necessário deploy manual
+- `imoia.vercel.app` é domain do projecto (auto-actualiza a cada deploy de produção)
+- Push para `main` activa auto-deploy no Vercel
 
-**Comandos de deploy:**
+**Comandos de deploy manual (se necessário):**
 ```bash
 # A partir da raiz do projecto:
 vercel --prod --scope mayraferrops-projects --yes --cwd /Users/mayaraferro/Projects/imoIA
-
-# Re-aplicar alias (necessário após cada deploy manual):
-vercel alias set imo-ia.vercel.app imoia.vercel.app --scope mayraferrops-projects
 ```
 
 **IMPORTANTE:**
 - Nunca fazer `vercel --prod` de dentro de `src/frontend/` — causa erro de path duplicado
-- Sempre re-aplicar o alias `imoia.vercel.app` após deploy manual
+- O alias `imoia.vercel.app` actualiza-se automaticamente (não é necessário `vercel alias set`)
