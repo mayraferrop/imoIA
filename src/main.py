@@ -14,6 +14,7 @@ from src.api.dependencies.auth import get_current_organization, get_current_user
 
 from src.api.health import router as health_router
 from src.api.ingestor import router as ingestor_router
+from src.api.invites import router as invites_router
 from src.api.properties import router as properties_router
 from src.modules.m2_market.router import router as market_router
 from src.modules.m3_financial.router import router as financial_router
@@ -420,6 +421,12 @@ def create_app() -> FastAPI:
     app.include_router(
         strategy_router, prefix="/api/v1/strategies",
         tags=["Estratégias de Investimento"], dependencies=auth_deps,
+    )
+    # Invites: sem auth_deps globais (validate/{token} e publico;
+    # os outros endpoints definem Depends() individualmente)
+    app.include_router(
+        invites_router, prefix="/api/v1/invites",
+        tags=["Convites de Organizacao"],
     )
 
     return app
