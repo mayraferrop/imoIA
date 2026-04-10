@@ -21,6 +21,11 @@ const NAV_ITEMS = [
   { href: "/closing", label: "M9 — Fecho + P&L", icon: "✅" },
 ];
 
+const ADMIN_ITEMS = [
+  { href: "/admin/invites", label: "Convites", icon: "✉️" },
+  { href: "/admin/members", label: "Membros", icon: "🔑" },
+];
+
 export function Sidebar() {
   const pathname = usePathname();
   const { user, activeOrg, signOut } = useAuth();
@@ -58,6 +63,35 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        {/* Admin: visivel apenas para admin/owner */}
+        {(activeOrg?.role === "admin" || activeOrg?.role === "owner") && (
+          <>
+            <div className="pt-3 pb-1 px-3">
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                Admin
+              </span>
+            </div>
+            {ADMIN_ITEMS.map((item) => {
+              const isActive = pathname.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors whitespace-nowrap overflow-hidden",
+                    isActive
+                      ? "bg-teal-50 text-teal-700 font-medium"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  )}
+                >
+                  <span className="text-base flex-shrink-0">{item.icon}</span>
+                  {item.label}
+                </Link>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       {/* Footer: user + logout */}

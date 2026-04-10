@@ -98,5 +98,28 @@
     "delete": "Eliminar",
     "edit": "Editar",
     "close": "Fechar"
+  },
+  "admin": {
+    "no_permission": "Sem permissao para aceder a esta pagina.",
+    "invites": {
+      "title": "Gestao de Convites",
+      "subtitle": "Convide novos membros para a organizacao",
+      "new": "Novo convite",
+      "send": "Enviar convite",
+      "empty": "Nenhum convite encontrado.",
+      "revoke": "Revogar",
+      "create_success": "Convite enviado com sucesso!",
+      "create_error": "Erro ao criar convite.",
+      "revoke_success": "Convite revogado.",
+      "revoke_error": "Erro ao revogar convite."
+    },
+    "members": {
+      "title": "Membros da Organizacao",
+      "subtitle": "Gerir membros e permissoes",
+      "empty": "Nenhum membro encontrado.",
+      "you": "voce",
+      "role_updated": "Role actualizado com sucesso!",
+      "role_error": "Erro ao alterar role."
+    }
   }
 }
