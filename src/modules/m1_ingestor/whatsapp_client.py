@@ -591,6 +591,28 @@ class WhatsAppClient:
             logger.error(f"Erro ao arquivar grupo {group_id}: {e}")
             return False
 
+    def set_presence_offline(self) -> bool:
+        """Define presença como offline para restaurar notificações push no device.
+
+        Quando a API Whapi conecta, o device para de receber notificações push.
+        Chamar este método no final de cada ciclo força o status offline,
+        permitindo que as notificações voltem a funcionar.
+        """
+        if self.backend == "baileys":
+            return False
+
+        try:
+            self._do_request(
+                "PUT",
+                "/presences/me",
+                json_body={"presence": "offline"},
+            )
+            logger.info("Presença definida como offline (notificações push restauradas)")
+            return True
+        except Exception as e:
+            logger.warning(f"Falha ao definir presença offline: {e}")
+            return False
+
     def _archive_whapi(self, group_id: str) -> bool:
         """Arquiva grupo via Whapi.Cloud.
 
