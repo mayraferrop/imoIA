@@ -12,3 +12,4 @@ psycopg2-binary>=2.9
 python-multipart>=0.0.6
 pandas>=2.0.0
 PyJWT[crypto]>=2.8.0
+Pillow==11.3.0

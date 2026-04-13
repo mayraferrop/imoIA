@@ -1021,146 +1021,507 @@ class CreativeService:
             logger.warning(f"Playwright render falhou: {exc}")
             return None
 
+    # ------------------------------------------------------------------
+    # Pillow template engine — gera PNGs profissionais por tipo
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _load_photo(
+        cover_photo: str, width: int, height: int,
+    ) -> "Image.Image":
+        """Carrega foto de capa, crop central e resize. Fallback: fundo solido."""
+        from PIL import Image
+
+        photo_path = None
+        if cover_photo.startswith("file://"):
+            photo_path = _Path(cover_photo.replace("file://", ""))
+        elif cover_photo and not cover_photo.startswith(("http", "data:")):
+            photo_path = _Path(cover_photo)
+
+        if photo_path and photo_path.exists():
+            photo = Image.open(photo_path).convert("RGB")
+            pw, ph = photo.size
+            target_ratio = width / height
+            photo_ratio = pw / ph
+            if photo_ratio > target_ratio:
+                new_w = int(ph * target_ratio)
+                left = (pw - new_w) // 2
+                photo = photo.crop((left, 0, left + new_w, ph))
+            else:
+                new_h = int(pw / target_ratio)
+                top = (ph - new_h) // 2
+                photo = photo.crop((0, top, pw, top + new_h))
+            return photo.resize((width, height), Image.LANCZOS)
+
+        return Image.new("RGB", (width, height), color=(30, 58, 95))
+
+    @staticmethod
+    def _apply_gradient(
+        img: "Image.Image",
+        alpha_top: int = 30,
+        alpha_bottom: int = 210,
+        start_pct: float = 0.0,
+    ) -> "Image.Image":
+        """Aplica gradiente escuro sobre a imagem (de start_pct ate ao fundo)."""
+        from PIL import Image, ImageDraw
+
+        w, h = img.size
+        overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        draw_ov = ImageDraw.Draw(overlay)
+        start_y = int(h * start_pct)
+        span = h - start_y or 1
+        for y in range(start_y, h):
+            alpha = int(alpha_top + ((y - start_y) / span) * (alpha_bottom - alpha_top))
+            draw_ov.line([(0, y), (w, y)], fill=(0, 0, 0, alpha))
+        img = img.convert("RGBA")
+        img = Image.alpha_composite(img, overlay)
+        return img.convert("RGB")
+
+    @staticmethod
+    def _load_font(size: int) -> "ImageFont.FreeTypeFont":
+        """Carrega fonte com fallback chain."""
+        from PIL import ImageFont
+
+        for name in [
+            "/System/Library/Fonts/Helvetica.ttc",
+            "/System/Library/Fonts/SFNSDisplay.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        ]:
+            try:
+                return ImageFont.truetype(name, size)
+            except (OSError, IOError):
+                continue
+        return ImageFont.load_default()
+
+    @staticmethod
+    def _hex_to_rgb(hex_color: str) -> tuple:
+        """Converte hex (#RRGGBB) para tuplo RGB."""
+        h = hex_color.lstrip("#")
+        if len(h) != 6:
+            return (30, 58, 95)
+        return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+
+    @staticmethod
+    def _extract_template_fields(template_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Extrai campos comuns do template_data."""
+        return {
+            "title": template_data.get("title", "HABTA")[:50],
+            "price": template_data.get("price_formatted", ""),
+            "brand": template_data.get("brand_name", "HABTA"),
+            "location": template_data.get("location", ""),
+            "bedrooms": template_data.get("bedrooms"),
+            "bathrooms": template_data.get("bathrooms"),
+            "area": template_data.get("area"),
+            "cover_photo": template_data.get("cover_photo", ""),
+            "color_primary": template_data.get("color_primary", "#1E3A5F"),
+            "color_accent": template_data.get("color_accent", "#E76F51"),
+            "typology": template_data.get("typology", ""),
+            "badge": template_data.get("badge", ""),
+            "listing_type": template_data.get("listing_type", ""),
+            "short_description": template_data.get("short_description", ""),
+            "website_url": template_data.get("website_url", ""),
+            "contact_phone": template_data.get("contact_phone", ""),
+        }
+
+    @staticmethod
+    def _build_features_line(fields: Dict[str, Any]) -> str:
+        """Constroi linha de features: '3 quartos | 2 WC | 120 m2'."""
+        parts = []
+        if fields["bedrooms"]:
+            parts.append(f"{fields['bedrooms']} quartos")
+        if fields["bathrooms"]:
+            parts.append(f"{fields['bathrooms']} WC")
+        if fields["area"]:
+            parts.append(f"{fields['area']} m\u00b2")
+        return "  |  ".join(parts)
+
+    @staticmethod
+    def _draw_accent_bar(
+        draw: "ImageDraw.Draw", width: int, height: int,
+        accent_rgb: tuple, bar_h: int = 8,
+    ) -> None:
+        """Desenha barra de cor accent no fundo."""
+        draw.rectangle([(0, height - bar_h), (width, height)], fill=accent_rgb)
+
+    # -- Template: Instagram Post (1080x1080) / generico quadrado -----------
+
+    @staticmethod
+    def _render_ig_post(
+        width: int, height: int, template_data: Dict[str, Any],
+    ) -> bytes:
+        """Layout feed quadrado: foto full, gradiente inferior, info em baixo."""
+        from PIL import ImageDraw
+
+        f = CreativeService._extract_template_fields(template_data)
+        accent = CreativeService._hex_to_rgb(f["color_accent"])
+
+        img = CreativeService._load_photo(f["cover_photo"], width, height)
+        img = CreativeService._apply_gradient(img, 10, 220, 0.35)
+        draw = ImageDraw.Draw(img)
+
+        scale = min(width, height) / 1080
+        m = int(48 * scale)
+
+        # Badge / tipologia no topo
+        badge_text = f["badge"] or f["typology"] or f["listing_type"]
+        if badge_text:
+            fb = CreativeService._load_font(int(22 * scale))
+            bw = draw.textlength(badge_text.upper(), font=fb)
+            pad = int(12 * scale)
+            draw.rounded_rectangle(
+                [m, m, m + bw + pad * 2, m + int(34 * scale)],
+                radius=int(6 * scale), fill=accent,
+            )
+            draw.text(
+                (m + pad, m + int(6 * scale)),
+                badge_text.upper(), fill=(255, 255, 255), font=fb,
+            )
+
+        # Brand no topo direito
+        fb_brand = CreativeService._load_font(int(24 * scale))
+        brand_w = draw.textlength(f["brand"].upper(), font=fb_brand)
+        draw.text(
+            (width - m - brand_w, m + int(4 * scale)),
+            f["brand"].upper(), fill=(255, 255, 255, 200), font=fb_brand,
+        )
+
+        # Bloco inferior: titulo, preco, features, localizacao
+        ty = height - int(280 * scale)
+        ft = CreativeService._load_font(int(42 * scale))
+        draw.text((m, ty), f["title"], fill=(255, 255, 255), font=ft)
+
+        fp = CreativeService._load_font(int(52 * scale))
+        draw.text((m, ty + int(56 * scale)), f["price"], fill=accent, font=fp)
+
+        feat = CreativeService._build_features_line(f)
+        if feat:
+            ff = CreativeService._load_font(int(22 * scale))
+            draw.text((m, ty + int(124 * scale)), feat, fill=(255, 255, 255), font=ff)
+
+        if f["location"]:
+            fl = CreativeService._load_font(int(20 * scale))
+            draw.text(
+                (m, ty + int(160 * scale)),
+                f["location"], fill=(255, 255, 255, 200), font=fl,
+            )
+
+        CreativeService._draw_accent_bar(draw, width, height, accent, int(6 * scale))
+
+        buf = io.BytesIO()
+        img.save(buf, format="PNG", quality=95)
+        return buf.getvalue()
+
+    # -- Template: Instagram Story (1080x1920) ------------------------------
+
+    @staticmethod
+    def _render_ig_story(
+        width: int, height: int, template_data: Dict[str, Any],
+    ) -> bytes:
+        """Layout vertical story: foto 60% superior, bloco info inferior escuro."""
+        from PIL import Image, ImageDraw
+
+        f = CreativeService._extract_template_fields(template_data)
+        primary = CreativeService._hex_to_rgb(f["color_primary"])
+        accent = CreativeService._hex_to_rgb(f["color_accent"])
+
+        # Foto ocupa 60% superior
+        photo_h = int(height * 0.6)
+        photo = CreativeService._load_photo(f["cover_photo"], width, photo_h)
+
+        # Canvas completo
+        img = Image.new("RGB", (width, height), color=primary)
+        img.paste(photo, (0, 0))
+
+        # Gradiente suave na transicao foto → bloco
+        img = CreativeService._apply_gradient(img, 0, 180, 0.45)
+        draw = ImageDraw.Draw(img)
+
+        # Painel inferior semi-opaco
+        panel_y = photo_h - int(height * 0.05)
+        panel = Image.new("RGBA", (width, height - panel_y), (*primary, 200))
+        img_rgba = img.convert("RGBA")
+        img_rgba.paste(panel, (0, panel_y), panel)
+        img = img_rgba.convert("RGB")
+        draw = ImageDraw.Draw(img)
+
+        scale = width / 1080
+        m = int(56 * scale)
+        cy = photo_h + int(40 * scale)
+
+        # Brand
+        fb = CreativeService._load_font(int(26 * scale))
+        draw.text((m, cy), f["brand"].upper(), fill=(255, 255, 255, 180), font=fb)
+
+        # Titulo
+        ft = CreativeService._load_font(int(48 * scale))
+        draw.text((m, cy + int(50 * scale)), f["title"], fill=(255, 255, 255), font=ft)
+
+        # Preco
+        fp = CreativeService._load_font(int(60 * scale))
+        draw.text((m, cy + int(115 * scale)), f["price"], fill=accent, font=fp)
+
+        # Linha separadora accent
+        sep_y = cy + int(195 * scale)
+        draw.rectangle(
+            [(m, sep_y), (m + int(80 * scale), sep_y + int(4 * scale))],
+            fill=accent,
+        )
+
+        # Features
+        feat = CreativeService._build_features_line(f)
+        if feat:
+            ff = CreativeService._load_font(int(26 * scale))
+            draw.text((m, sep_y + int(24 * scale)), feat, fill=(255, 255, 255), font=ff)
+
+        # Localizacao
+        if f["location"]:
+            fl = CreativeService._load_font(int(24 * scale))
+            draw.text(
+                (m, sep_y + int(68 * scale)),
+                f["location"], fill=(255, 255, 255, 200), font=fl,
+            )
+
+        # CTA / website no fundo
+        if f["website_url"] or f["contact_phone"]:
+            cta = f["website_url"] or f["contact_phone"]
+            fc = CreativeService._load_font(int(22 * scale))
+            cta_w = draw.textlength(cta, font=fc)
+            draw.text(
+                ((width - cta_w) / 2, height - int(80 * scale)),
+                cta, fill=(255, 255, 255, 160), font=fc,
+            )
+
+        # Barra accent no topo (diferencia do post)
+        draw.rectangle([(0, 0), (width, int(6 * scale))], fill=accent)
+
+        buf = io.BytesIO()
+        img.save(buf, format="PNG", quality=95)
+        return buf.getvalue()
+
+    # -- Template: Facebook Post (1200x630) ---------------------------------
+
+    @staticmethod
+    def _render_fb_post(
+        width: int, height: int, template_data: Dict[str, Any],
+    ) -> bytes:
+        """Layout horizontal FB: foto full + overlay + info lateral esquerda."""
+        from PIL import Image, ImageDraw
+
+        f = CreativeService._extract_template_fields(template_data)
+        primary = CreativeService._hex_to_rgb(f["color_primary"])
+        accent = CreativeService._hex_to_rgb(f["color_accent"])
+
+        img = CreativeService._load_photo(f["cover_photo"], width, height)
+        img = CreativeService._apply_gradient(img, 20, 200, 0.0)
+        draw = ImageDraw.Draw(img)
+
+        scale = min(width, height) / 630
+        m = int(40 * scale)
+
+        # Painel lateral esquerdo semi-opaco
+        panel_w = int(width * 0.48)
+        panel = Image.new("RGBA", (panel_w, height), (*primary, 180))
+        img_rgba = img.convert("RGBA")
+        img_rgba.paste(panel, (0, 0), panel)
+        img = img_rgba.convert("RGB")
+        draw = ImageDraw.Draw(img)
+
+        # Brand
+        fb = CreativeService._load_font(int(20 * scale))
+        draw.text((m, m), f["brand"].upper(), fill=(255, 255, 255, 180), font=fb)
+
+        # Titulo
+        cy = int(height * 0.22)
+        ft = CreativeService._load_font(int(34 * scale))
+        # Quebrar titulo se muito longo
+        title = f["title"]
+        max_chars = 28
+        if len(title) > max_chars:
+            split = title[:max_chars].rfind(" ")
+            if split > 10:
+                line1 = title[:split]
+                line2 = title[split + 1:]
+            else:
+                line1 = title[:max_chars]
+                line2 = title[max_chars:]
+            draw.text((m, cy), line1, fill=(255, 255, 255), font=ft)
+            draw.text((m, cy + int(42 * scale)), line2[:max_chars], fill=(255, 255, 255), font=ft)
+            cy += int(42 * scale)
+        else:
+            draw.text((m, cy), title, fill=(255, 255, 255), font=ft)
+
+        # Preco
+        fp = CreativeService._load_font(int(44 * scale))
+        draw.text((m, cy + int(52 * scale)), f["price"], fill=accent, font=fp)
+
+        # Features
+        feat = CreativeService._build_features_line(f)
+        if feat:
+            ff = CreativeService._load_font(int(18 * scale))
+            draw.text((m, cy + int(110 * scale)), feat, fill=(255, 255, 255), font=ff)
+
+        # Localizacao
+        if f["location"]:
+            fl = CreativeService._load_font(int(18 * scale))
+            draw.text(
+                (m, cy + int(142 * scale)),
+                f["location"], fill=(255, 255, 255, 200), font=fl,
+            )
+
+        # Barra accent lateral direita
+        bar_w = int(6 * scale)
+        draw.rectangle(
+            [(panel_w - bar_w, 0), (panel_w, height)],
+            fill=accent,
+        )
+
+        # Website em baixo
+        if f["website_url"]:
+            fw = CreativeService._load_font(int(16 * scale))
+            draw.text(
+                (m, height - m - int(16 * scale)),
+                f["website_url"], fill=(255, 255, 255, 140), font=fw,
+            )
+
+        buf = io.BytesIO()
+        img.save(buf, format="PNG", quality=95)
+        return buf.getvalue()
+
+    # -- Template: Property Card (1080x1350) --------------------------------
+
+    @staticmethod
+    def _render_property_card(
+        width: int, height: int, template_data: Dict[str, Any],
+    ) -> bytes:
+        """Layout vertical elegante: foto 55% + ficha tecnica inferior."""
+        from PIL import Image, ImageDraw
+
+        f = CreativeService._extract_template_fields(template_data)
+        primary = CreativeService._hex_to_rgb(f["color_primary"])
+        accent = CreativeService._hex_to_rgb(f["color_accent"])
+
+        # Foto 55% superior
+        photo_h = int(height * 0.55)
+        photo = CreativeService._load_photo(f["cover_photo"], width, photo_h)
+
+        img = Image.new("RGB", (width, height), color=(255, 255, 255))
+        img.paste(photo, (0, 0))
+
+        # Gradiente suave na foto
+        img = CreativeService._apply_gradient(img, 0, 120, 0.3)
+        draw = ImageDraw.Draw(img)
+
+        scale = width / 1080
+        m = int(48 * scale)
+
+        # Badge sobre a foto
+        badge_text = f["badge"] or f["typology"] or f["listing_type"]
+        if badge_text:
+            fba = CreativeService._load_font(int(20 * scale))
+            bw = draw.textlength(badge_text.upper(), font=fba)
+            pad = int(10 * scale)
+            draw.rounded_rectangle(
+                [m, photo_h - int(50 * scale), m + bw + pad * 2, photo_h - int(16 * scale)],
+                radius=int(5 * scale), fill=accent,
+            )
+            draw.text(
+                (m + pad, photo_h - int(46 * scale)),
+                badge_text.upper(), fill=(255, 255, 255), font=fba,
+            )
+
+        # Ficha inferior sobre fundo branco
+        card_y = photo_h + int(24 * scale)
+
+        # Barra accent fina
+        draw.rectangle(
+            [(m, card_y), (m + int(60 * scale), card_y + int(4 * scale))],
+            fill=accent,
+        )
+
+        # Titulo
+        ft = CreativeService._load_font(int(38 * scale))
+        draw.text((m, card_y + int(20 * scale)), f["title"], fill=primary, font=ft)
+
+        # Preco
+        fp = CreativeService._load_font(int(48 * scale))
+        draw.text((m, card_y + int(72 * scale)), f["price"], fill=accent, font=fp)
+
+        # Features em "pills"
+        feat = CreativeService._build_features_line(f)
+        if feat:
+            ff = CreativeService._load_font(int(22 * scale))
+            draw.text(
+                (m, card_y + int(138 * scale)), feat,
+                fill=(100, 100, 100), font=ff,
+            )
+
+        # Localizacao
+        if f["location"]:
+            fl = CreativeService._load_font(int(20 * scale))
+            draw.text(
+                (m, card_y + int(176 * scale)),
+                f["location"], fill=(120, 120, 120), font=fl,
+            )
+
+        # Descricao curta
+        desc = f["short_description"][:100] if f["short_description"] else ""
+        if desc:
+            fd = CreativeService._load_font(int(18 * scale))
+            draw.text(
+                (m, card_y + int(216 * scale)),
+                desc, fill=(140, 140, 140), font=fd,
+            )
+
+        # Brand + contacto no fundo
+        fb = CreativeService._load_font(int(20 * scale))
+        brand_line = f["brand"].upper()
+        if f["contact_phone"]:
+            brand_line += f"  |  {f['contact_phone']}"
+        draw.text(
+            (m, height - m - int(24 * scale)),
+            brand_line, fill=primary, font=fb,
+        )
+
+        # Barra accent inferior
+        CreativeService._draw_accent_bar(draw, width, height, accent, int(6 * scale))
+
+        buf = io.BytesIO()
+        img.save(buf, format="PNG", quality=95)
+        return buf.getvalue()
+
+    # -- Dispatcher: escolhe template por dimensoes -------------------------
+
     @staticmethod
     def _try_pillow_fallback(
         width: int, height: int, template_data: Dict[str, Any]
     ) -> Optional[bytes]:
-        """Fallback: gera PNG com foto real + overlay + texto profissional."""
+        """Gera PNG profissional com Pillow — escolhe template por dimensoes."""
         try:
-            from PIL import Image, ImageDraw, ImageFont
+            from PIL import Image  # noqa: F401 — verifica disponibilidade
 
-            color_primary = template_data.get("color_primary", "#1E3A5F")
-            color_accent = template_data.get("color_accent", "#E76F51")
-            pr = int(color_primary[1:3], 16)
-            pg = int(color_primary[3:5], 16)
-            pb = int(color_primary[5:7], 16)
-            ar = int(color_accent[1:3], 16)
-            ag = int(color_accent[3:5], 16)
-            ab = int(color_accent[5:7], 16)
-
-            # Tentar carregar foto real como fundo
-            cover_photo = template_data.get("cover_photo", "")
-            photo_path = None
-            if cover_photo.startswith("file://"):
-                photo_path = _Path(cover_photo.replace("file://", ""))
-            elif cover_photo and not cover_photo.startswith(("http", "data:")):
-                photo_path = _Path(cover_photo)
-
-            if photo_path and photo_path.exists():
-                # Abrir foto real, resize com crop central
-                photo = Image.open(photo_path).convert("RGB")
-                # Calcular crop ao centro mantendo aspect ratio
-                pw, ph = photo.size
-                target_ratio = width / height
-                photo_ratio = pw / ph
-                if photo_ratio > target_ratio:
-                    new_h = ph
-                    new_w = int(ph * target_ratio)
-                    left = (pw - new_w) // 2
-                    photo = photo.crop((left, 0, left + new_w, ph))
-                else:
-                    new_w = pw
-                    new_h = int(pw / target_ratio)
-                    top = (ph - new_h) // 2
-                    photo = photo.crop((0, top, pw, top + new_h))
-                img = photo.resize((width, height), Image.LANCZOS)
+            # Escolher template por dimensoes exactas ou aspect ratio
+            if width == 1080 and height == 1920:
+                return CreativeService._render_ig_story(width, height, template_data)
+            elif width == 1200 and height == 630:
+                return CreativeService._render_fb_post(width, height, template_data)
+            elif width == 1080 and height == 1350:
+                return CreativeService._render_property_card(width, height, template_data)
+            elif width == 1080 and height == 1080:
+                return CreativeService._render_ig_post(width, height, template_data)
+            elif height / width > 1.5:
+                # Vertical alto → story
+                return CreativeService._render_ig_story(width, height, template_data)
+            elif width / height > 1.5:
+                # Horizontal largo → fb
+                return CreativeService._render_fb_post(width, height, template_data)
             else:
-                # Fundo solido como ultimo recurso
-                img = Image.new("RGB", (width, height), color=(pr, pg, pb))
-
-            # Overlay semi-transparente escuro
-            overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-            draw_overlay = ImageDraw.Draw(overlay)
-            # Gradiente: mais escuro em baixo
-            for y in range(height):
-                alpha = int(40 + (y / height) * 160)  # 40 no topo, 200 em baixo
-                draw_overlay.line([(0, y), (width, y)], fill=(0, 0, 0, alpha))
-            img = img.convert("RGBA")
-            img = Image.alpha_composite(img, overlay)
-            img = img.convert("RGB")
-
-            draw = ImageDraw.Draw(img)
-
-            title = template_data.get("title", "HABTA")[:50]
-            price = template_data.get("price_formatted", "")
-            brand = template_data.get("brand_name", "HABTA")
-            location = template_data.get("location", "")
-            bedrooms = template_data.get("bedrooms")
-            bathrooms = template_data.get("bathrooms")
-            area_val = template_data.get("area")
-
-            # Carregar fonte (tentar Montserrat/DejaVu, fallback default)
-            def _load_font(size: int) -> ImageFont.FreeTypeFont:
-                for name in [
-                    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-                    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                    "/System/Library/Fonts/Helvetica.ttc",
-                    "/System/Library/Fonts/SFNSDisplay.ttf",
-                ]:
-                    try:
-                        return ImageFont.truetype(name, size)
-                    except (OSError, IOError):
-                        continue
-                return ImageFont.load_default()
-
-            scale = min(width, height) / 1080
-            margin = int(48 * scale)
-
-            # Brand name no topo
-            font_brand = _load_font(int(28 * scale))
-            draw.text((margin, margin), brand.upper(), fill=(255, 255, 255), font=font_brand)
-
-            # Titulo
-            font_title = _load_font(int(44 * scale))
-            ty = height - int(280 * scale)
-            draw.text((margin, ty), title, fill=(255, 255, 255), font=font_title)
-
-            # Preco
-            font_price = _load_font(int(52 * scale))
-            draw.text((margin, ty + int(60 * scale)), price, fill=(ar, ag, ab), font=font_price)
-
-            # Features line
-            features_parts = []
-            if bedrooms:
-                features_parts.append(f"{bedrooms} quartos")
-            if bathrooms:
-                features_parts.append(f"{bathrooms} WC")
-            if area_val:
-                features_parts.append(f"{area_val} m2")
-            if features_parts:
-                font_feat = _load_font(int(24 * scale))
-                feat_text = "  |  ".join(features_parts)
-                draw.text(
-                    (margin, ty + int(130 * scale)),
-                    feat_text,
-                    fill=(255, 255, 255, 200),
-                    font=font_feat,
-                )
-
-            # Location
-            if location:
-                font_loc = _load_font(int(22 * scale))
-                draw.text(
-                    (margin, ty + int(170 * scale)),
-                    f"📍 {location}",
-                    fill=(255, 255, 255),
-                    font=font_loc,
-                )
-
-            # Barra de cor inferior
-            bar_h = int(8 * scale)
-            draw.rectangle(
-                [(0, height - bar_h), (width, height)],
-                fill=(ar, ag, ab),
-            )
-
-            buf = io.BytesIO()
-            img.save(buf, format="PNG", quality=95)
-            return buf.getvalue()
+                # Quadrado ou proximo → ig_post
+                return CreativeService._render_ig_post(width, height, template_data)
         except ImportError:
             return None
         except Exception as exc:
-            logger.warning(f"Pillow fallback falhou: {exc}")
+            logger.warning(f"Pillow render falhou: {exc}")
             return None
 
     @staticmethod

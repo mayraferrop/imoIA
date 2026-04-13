@@ -55,7 +55,17 @@ interface Creative {
   width?: number;
   height?: number;
   document_id?: string;
+  file_url?: string;
 }
+
+const CREATIVE_LABELS: Record<string, string> = {
+  ig_post: "Instagram Post",
+  ig_story: "Instagram Story",
+  fb_post: "Facebook Post",
+  property_card: "Property Card",
+  whatsapp_card: "WhatsApp Card",
+  flyer: "Flyer A4",
+};
 
 interface MktStats {
   active_listings?: number;
@@ -707,30 +717,57 @@ export default function MarketingPage() {
                               onClick={() => generateCreatives(listing.id)}
                               className="text-xs font-medium text-teal-700 hover:text-teal-800"
                             >
-                              {listingCreatives[listing.id]?.length ? "Regenerar" : "Gerar criativos"}
+                              {listingCreatives[listing.id]?.length ? "Regenerar todos" : "Gerar criativos"}
                             </button>
                           </div>
                           {listingCreatives[listing.id]?.length ? (
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                              {listingCreatives[listing.id].map((c) => (
-                                <div key={c.id} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-                                  <p className="text-sm font-medium text-slate-900">{c.creative_type}</p>
-                                  <p className="text-xs text-slate-500">{c.width}x{c.height} {c.format}</p>
-                                  {c.document_id && (
-                                    <a
-                                      href={`${API_BASE}/api/v1/documents/${c.document_id}/download`}
-                                      className="text-xs text-teal-700 hover:text-teal-800 mt-1 inline-block"
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      Download
-                                    </a>
-                                  )}
-                                </div>
-                              ))}
+                              {listingCreatives[listing.id].map((c) => {
+                                const label = CREATIVE_LABELS[c.creative_type ?? ""] ?? c.creative_type;
+                                const downloadUrl = c.document_id
+                                  ? `${API_BASE}/api/v1/documents/${c.document_id}/download`
+                                  : null;
+                                const isVertical = (c.height ?? 0) > (c.width ?? 0);
+                                return (
+                                  <div key={c.id} className="bg-slate-50 rounded-lg border border-slate-100 overflow-hidden group">
+                                    {/* Thumbnail preview */}
+                                    {downloadUrl && c.format === "png" ? (
+                                      <div className={cn(
+                                        "bg-slate-200 flex items-center justify-center overflow-hidden",
+                                        isVertical ? "h-36" : "h-28"
+                                      )}>
+                                        <img
+                                          src={downloadUrl}
+                                          alt={label}
+                                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div className="h-20 bg-slate-100 flex items-center justify-center">
+                                        <span className="text-2xl text-slate-300">{c.format === "pdf" ? "PDF" : "IMG"}</span>
+                                      </div>
+                                    )}
+                                    <div className="p-3">
+                                      <p className="text-sm font-medium text-slate-900">{label}</p>
+                                      <p className="text-xs text-slate-500">{c.width}x{c.height} {c.format?.toUpperCase()}</p>
+                                      {downloadUrl && (
+                                        <a
+                                          href={downloadUrl}
+                                          className="text-xs font-medium text-teal-700 hover:text-teal-800 mt-1.5 inline-block"
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                        >
+                                          Download
+                                        </a>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
                           ) : (
-                            <p className="text-xs text-slate-400">Sem criativos gerados.</p>
+                            <p className="text-xs text-slate-400">Sem criativos gerados. Clique em &quot;Gerar criativos&quot; para criar.</p>
                           )}
                         </div>
                       </div>
