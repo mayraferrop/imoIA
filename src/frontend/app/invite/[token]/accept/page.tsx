@@ -42,6 +42,10 @@ export default function AcceptInvitePage() {
         );
 
         if (resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          if (data.organization_id) {
+            localStorage.setItem("imoia_active_org_id", data.organization_id);
+          }
           setStatus("success");
           setTimeout(() => router.push("/"), 2000);
         } else {
