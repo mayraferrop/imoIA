@@ -1107,6 +1107,13 @@ def run_pipeline() -> PipelineResult:
     else:
         logger.info(f"FASE 5 (archive): {archive_count}/{len(groups_to_archive)} em {phase5_elapsed:.1f}s")
 
+    # --- FASE 6: Restaurar presença offline (notificações push) ---
+    try:
+        offline_client = WhatsAppClient()
+        offline_client.set_presence_offline()
+    except Exception as e:
+        logger.warning(f"Falha ao restaurar presença offline: {e}")
+
     # Resumo final
     pipeline_elapsed = time.monotonic() - pipeline_start
     result = PipelineResult(
