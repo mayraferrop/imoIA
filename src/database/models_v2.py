@@ -1232,6 +1232,9 @@ class Listing(Base):
     tenant_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("tenants.id"), nullable=False
     )
+    organization_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, index=True
+    )
     deal_id: Mapped[Optional[str]] = mapped_column(
         String(36), ForeignKey("deals.id"), index=True, nullable=True
     )
@@ -1387,6 +1390,9 @@ class ListingCreative(Base):
     )
     tenant_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("tenants.id"), nullable=False
+    )
+    organization_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, index=True
     )
     listing_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("listings.id"), nullable=False, index=True
@@ -2124,6 +2130,9 @@ class Document(Base):
     )
     tenant_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("tenants.id"), nullable=False
+    )
+    organization_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, index=True
     )
 
     # Associacao flexivel

@@ -558,6 +558,7 @@ class CreativeService:
             creative = ListingCreative(
                 id=str(uuid4()),
                 tenant_id=listing.tenant_id,
+                organization_id=listing.organization_id,
                 listing_id=listing_id,
                 creative_type=creative_type,
                 format=spec.get("format", "png"),
@@ -891,6 +892,7 @@ class CreativeService:
         doc = Document(
             id=document_id,
             tenant_id=listing.tenant_id,
+            organization_id=listing.organization_id,
             entity_type="listing_creative",
             entity_id=listing.id,
             filename=f"{creative_type}.{fmt}",
