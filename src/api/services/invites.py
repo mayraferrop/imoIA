@@ -340,18 +340,12 @@ async def send_invite_email(
     token: str,
     organization_name: str,
 ) -> bool:
-    """Envia email de convite via Resend HTTP API.
+    """Envia email de convite via Resend (shared provider).
 
     Retorna True se enviado, False se RESEND_API_KEY nao configurada
     ou se houve erro no envio (nao bloqueia criacao do invite).
     """
-    api_key = os.getenv("RESEND_API_KEY", "")
-    if not api_key:
-        logger.warning(
-            f"RESEND_API_KEY not configured, skipping email send "
-            f"for invite {token[:8]}..."
-        )
-        return False
+    from src.shared.email_provider import send_email
 
     frontend_url = os.getenv("FRONTEND_URL", "https://imoia.vercel.app")
     invite_url = f"{frontend_url}/invite/{token}"
@@ -361,32 +355,9 @@ async def send_invite_email(
         invite_url=invite_url,
     )
 
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                "https://api.resend.com/emails",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "from": "imoIA <noreply@mail.ironcapitals.com>",
-                    "to": [email],
-                    "subject": f"Convite para {organization_name} — imoIA",
-                    "html": html_body,
-                },
-                timeout=15,
-            )
-
-        if resp.status_code in (200, 201):
-            logger.info(f"Email de convite enviado para {email}")
-            return True
-        else:
-            logger.warning(
-                f"Resend retornou {resp.status_code} para {email}: {resp.text[:200]}"
-            )
-            return False
-
-    except Exception as exc:
-        logger.error(f"Erro ao enviar email de convite para {email}: {exc}")
-        return False
+    result = await send_email(
+        to=email,
+        subject=f"Convite para {organization_name} — imoIA",
+        html_body=html_body,
+    )
+    return result.get("sent", False)

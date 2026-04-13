@@ -889,11 +889,18 @@ class LeadService:
         )
         return _nurture_to_dict(ns)
 
-    def execute_pending_nurtures(self) -> Dict[str, Any]:
-        """Executa todos os passos de nurturing pendentes."""
+    async def execute_pending_nurtures(self) -> Dict[str, Any]:
+        """Executa todos os passos de nurturing pendentes.
+
+        Para steps com 'email' no action, envia email real via Resend.
+        Steps sem email (ex: follow_up_call) apenas registam interaccao.
+        """
+        from src.shared.email_provider import send_email
+
         executed = 0
         completed = 0
         errors = 0
+        emails_sent = 0
 
         now = datetime.utcnow()
         now_iso = now.isoformat()
@@ -914,13 +921,29 @@ class LeadService:
                     continue
 
                 step = NURTURE_STEPS[step_idx]
+
+                # Enviar email se o step e de tipo email
+                email_sent = False
+                if "email" in step["action"] or "matches" in step["action"] or "offer" in step["action"] or "market" in step["action"]:
+                    lead = db.get_by_id("leads", ns.get("lead_id", ""))
+                    lead_email = lead.get("email") if lead else None
+                    if lead_email:
+                        result = await send_email(
+                            to=lead_email,
+                            subject=f"imoIA — {step['label']}",
+                            html_body=self._build_nurture_html(step, lead),
+                        )
+                        email_sent = result.get("sent", False)
+                        if email_sent:
+                            emails_sent += 1
+
                 # Registar interaccao
                 db.insert("lead_interactions", {
                     "id": db.new_id(),
                     "tenant_id": ns.get("tenant_id"),
                     "lead_id": ns.get("lead_id"),
                     "type": f"nurture_{step['action']}",
-                    "channel": "system",
+                    "channel": "email" if email_sent else "system",
                     "direction": "outbound",
                     "subject": step["label"],
                     "content": f"Passo {step_idx} da sequencia de nurturing: {step['label']}",
@@ -934,6 +957,7 @@ class LeadService:
                     "step": step_idx,
                     "action": step["action"],
                     "executed_at": now_iso,
+                    "email_sent": email_sent,
                 })
 
                 new_step = step_idx + 1
@@ -961,13 +985,42 @@ class LeadService:
 
         logger.info(
             f"Nurtures executados: {executed}, "
-            f"completados: {completed}, erros: {errors}"
+            f"completados: {completed}, erros: {errors}, "
+            f"emails_enviados: {emails_sent}"
         )
         return {
             "executed": executed,
             "completed": completed,
             "errors": errors,
+            "emails_sent": emails_sent,
         }
+
+    @staticmethod
+    def _build_nurture_html(step: Dict[str, Any], lead: Dict[str, Any]) -> str:
+        """Gera HTML simples para emails de nurturing."""
+        name = lead.get("name", "")
+        greeting = f"Ola {name}," if name else "Ola,"
+        label = step.get("label", "")
+
+        return f"""\
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8" /><title>{label}</title></head>
+<body style="margin:0;padding:0;font-family:Inter,Arial,sans-serif;background:#f4f5f7;">
+  <div style="max-width:560px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;">
+    <div style="background:#1E3A5F;padding:24px;text-align:center;">
+      <span style="font-size:24px;font-weight:700;color:#fff;">imo<span style="color:#F4A261;">IA</span></span>
+    </div>
+    <div style="padding:28px;color:#333;line-height:1.7;">
+      <p>{greeting}</p>
+      <p>{label}</p>
+      <p style="margin-top:24px;font-size:13px;color:#888;">
+        Este email foi enviado automaticamente pelo sistema imoIA.
+      </p>
+    </div>
+  </div>
+</body>
+</html>"""
 
     def get_nurture_status(self, lead_id: str) -> Optional[Dict[str, Any]]:
         """Retorna estado da sequencia de nurturing activa do lead."""

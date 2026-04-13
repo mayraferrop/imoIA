@@ -2,10 +2,12 @@
 
 Gera campanhas de email HTML com base nos dados do listing, deal, property
 e brand kit do tenant, usando templates Jinja2.
+Envio real via Resend (src/shared/email_provider.py).
 """
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -24,6 +26,7 @@ from src.database.models_v2 import (
     Property,
     Tenant,
 )
+from src.shared.email_provider import send_email, validate_email
 
 _DEFAULT_TENANT_SLUG = "default"
 
@@ -348,31 +351,94 @@ class EmailService:
             )
             return _campaign_to_dict(campaign)
 
-    def send_campaign(self, campaign_id: str) -> Dict[str, Any]:
-        """Tenta enviar uma campanha de email.
-
-        Stub: o envio real requer configuracao de um provider de email
-        (ex. Mailgun, SendGrid, AWS SES). Retorna mensagem informativa.
+    async def send_campaign(
+        self,
+        campaign_id: str,
+        recipients: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Envia uma campanha de email via Resend.
 
         Parametros
         ----------
         campaign_id:
             ID da campanha a enviar.
+        recipients:
+            Lista de emails. Se None, usa recipient_filter da campanha.
 
         Retorna
         -------
-        Dict com status e mensagem.
+        Dict com sent_count, failed_count e details.
         """
+        with get_session() as session:
+            campaign = session.get(EmailCampaign, campaign_id)
+            if not campaign:
+                raise ValueError(f"Campanha nao encontrada: {campaign_id}")
+
+            if campaign.status == "sent":
+                return {
+                    "status": "already_sent",
+                    "campaign_id": campaign_id,
+                    "message": "Campanha ja foi enviada.",
+                }
+
+            if not recipients:
+                return {
+                    "status": "no_recipients",
+                    "campaign_id": campaign_id,
+                    "message": "Lista de destinatarios vazia.",
+                }
+
+            subject = campaign.subject
+            html_body = campaign.body_html
+
+        # Filtrar emails invalidos
+        valid = [e for e in recipients if validate_email(e)]
+        invalid = [e for e in recipients if not validate_email(e)]
+
+        if invalid:
+            logger.warning(f"Emails invalidos ignorados: {invalid}")
+
+        sent_count = 0
+        failed_count = len(invalid)
+        details: List[Dict[str, Any]] = []
+
+        for email_addr in valid:
+            result = await send_email(
+                to=email_addr,
+                subject=subject,
+                html_body=html_body,
+            )
+            if result.get("sent"):
+                sent_count += 1
+                details.append({"email": email_addr, "sent": True, "id": result.get("id")})
+            else:
+                failed_count += 1
+                details.append({"email": email_addr, "sent": False, "reason": result.get("reason")})
+
+            # Rate limiting: 10 emails/segundo (conservador)
+            await asyncio.sleep(0.1)
+
+        # Actualizar campanha
+        with get_session() as session:
+            campaign = session.get(EmailCampaign, campaign_id)
+            if campaign:
+                campaign.status = "sent" if sent_count > 0 else "failed"
+                campaign.sent_at = datetime.now(tz=timezone.utc)
+                campaign.recipient_count = sent_count
+                campaign.delivered = sent_count
+                session.flush()
+
         logger.info(
-            f"send_campaign({campaign_id}): provider nao configurado (stub)"
+            f"Campanha {campaign_id}: {sent_count} enviados, "
+            f"{failed_count} falhados"
         )
+
         return {
-            "status": "draft",
+            "status": "sent" if sent_count > 0 else "failed",
             "campaign_id": campaign_id,
-            "message": (
-                "Email provider nao configurado. "
-                "HTML disponivel para envio manual."
-            ),
+            "sent_count": sent_count,
+            "failed_count": failed_count,
+            "details": details,
         }
 
     def get_campaign(self, campaign_id: str) -> Optional[Dict[str, Any]]:

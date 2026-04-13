@@ -69,7 +69,7 @@ async def sync_habta(contacts: List[Dict[str, Any]]) -> Dict[str, Any]:
 @router.post("/nurture/execute-pending", summary="Executar nurtures pendentes")
 async def execute_pending_nurtures() -> Dict[str, Any]:
     """Executa todas as sequencias de nurturing com accao pendente."""
-    return service.execute_pending_nurtures()
+    return await service.execute_pending_nurtures()
 
 
 # ---------------------------------------------------------------------------

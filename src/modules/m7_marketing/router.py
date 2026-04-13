@@ -476,11 +476,17 @@ async def generate_email(
 
 
 @router.post("/email/{campaign_id}/send", summary="Enviar campanha")
-async def send_email(campaign_id: str) -> Dict[str, Any]:
-    """Envia campanha de email."""
+async def send_email_campaign(
+    campaign_id: str,
+    recipients: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Envia campanha de email via Resend.
+
+    Body opcional: lista de emails destinatarios.
+    """
     from src.modules.m7_marketing.email_service import EmailService
     es = EmailService()
-    return es.send_campaign(campaign_id)
+    return await es.send_campaign(campaign_id, recipients)
 
 
 @router.get("/listings/{listing_id}/emails", summary="Listar campanhas")
