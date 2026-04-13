@@ -1,6 +1,9 @@
 """Endpoints M7 — Marketing Engine.
 
 Brand kit, conteudo IA multilingue, publicacao multicanal, SEO.
+
+# FIXME(jwt-refactor): imports inline de supabase_rest usam SERVICE_ROLE_KEY.
+# Migrar para JWT do utilizador quando tabelas tiverem policies 'authenticated'.
 """
 
 from __future__ import annotations

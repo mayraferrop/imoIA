@@ -20,6 +20,7 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from src.config import get_settings
+# FIXME(jwt-refactor): migrar para JWT do utilizador quando tabelas tiverem policies 'authenticated'
 from src.database import supabase_rest as db
 
 router = APIRouter()

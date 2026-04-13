@@ -3,6 +3,11 @@
 CRUD de invites via PostgREST (Supabase) + envio de email via Resend.
 Se RESEND_API_KEY nao estiver configurada, os convites sao criados
 mas o email nao e enviado (graceful degradation).
+
+# FIXME(jwt-refactor): migrar _supa_headers() para usar JWT do utilizador
+# quando a tabela organization_invites tiver policies para 'authenticated'.
+# Hoje usa SERVICE_ROLE_KEY que bypassa RLS.
+# Depende de: Sub-tarefa 2 (aplicar policy invites_select_own_org).
 """
 
 from __future__ import annotations

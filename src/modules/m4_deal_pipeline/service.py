@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
+# FIXME(jwt-refactor): migrar para JWT do utilizador quando tabelas tiverem policies 'authenticated'
 from src.database import supabase_rest as db
 from src.modules.m4_deal_pipeline.state_machine import (
     AUTO_TASKS,

@@ -1,19 +1,17 @@
 # TODOs herdados da Fase 2B
 
-> Actualizado: 2026-04-13
-> Contexto: itens identificados durante a Fase 2B que foram adiados por decisão consciente.
+> Actualizado: 2026-04-10 (hardening)
+> Contexto: itens identificados durante a Fase 2B. Items 1 e 3 resolvidos no hardening.
 
 ---
 
-## 1. RLS — organization_invites
+## 1. ~~RLS — organization_invites~~ ✅ RESOLVIDO
 
-- **Owner da tabela:** `imoia_app`
-- **RLS:** activada
-- **Policy actual:** apenas `imoia_app_all` (ALL para role `imoia_app`)
-- **Policy `invites_select_own_org`:** NÃO criada
-- **Bloqueio:** SQL Editor do Supabase não tem permissões para alterar owner. A policy usa `auth.uid()`, que requer role `authenticated`/`anon` (não `imoia_app`).
-- **Plano:** aplicar quando se fizer refactor de `supabase_rest.py` para JWT (item 3 abaixo). Até lá, o backend usa `SERVICE_ROLE_KEY` que bypassa RLS — sem risco funcional.
-- **Workaround actual:** backend usa `SERVICE_ROLE_KEY` em todas as queries PostgREST. RLS é bypassed.
+- **Resolvido em:** 2026-04-10 (hardening Fase 2B)
+- **Solução:** 4 policies RLS criadas com `current_setting('request.jwt.claims')` em vez de `auth.uid()`, evitando dependência do schema `auth`.
+- **Policies:** `invites_select_own_org` (SELECT membros), `invites_insert_admin` (INSERT admin/owner), `invites_update_admin` (UPDATE admin/owner), `invites_delete_admin` (DELETE admin/owner).
+- **Migração 003** actualizada com as policies (idempotente).
+- **NOTA:** `invites.py` mantém `SERVICE_ROLE_KEY` porque `accept_invite` é chamado por users que ainda não são membros da org. Migração para JWT só para operações admin (futuro).
 
 ---
 
@@ -28,14 +26,18 @@
 
 ---
 
-## 3. Refactor supabase_rest.py para JWT do utilizador
+## 3. ~~Refactor supabase_rest.py para JWT do utilizador~~ ✅ PARCIALMENTE RESOLVIDO
 
-- **Estado:** sub-tarefa futura, não iniciada.
-- **O que é:** migrar queries PostgREST de `SERVICE_ROLE_KEY` (bypassa RLS) para JWT do utilizador autenticado (respeita RLS).
-- **Benefício:** defense in depth — mesmo que o backend tenha um bug, o RLS impede acesso cruzado entre organizações.
-- **Bloqueia:** aplicação da policy `invites_select_own_org` (item 1) e hardening de RLS em geral.
-- **Estimativa:** 15+ ficheiros tocados (`src/api/services/*.py`, `src/api/dependencies/*.py`).
-- **Pré-requisito:** todas as policies RLS para `authenticated` role devem estar criadas e testadas antes de migrar.
+- **Resolvido em:** 2026-04-10 (hardening Fase 2B, Sub-tarefa 1)
+- **O que foi feito:**
+  - `current_user_token` contextvar criado em `supabase_rest.py`
+  - `auth.py` guarda raw JWT no contextvar apos validacao
+  - `roles.py` migrado para JWT com fallback SERVICE_ROLE_KEY
+  - `members.py` migrado para JWT (queries `organization_members`; admin API mantém SERVICE_ROLE_KEY)
+  - `invites.py` marcado com FIXME (depende de accept_invite que precisa SERVICE_ROLE_KEY)
+  - 13 ficheiros restantes marcados com `FIXME(jwt-refactor)`
+- **Pendente:** migrar os 13 ficheiros restantes quando TODAS as tabelas tiverem policies `authenticated`. Ver `FIXME(jwt-refactor)` no codigo.
+- **Testes:** 33/33 verdes apos migracao.
 
 ---
 

@@ -76,6 +76,10 @@ def get_current_user(request: Request) -> Dict[str, Any]:
     if not payload.get("sub"):
         raise HTTPException(status_code=401, detail="Token sem user_id (sub)")
 
+    # Guardar raw token no contextvar para services que usam JWT
+    from src.database.supabase_rest import current_user_token
+    current_user_token.set(token)
+
     return payload
 
 

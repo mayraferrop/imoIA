@@ -36,15 +36,27 @@ async def get_user_role_in_org(
 ) -> Optional[str]:
     """Retorna o role do utilizador na organizacao especificada.
 
+    Usa JWT do utilizador (via contextvar) para respeitar RLS.
+    Fallback para SERVICE_ROLE_KEY se JWT indisponivel.
     Retorna None se o utilizador nao pertencer a organizacao
     ou se houver erro na consulta.
     """
+    from src.database.supabase_rest import current_user_token
+
     supa_url = os.getenv("SUPABASE_URL", "")
-    supa_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-    headers = {
-        "apikey": supa_key,
-        "Authorization": f"Bearer {supa_key}",
-    }
+    try:
+        user_jwt = current_user_token.get()
+        anon_key = os.getenv("SUPABASE_ANON_KEY", "")
+        headers = {
+            "apikey": anon_key,
+            "Authorization": f"Bearer {user_jwt}",
+        }
+    except LookupError:
+        supa_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+        headers = {
+            "apikey": supa_key,
+            "Authorization": f"Bearer {supa_key}",
+        }
 
     async with httpx.AsyncClient() as client:
         resp = await client.get(

@@ -1,6 +1,10 @@
 """Service de membros de organizacao — Fase 2B Dia 4.
 
 Lista membros e altera roles via PostgREST + Supabase Auth admin API.
+
+Usa JWT do utilizador (via current_user_token) para queries a
+organization_members, respeitando RLS. SERVICE_ROLE_KEY mantido
+apenas para a admin API (/auth/v1/admin/users/).
 """
 
 from __future__ import annotations
@@ -13,10 +17,11 @@ from loguru import logger
 
 
 # ---------------------------------------------------------------------------
-# Config Supabase (mesmo padrao do invites.py)
+# Config Supabase
 # ---------------------------------------------------------------------------
 
 def _supa_headers() -> Dict[str, str]:
+    """Headers com SERVICE_ROLE_KEY — usado apenas para admin API."""
     supa_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
     return {
         "apikey": supa_key,
@@ -24,6 +29,28 @@ def _supa_headers() -> Dict[str, str]:
         "Content-Type": "application/json",
         "Prefer": "return=representation",
     }
+
+
+def _jwt_or_supa_headers() -> Dict[str, str]:
+    """Headers com JWT do utilizador quando disponivel, SERVICE_ROLE_KEY como fallback.
+
+    Usa JWT para respeitar RLS nas tabelas com policies para 'authenticated'
+    (organization_members, organizations). Fallback para SERVICE_ROLE_KEY em
+    contextos sem request HTTP (workers, scripts).
+    """
+    from src.database.supabase_rest import current_user_token
+
+    try:
+        user_jwt = current_user_token.get()
+        anon_key = os.getenv("SUPABASE_ANON_KEY", "")
+        return {
+            "apikey": anon_key,
+            "Authorization": f"Bearer {user_jwt}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
+        }
+    except LookupError:
+        return _supa_headers()
 
 
 def _supa_url() -> str:
@@ -61,7 +88,7 @@ async def list_members(organization_id: str) -> List[Dict[str, Any]]:
             f"{_supa_url()}/rest/v1/organization_members"
             f"?organization_id=eq.{organization_id}"
             f"&select=user_id,role,created_at&order=created_at.asc",
-            headers=_supa_headers(),
+            headers=_jwt_or_supa_headers(),
             timeout=10,
         )
 
@@ -108,7 +135,7 @@ async def update_member_role(
             f"{_supa_url()}/rest/v1/organization_members"
             f"?user_id=eq.{target_user_id}&organization_id=eq.{organization_id}"
             f"&select=role&limit=1",
-            headers=_supa_headers(),
+            headers=_jwt_or_supa_headers(),
             timeout=10,
         )
 
@@ -125,7 +152,7 @@ async def update_member_role(
         resp = await client.patch(
             f"{_supa_url()}/rest/v1/organization_members"
             f"?user_id=eq.{target_user_id}&organization_id=eq.{organization_id}",
-            headers={**_supa_headers(), "Prefer": "return=representation"},
+            headers={**_jwt_or_supa_headers(), "Prefer": "return=representation"},
             json={"role": new_role},
             timeout=10,
         )

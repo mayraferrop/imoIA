@@ -8,6 +8,9 @@ POST /api/v1/financial/simulate                 — Simular sem persistir
 POST /api/v1/financial/mao                     — Calcular MAO (regra 70%)
 POST /api/v1/financial/floor-price             — Calcular preco minimo de venda
 POST /api/v1/financial/quick-imt               — Calculo rapido de IMT/IS
+
+# FIXME(jwt-refactor): imports inline de supabase_rest usam SERVICE_ROLE_KEY.
+# Migrar para JWT do utilizador quando tabelas tiverem policies 'authenticated'.
 GET  /api/v1/financial/{model_id}/cash-flow    — Fluxo de caixa mensal
 """
 

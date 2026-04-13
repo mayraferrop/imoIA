@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, Query
 from loguru import logger
 from pydantic import BaseModel, Field
 
+# FIXME(jwt-refactor): migrar para JWT do utilizador quando tabelas tiverem policies 'authenticated'
 from src.database import supabase_rest as supa
 
 router = APIRouter()
