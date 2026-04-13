@@ -16,6 +16,7 @@ from fastapi.responses import Response
 from loguru import logger
 
 from src.database.db import get_session
+# FIXME(jwt-refactor): migrar para JWT do utilizador quando tabelas tiverem policies 'authenticated'
 from src.database import supabase_rest as db
 from src.shared.document_storage import DocumentStorageService
 

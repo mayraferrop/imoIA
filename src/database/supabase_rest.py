@@ -10,12 +10,12 @@ Isolamento multi-tenant:
   - Em contexto admin (workers, scripts), usar admin_client() para
     bypass do filtro.
 
-# TODO (pos Dia 3, antes da Fase 2B): refactor para usar JWT do
-# utilizador em vez de SERVICE_ROLE_KEY para contextos de request.
-# Manter SERVICE_ROLE_KEY apenas para workers Celery e scripts
-# administrativos. Isto da defense in depth via RLS alem do filtro
-# aplicacional. Razao para ter ficado para depois: evitar atrasar
-# a Fase 2A com refactoring de 15+ ficheiros.
+# FIXME(jwt-refactor): activar current_user_token em _headers()
+# quando TODAS as tabelas tiverem policies para 'authenticated'.
+# Hoje so organization_members e organizations tem policies.
+# Services da Fase 2B (roles.py, members.py) ja usam JWT via
+# current_user_token. Restantes 13 ficheiros pendentes.
+# Ver docs/TODOS_FASE_2B.md para lista completa.
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ from loguru import logger
 # Workers/scripts usam admin_client() para bypass.
 
 current_org_id: contextvars.ContextVar[str] = contextvars.ContextVar("current_org_id")
+current_user_token: contextvars.ContextVar[str] = contextvars.ContextVar("current_user_token")
 _admin_mode: contextvars.ContextVar[bool] = contextvars.ContextVar("admin_mode", default=False)
 
 # Tabelas que NAO tem coluna organization_id
@@ -142,6 +143,11 @@ def _ensure_config():
 
 
 def _headers(prefer: str = "return=representation") -> Dict[str, str]:
+    # FIXME(jwt-refactor): quando TODAS as tabelas tiverem policies
+    # para 'authenticated', activar current_user_token aqui.
+    # Hoje so organization_members e organizations tem policies.
+    # Activar prematuramente quebraria os 13 ficheiros que usam
+    # supabase_rest.py (queries retornariam vazio sem policies).
     _ensure_config()
     return {
         "apikey": _SUPA_KEY,
