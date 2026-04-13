@@ -4,6 +4,16 @@ import { useState, useEffect, useCallback } from "react";
 import { apiGet, apiPost, apiPatch } from "@/lib/api";
 import { formatEUR, cn, GRADE_COLORS } from "@/lib/utils";
 
+interface AIEnrichment {
+  adjustment: number;
+  confidence: string;
+  reasoning: string;
+  signals: string[];
+  final_score: number;
+  last_run_at: string;
+  cache_hash: string;
+}
+
 interface Lead {
   id: string;
   name: string;
@@ -13,6 +23,14 @@ interface Lead {
   stage?: string;
   score?: number;
   grade?: string;
+  score_breakdown?: {
+    demographic?: number;
+    behavioral?: number;
+    communication?: number;
+    urgency?: number;
+    total?: number;
+    ai_enrichment?: AIEnrichment;
+  };
   budget_min?: number;
   budget_max?: number;
   preferred_typology?: string;
@@ -198,6 +216,15 @@ export default function LeadsPage() {
   async function recalculateScore(leadId: string) {
     await apiPost(`/api/v1/leads/${leadId}/recalculate-score`);
     loadLeads();
+  }
+
+  const [aiScoringId, setAiScoringId] = useState<string | null>(null);
+
+  async function recalculateWithAI(leadId: string, force: boolean = false) {
+    setAiScoringId(leadId);
+    await apiPost(`/api/v1/leads/${leadId}/recalculate-score?with_ai=true&force_ai=${force}`);
+    await loadLeads();
+    setAiScoringId(null);
   }
 
   async function loadTimeline(leadId: string) {
@@ -484,6 +511,11 @@ export default function LeadsPage() {
                     >
                       {lead.grade ?? "D"} {lead.score != null && `(${lead.score})`}
                     </span>
+                    {lead.score_breakdown?.ai_enrichment?.reasoning && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-violet-50 text-violet-600" title={lead.score_breakdown.ai_enrichment.reasoning}>
+                        IA
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     <span
@@ -522,8 +554,8 @@ export default function LeadsPage() {
                         )}
                       </div>
 
-                      {/* Grade badge */}
-                      <div className="flex justify-center">
+                      {/* Grade badge + AI */}
+                      <div className="flex flex-col items-center gap-3">
                         <div
                           className="w-24 h-24 rounded-xl flex flex-col items-center justify-center border-2"
                           style={{ backgroundColor: `${gradeColor}10`, borderColor: gradeColor }}
@@ -531,6 +563,13 @@ export default function LeadsPage() {
                           <span className="text-3xl font-bold" style={{ color: gradeColor }}>{lead.grade ?? "D"}</span>
                           <span className="text-sm" style={{ color: gradeColor }}>{lead.score ?? 0} pts</span>
                         </div>
+                        {lead.score_breakdown?.ai_enrichment && (
+                          <div className="text-center">
+                            <span className="text-[10px] font-medium text-violet-600 bg-violet-50 px-2 py-0.5 rounded">
+                              IA {lead.score_breakdown.ai_enrichment.adjustment >= 0 ? "+" : ""}{lead.score_breakdown.ai_enrichment.adjustment}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Stage change + actions */}
@@ -553,8 +592,56 @@ export default function LeadsPage() {
                         >
                           Recalcular Score
                         </button>
+                        <button
+                          onClick={() => recalculateWithAI(lead.id, false)}
+                          disabled={aiScoringId === lead.id}
+                          className="w-full px-3 py-2 text-xs font-medium text-violet-700 border border-violet-400 rounded-lg hover:bg-violet-50 disabled:opacity-50"
+                        >
+                          {aiScoringId === lead.id ? "Analisando..." : "Scoring com IA"}
+                        </button>
                       </div>
                     </div>
+
+                    {/* AI Analysis */}
+                    {lead.score_breakdown?.ai_enrichment?.reasoning && (
+                      <div className="mt-4 pt-4 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-semibold text-violet-700">Analise IA</h4>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${
+                              lead.score_breakdown.ai_enrichment.confidence === "high"
+                                ? "bg-green-50 text-green-700"
+                                : lead.score_breakdown.ai_enrichment.confidence === "medium"
+                                ? "bg-amber-50 text-amber-700"
+                                : "bg-slate-100 text-slate-500"
+                            }`}>
+                              Confianca: {lead.score_breakdown.ai_enrichment.confidence}
+                            </span>
+                            <button
+                              onClick={() => recalculateWithAI(lead.id, true)}
+                              disabled={aiScoringId === lead.id}
+                              className="text-[10px] text-violet-500 hover:text-violet-700 disabled:opacity-50"
+                            >
+                              {aiScoringId === lead.id ? "..." : "Re-analisar"}
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-600 mb-2">{lead.score_breakdown.ai_enrichment.reasoning}</p>
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {lead.score_breakdown.ai_enrichment.signals.map((s, i) => (
+                            <span key={i} className="text-[10px] bg-violet-50 text-violet-600 px-2 py-0.5 rounded">
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-4 text-[10px] text-slate-400">
+                          <span>Rule: {lead.score_breakdown.total ?? 0} | AI: {lead.score_breakdown.ai_enrichment.adjustment >= 0 ? "+" : ""}{lead.score_breakdown.ai_enrichment.adjustment} = {lead.score_breakdown.ai_enrichment.final_score}</span>
+                          {lead.score_breakdown.ai_enrichment.last_run_at && (
+                            <span>Ultima analise: {lead.score_breakdown.ai_enrichment.last_run_at.slice(0, 16)}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Timeline */}
                     <div className="mt-4 pt-4 border-t border-slate-100">

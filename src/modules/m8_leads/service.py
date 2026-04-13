@@ -4,10 +4,16 @@ Logica de negocio para gestao de leads: CRUD, scoring, matching,
 nurturing automatico, integracao Habta, e analytics.
 
 Persistencia via Supabase REST (sem SQLAlchemy).
+
+TODO(llm-provider): Considerar centralizar em shared/llm_provider.py
+quando 6o modulo usar Claude API. Actualmente: M1 classifier,
+M1 strategy_router, M7 content_generator, M7 creative_evaluator, M8 scoring.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -136,6 +142,167 @@ def _calculate_grade(score: int) -> str:
     elif score >= 30:
         return "C"
     return "D"
+
+
+# ---------------------------------------------------------------------------
+# AI Scoring Enrichment
+# ---------------------------------------------------------------------------
+
+_AI_CACHE_DAYS = 7
+_AI_CACHE_FIELDS = (
+    "notes", "stage", "timeline", "financing", "budget_min", "budget_max",
+    "preferred_typology", "buyer_type", "source",
+)
+
+_AI_SYSTEM_PROMPT = (
+    "Voce e um analista experiente de leads imobiliarios para uma plataforma "
+    "de fix & flip que opera em Portugal e Brasil. A plataforma atende "
+    "investidores brasileiros que compram imoveis em Portugal para renovar "
+    "e revender. Analise o lead fornecido e ajuste o score (-30 a +30) "
+    "baseado em sinais de qualidade que o scoring rule-based nao captura. "
+    "Responda APENAS em JSON valido, sem markdown."
+)
+
+
+def _compute_ai_hash(lead: Dict[str, Any], interactions_count: int) -> str:
+    """Hash dos campos relevantes para decidir se re-run AI e necessario."""
+    data = {k: lead.get(k) for k in _AI_CACHE_FIELDS}
+    data["interactions_count"] = interactions_count
+    raw = json.dumps(data, sort_keys=True, default=str)
+    return hashlib.md5(raw.encode()).hexdigest()
+
+
+def _ai_cache_valid(lead: Dict[str, Any]) -> bool:
+    """Verifica se o cache de AI scoring ainda e valido."""
+    breakdown = lead.get("score_breakdown") or {}
+    ai = breakdown.get("ai_enrichment")
+    if not ai or not ai.get("last_run_at"):
+        return False
+    try:
+        last_run = datetime.fromisoformat(ai["last_run_at"])
+        if (datetime.utcnow() - last_run).days >= _AI_CACHE_DAYS:
+            return False
+    except (ValueError, TypeError):
+        return False
+    interactions_count = db._count("lead_interactions", f"lead_id=eq.{lead['id']}")
+    current_hash = _compute_ai_hash(lead, interactions_count)
+    return ai.get("cache_hash") == current_hash
+
+
+def _enrich_score_with_ai(
+    lead: Dict[str, Any],
+    current_score: int,
+    force: bool = False,
+) -> Dict[str, Any]:
+    """Analisa o lead via Claude Haiku e ajusta o score.
+
+    Retorna dict com ai_adjustment, ai_confidence, ai_reasoning,
+    ai_signals, final_score. Graceful degradation se API falhar.
+    """
+    from src.config import get_settings
+    settings = get_settings()
+
+    # Resultado neutro para fallback
+    interactions_count = db._count("lead_interactions", f"lead_id=eq.{lead['id']}")
+    cache_hash = _compute_ai_hash(lead, interactions_count)
+    neutral = {
+        "adjustment": 0,
+        "confidence": "none",
+        "reasoning": "",
+        "signals": [],
+        "final_score": max(0, min(100, current_score)),
+        "last_run_at": datetime.utcnow().isoformat(),
+        "cache_hash": cache_hash,
+    }
+
+    # Graceful: sem API key
+    if not settings.anthropic_api_key:
+        logger.warning("ANTHROPIC_API_KEY nao configurada, AI scoring ignorado")
+        neutral["reasoning"] = "API key nao configurada"
+        return neutral
+
+    # Cache check (skip se force=True)
+    if not force:
+        breakdown = lead.get("score_breakdown") or {}
+        existing_ai = breakdown.get("ai_enrichment")
+        if existing_ai and existing_ai.get("cache_hash") == cache_hash:
+            try:
+                last_run = datetime.fromisoformat(existing_ai["last_run_at"])
+                if (datetime.utcnow() - last_run).days < _AI_CACHE_DAYS:
+                    logger.debug(f"AI scoring cache hit para lead {lead['id']}")
+                    return existing_ai
+            except (ValueError, TypeError):
+                pass
+
+    # Construir prompt com dados do lead
+    lead_summary = {
+        "name": lead.get("name"),
+        "email": "presente" if lead.get("email") else "ausente",
+        "phone": "presente" if lead.get("phone") else "ausente",
+        "budget_min": lead.get("budget_min"),
+        "budget_max": lead.get("budget_max"),
+        "preferred_typology": lead.get("preferred_typology"),
+        "preferred_locations": lead.get("preferred_locations") or [],
+        "timeline": lead.get("timeline"),
+        "financing": lead.get("financing"),
+        "buyer_type": lead.get("buyer_type"),
+        "stage": lead.get("stage"),
+        "source": lead.get("source"),
+        "notes": (lead.get("notes") or "")[:500],
+        "tags": lead.get("tags") or [],
+        "interactions_count": interactions_count,
+        "current_rule_score": current_score,
+        "current_grade": _calculate_grade(current_score),
+    }
+
+    user_prompt = (
+        f"Lead para analise:\n{json.dumps(lead_summary, ensure_ascii=False, indent=2)}\n\n"
+        "Responda em JSON com estas chaves exactas:\n"
+        '{"adjustment": int (-30 a +30), "confidence": "high"|"medium"|"low", '
+        '"reasoning": "1-2 frases", "signals": ["sinal1", "sinal2"]}'
+    )
+
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=500,
+            temperature=0.1,
+            system=_AI_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+
+        raw_text = response.content[0].text.strip()
+        # Limpar markdown se presente
+        if raw_text.startswith("```"):
+            raw_text = raw_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+
+        parsed = json.loads(raw_text)
+
+        adjustment = max(-30, min(30, int(parsed.get("adjustment", 0))))
+        final = max(0, min(100, current_score + adjustment))
+
+        result = {
+            "adjustment": adjustment,
+            "confidence": parsed.get("confidence", "low"),
+            "reasoning": str(parsed.get("reasoning", ""))[:300],
+            "signals": [str(s)[:100] for s in (parsed.get("signals") or [])[:6]],
+            "final_score": final,
+            "last_run_at": datetime.utcnow().isoformat(),
+            "cache_hash": cache_hash,
+        }
+        logger.info(
+            f"AI scoring para lead {lead['id']}: "
+            f"adjustment={adjustment}, final={final}, "
+            f"confidence={result['confidence']}"
+        )
+        return result
+
+    except Exception as e:
+        logger.warning(f"AI scoring falhou para lead {lead.get('id')}: {e}")
+        neutral["reasoning"] = f"Erro na API: {type(e).__name__}"
+        return neutral
 
 
 class LeadService:
@@ -342,15 +509,22 @@ class LeadService:
     # Scoring
     # ------------------------------------------------------------------
 
-    def recalculate_score(self, lead_id: str) -> Dict[str, Any]:
-        """Recalcula o score de um lead."""
+    def recalculate_score(
+        self, lead_id: str, with_ai: bool = False, force_ai: bool = False,
+    ) -> Dict[str, Any]:
+        """Recalcula o score de um lead (opt-in AI enrichment)."""
         lead = db.get_by_id("leads", lead_id)
         if lead is None:
             raise ValueError(f"Lead {lead_id} nao encontrado")
-        return self._do_recalculate_score(lead)
+        return self._do_recalculate_score(lead, with_ai=with_ai, force_ai=force_ai)
 
-    def _do_recalculate_score(self, lead: Dict[str, Any]) -> Dict[str, Any]:
-        """Calcula e persiste o score do lead (4 componentes)."""
+    def _do_recalculate_score(
+        self,
+        lead: Dict[str, Any],
+        with_ai: bool = False,
+        force_ai: bool = False,
+    ) -> Dict[str, Any]:
+        """Calcula e persiste o score do lead (4 componentes + AI opcional)."""
         lead_id = lead["id"]
 
         # 1. Demografico (0-30): budget, email, telefone, tipologia
@@ -438,19 +612,27 @@ class LeadService:
             urgency += 2
         urgency = min(urgency, 10)
 
-        total = demographic + behavioral + communication + urgency
-        grade = _calculate_grade(total)
+        rule_total = demographic + behavioral + communication + urgency
 
         breakdown = {
             "demographic": demographic,
             "behavioral": behavioral,
             "communication": communication,
             "urgency": urgency,
-            "total": total,
+            "total": rule_total,
         }
 
+        # 5. AI enrichment (opt-in)
+        final_total = rule_total
+        if with_ai:
+            ai_result = _enrich_score_with_ai(lead, rule_total, force=force_ai)
+            breakdown["ai_enrichment"] = ai_result
+            final_total = ai_result["final_score"]
+
+        grade = _calculate_grade(final_total)
+
         lead = db.update("leads", lead_id, {
-            "score": total,
+            "score": final_total,
             "score_breakdown": breakdown,
             "grade": grade,
         })
@@ -459,9 +641,44 @@ class LeadService:
 
         logger.debug(
             f"Score recalculado para lead {lead_id}: "
-            f"{total} (grade={grade})"
+            f"{final_total} (grade={grade}, ai={'yes' if with_ai else 'no'})"
         )
         return _lead_to_dict(lead, count)
+
+    async def rescore_batch(
+        self, lead_ids: List[str], with_ai: bool = True,
+    ) -> Dict[str, Any]:
+        """Re-score em batch (admin only)."""
+        processed = 0
+        ai_calls = 0
+        skipped_cached = 0
+        errors = []
+
+        for lid in lead_ids:
+            try:
+                lead = db.get_by_id("leads", lid)
+                if lead is None:
+                    errors.append({"lead_id": lid, "error": "nao encontrado"})
+                    continue
+                # Verificar cache antes
+                if with_ai and _ai_cache_valid(lead):
+                    skipped_cached += 1
+                    processed += 1
+                    continue
+                self._do_recalculate_score(lead, with_ai=with_ai)
+                processed += 1
+                if with_ai:
+                    ai_calls += 1
+            except Exception as e:
+                errors.append({"lead_id": lid, "error": str(e)})
+                logger.warning(f"Erro rescore batch lead {lid}: {e}")
+
+        return {
+            "processed": processed,
+            "ai_calls": ai_calls,
+            "skipped_cached": skipped_cached,
+            "errors": errors,
+        }
 
     # ------------------------------------------------------------------
     # Interactions

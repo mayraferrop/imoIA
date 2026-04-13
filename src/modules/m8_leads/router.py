@@ -72,6 +72,18 @@ async def execute_pending_nurtures() -> Dict[str, Any]:
     return await service.execute_pending_nurtures()
 
 
+@router.post("/rescore-batch", summary="Re-scoring em batch (admin)")
+async def rescore_batch(
+    body: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Re-score em batch. Body: {"lead_ids": [...], "with_ai": true}."""
+    lead_ids = body.get("lead_ids", [])
+    if not lead_ids or not isinstance(lead_ids, list):
+        raise HTTPException(status_code=400, detail="lead_ids obrigatorio (lista)")
+    with_ai = body.get("with_ai", True)
+    return await service.rescore_batch(lead_ids, with_ai=with_ai)
+
+
 # ---------------------------------------------------------------------------
 # CRUD — Lead
 # ---------------------------------------------------------------------------
@@ -198,10 +210,14 @@ async def get_timeline(lead_id: str) -> List[Dict[str, Any]]:
 
 
 @router.post("/{lead_id}/recalculate-score", summary="Recalcular score")
-async def recalculate_score(lead_id: str) -> Dict[str, Any]:
-    """Recalcula o score e grade do lead."""
+async def recalculate_score(
+    lead_id: str,
+    with_ai: bool = Query(False, description="Enriquecer com AI scoring"),
+    force_ai: bool = Query(False, description="Forcar re-analise AI (ignora cache)"),
+) -> Dict[str, Any]:
+    """Recalcula o score e grade do lead (opt-in AI enrichment)."""
     try:
-        return service.recalculate_score(lead_id)
+        return service.recalculate_score(lead_id, with_ai=with_ai, force_ai=force_ai)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
