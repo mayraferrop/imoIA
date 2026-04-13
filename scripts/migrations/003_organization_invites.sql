@@ -44,28 +44,80 @@ BEGIN
     END IF;
 END $$;
 
--- Policy RLS para utilizadores autenticados (membros da org)
--- NOTA: Requer execucao via Supabase Dashboard (superuser) porque
--- referencia auth.uid() que imoia_app nao consegue aceder.
--- DO $$
--- BEGIN
---     IF NOT EXISTS (
---         SELECT 1 FROM pg_policies
---         WHERE tablename = 'organization_invites'
---           AND policyname = 'invites_select_own_org'
---     ) THEN
---         CREATE POLICY invites_select_own_org ON public.organization_invites
---           FOR SELECT USING (
---             organization_id IN (
---               SELECT organization_id FROM public.organization_members
---               WHERE user_id = auth.uid()
---             )
---           );
---     END IF;
--- END $$;
+-- Policies RLS para utilizadores autenticados
+-- Usa current_setting em vez de auth.uid() para evitar dependencia do schema auth
+-- (imoia_app nao tem USAGE no schema auth).
+
+DO $$
+BEGIN
+    -- SELECT: membros da org podem ver convites
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'organization_invites'
+          AND policyname = 'invites_select_own_org'
+    ) THEN
+        CREATE POLICY invites_select_own_org ON public.organization_invites
+          FOR SELECT TO authenticated USING (
+            organization_id IN (
+              SELECT organization_id FROM public.organization_members
+              WHERE user_id = (current_setting('request.jwt.claims', true)::json->>'sub')::uuid
+            )
+          );
+    END IF;
+
+    -- INSERT: apenas admin/owner podem criar convites
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'organization_invites'
+          AND policyname = 'invites_insert_admin'
+    ) THEN
+        CREATE POLICY invites_insert_admin ON public.organization_invites
+          FOR INSERT TO authenticated WITH CHECK (
+            organization_id IN (
+              SELECT organization_id FROM public.organization_members
+              WHERE user_id = (current_setting('request.jwt.claims', true)::json->>'sub')::uuid
+                AND role IN ('owner', 'admin')
+            )
+          );
+    END IF;
+
+    -- UPDATE: admin/owner podem marcar como aceite/revogado
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'organization_invites'
+          AND policyname = 'invites_update_admin'
+    ) THEN
+        CREATE POLICY invites_update_admin ON public.organization_invites
+          FOR UPDATE TO authenticated USING (
+            organization_id IN (
+              SELECT organization_id FROM public.organization_members
+              WHERE user_id = (current_setting('request.jwt.claims', true)::json->>'sub')::uuid
+                AND role IN ('owner', 'admin')
+            )
+          );
+    END IF;
+
+    -- DELETE: admin/owner podem eliminar convites
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'organization_invites'
+          AND policyname = 'invites_delete_admin'
+    ) THEN
+        CREATE POLICY invites_delete_admin ON public.organization_invites
+          FOR DELETE TO authenticated USING (
+            organization_id IN (
+              SELECT organization_id FROM public.organization_members
+              WHERE user_id = (current_setting('request.jwt.claims', true)::json->>'sub')::uuid
+                AND role IN ('owner', 'admin')
+            )
+          );
+    END IF;
+END $$;
 
 -- ============================================================
 -- Migração 003 aplicada: tabela organization_invites com RLS.
--- NOTA: Policy invites_select_own_org (auth.uid) requer execucao
--- manual via Supabase Dashboard SQL Editor.
+-- Policies aplicadas: imoia_app_all + 4 policies authenticated
+-- (SELECT membros, INSERT/UPDATE/DELETE admin/owner).
+-- NOTA: invites.py mantém SERVICE_ROLE_KEY porque accept_invite
+-- é chamado por users que ainda não são membros da org.
 -- ============================================================

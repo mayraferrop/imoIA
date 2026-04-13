@@ -5,15 +5,13 @@
 
 ---
 
-## 1. RLS — organization_invites
+## 1. ~~RLS — organization_invites~~ ✅ RESOLVIDO
 
-- **Owner da tabela:** `imoia_app`
-- **RLS:** activada
-- **Policy actual:** apenas `imoia_app_all` (ALL para role `imoia_app`)
-- **Policy `invites_select_own_org`:** NÃO criada
-- **Bloqueio:** SQL Editor do Supabase não tem permissões para alterar owner. A policy usa `auth.uid()`, que requer role `authenticated`/`anon` (não `imoia_app`).
-- **Plano:** aplicar quando se fizer refactor de `supabase_rest.py` para JWT (item 3 abaixo). Até lá, o backend usa `SERVICE_ROLE_KEY` que bypassa RLS — sem risco funcional.
-- **Workaround actual:** backend usa `SERVICE_ROLE_KEY` em todas as queries PostgREST. RLS é bypassed.
+- **Resolvido em:** 2026-04-10 (hardening Fase 2B)
+- **Solução:** 4 policies RLS criadas com `current_setting('request.jwt.claims')` em vez de `auth.uid()`, evitando dependência do schema `auth`.
+- **Policies:** `invites_select_own_org` (SELECT membros), `invites_insert_admin` (INSERT admin/owner), `invites_update_admin` (UPDATE admin/owner), `invites_delete_admin` (DELETE admin/owner).
+- **Migração 003** actualizada com as policies (idempotente).
+- **NOTA:** `invites.py` mantém `SERVICE_ROLE_KEY` porque `accept_invite` é chamado por users que ainda não são membros da org. Migração para JWT só para operações admin (futuro).
 
 ---
 
