@@ -251,48 +251,94 @@ async def list_listing_photos(listing_id: str) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+_MAX_LOGO_BYTES = 2 * 1024 * 1024  # 2 MB
+_LOGO_MIMES = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+    "image/svg+xml": "svg",
+}
+_LOGO_FIELDS = {
+    "primary": "logo_primary_url",
+    "white": "logo_white_url",
+    "icon": "logo_icon_url",
+}
+
+
 @router.post("/brand-kit/logo", summary="Upload logo")
 async def upload_brand_logo(
     file: UploadFile = File(...),
     logo_type: str = Query("primary", description="primary, white, icon"),
 ) -> Dict[str, Any]:
-    """Upload de logo para o brand kit."""
+    """Upload de logo para o brand kit (bucket brand-assets, publico)."""
     from src.database import supabase_rest as db
-    from src.database.db import get_session
-    from src.shared.document_storage import DocumentStorageService
+    from src.shared.storage_provider import (
+        BUCKET_BRAND_ASSETS,
+        get_public_url,
+        upload_file,
+    )
+
+    field = _LOGO_FIELDS.get(logo_type)
+    if not field:
+        raise HTTPException(
+            status_code=400, detail=f"logo_type invalido: {logo_type}"
+        )
+
+    content_type = (file.content_type or "").lower()
+    ext = _LOGO_MIMES.get(content_type)
+    if not ext:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Formato nao suportado: {content_type}. Aceita: png, jpg, webp, svg",
+        )
+
+    content = await file.read()
+    if len(content) > _MAX_LOGO_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Logo excede 2MB ({len(content) / 1024 / 1024:.2f}MB)",
+        )
 
     tid = db.ensure_tenant()
-
-    # Verificar brand kit existe
     bk_rows = db._get("brand_kits", f"tenant_id=eq.{tid}&limit=1")
     if not bk_rows:
         raise HTTPException(status_code=400, detail="Brand kit nao configurado")
     bk = bk_rows[0]
 
-    content = await file.read()
+    bucket_path = f"tenants/{tid}/logo_{logo_type}.{ext}"
+    upload_file(BUCKET_BRAND_ASSETS, bucket_path, content, content_type)
+    url = get_public_url(BUCKET_BRAND_ASSETS, bucket_path)
 
-    # DocumentStorageService ainda precisa de session para gravar Document
-    with get_session() as session:
-        storage = DocumentStorageService(session)
-        doc = storage.upload_document(
-            file_content=content,
-            filename=file.filename or f"logo_{logo_type}.png",
-            tenant_id=tid,
-            document_type=f"brand_logo_{logo_type}",
-            title=f"Logo {logo_type}",
+    db.update("brand_kits", bk["id"], {field: url})
+    return {"logo_type": logo_type, "url": url}
+
+
+@router.delete("/brand-kit/logo", summary="Remover logo")
+async def delete_brand_logo(
+    logo_type: str = Query(..., description="primary, white, icon"),
+) -> Dict[str, Any]:
+    """Remove logo do brand kit (apaga do bucket e limpa BrandKit.logo_*_url)."""
+    from src.database import supabase_rest as db
+    from src.shared.storage_provider import BUCKET_BRAND_ASSETS, delete_file
+
+    field = _LOGO_FIELDS.get(logo_type)
+    if not field:
+        raise HTTPException(
+            status_code=400, detail=f"logo_type invalido: {logo_type}"
         )
 
-    url = f"/api/v1/documents/{doc['id']}/download"
-    field_map = {
-        "primary": "logo_primary_url",
-        "white": "logo_white_url",
-        "icon": "logo_icon_url",
-    }
-    field = field_map.get(logo_type)
-    if field:
-        db.update("brand_kits", bk["id"], {field: url})
+    tid = db.ensure_tenant()
+    bk_rows = db._get("brand_kits", f"tenant_id=eq.{tid}&limit=1")
+    if not bk_rows:
+        raise HTTPException(status_code=400, detail="Brand kit nao configurado")
+    bk = bk_rows[0]
 
-    return {"logo_type": logo_type, "url": url, "document_id": doc["id"]}
+    # Tenta apagar todas as extensoes conhecidas (o formato original pode variar)
+    for ext in _LOGO_MIMES.values():
+        delete_file(BUCKET_BRAND_ASSETS, f"tenants/{tid}/logo_{logo_type}.{ext}")
+
+    db.update("brand_kits", bk["id"], {field: None})
+    return {"logo_type": logo_type, "removed": True}
 
 
 # ---------------------------------------------------------------------------

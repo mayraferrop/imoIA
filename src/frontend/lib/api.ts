@@ -76,6 +76,26 @@ export async function apiPatch<T = unknown>(
   }
 }
 
+export async function apiUpload<T = unknown>(
+  path: string,
+  formData: FormData
+): Promise<T | null> {
+  try {
+    const headers = await getAuthHeaders();
+    // Remove Content-Type para o browser adicionar boundary multipart correcto
+    delete headers["Content-Type"];
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
 export async function apiDelete<T = unknown>(path: string): Promise<T | null> {
   try {
     const headers = await getAuthHeaders();

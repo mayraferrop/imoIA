@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { fetcher, apiPost, apiPatch, API_BASE } from "@/lib/api";
+import { fetcher, apiPost, apiPatch, apiUpload, apiDelete, API_BASE } from "@/lib/api";
 import { formatEUR, cn } from "@/lib/utils";
 
 interface BrandKit {
@@ -177,6 +177,39 @@ export default function MarketingPage() {
     const langs = safeArray(bk?.active_languages);
     setBkLangs(langs.length > 0 ? langs : ["pt-PT"]);
   }, []);
+
+  const [uploadingLogo, setUploadingLogo] = useState<Record<string, boolean>>({});
+
+  async function uploadLogo(logoType: "primary" | "white" | "icon", file: File) {
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Logo excede 2MB");
+      return;
+    }
+    setUploadingLogo((p) => ({ ...p, [logoType]: true }));
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await apiUpload(`/api/v1/marketing/brand-kit/logo?logo_type=${logoType}`, fd);
+      if (!res) {
+        alert("Upload falhou");
+        return;
+      }
+      await loadData();
+    } finally {
+      setUploadingLogo((p) => ({ ...p, [logoType]: false }));
+    }
+  }
+
+  async function deleteLogo(logoType: "primary" | "white" | "icon") {
+    if (!confirm("Remover este logo?")) return;
+    setUploadingLogo((p) => ({ ...p, [logoType]: true }));
+    try {
+      await apiDelete(`/api/v1/marketing/brand-kit/logo?logo_type=${logoType}`);
+      await loadData();
+    } finally {
+      setUploadingLogo((p) => ({ ...p, [logoType]: false }));
+    }
+  }
 
   async function saveBrandKit() {
     if (!bkName) return;
@@ -548,6 +581,70 @@ export default function MarketingPage() {
                   ))}
                 </div>
               </div>
+
+              {hasBrandKit && (
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-3">Logos</h3>
+                  <p className="text-xs text-slate-500 mb-3">
+                    PNG, JPG, WebP ou SVG. Máximo 2MB por ficheiro.
+                  </p>
+                  <div className="grid grid-cols-3 gap-4">
+                    {[
+                      { type: "primary" as const, label: "Logo principal", field: "logo_primary_url", bg: "bg-slate-50" },
+                      { type: "white" as const, label: "Logo fundo escuro", field: "logo_white_url", bg: "bg-slate-800" },
+                      { type: "icon" as const, label: "Favicon", field: "logo_icon_url", bg: "bg-slate-50" },
+                    ].map(({ type, label, field, bg }) => {
+                      const url = (brandKit as any)?.[field];
+                      const busy = uploadingLogo[type];
+                      return (
+                        <div key={type} className="space-y-2">
+                          <p className="text-xs text-slate-500">{label}</p>
+                          <div className={cn(
+                            "rounded-lg p-4 border border-slate-100 flex items-center justify-center min-h-[80px]",
+                            bg
+                          )}>
+                            {url ? (
+                              <img
+                                src={url.startsWith("/") ? `${API_BASE}${url}` : url}
+                                alt={label}
+                                className="max-h-12 object-contain"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                              />
+                            ) : (
+                              <span className="text-xs text-slate-400">Sem logo</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="flex-1 text-center px-2 py-1.5 text-xs font-medium text-teal-700 border border-teal-200 rounded-md hover:bg-teal-50 cursor-pointer">
+                              {busy ? "..." : url ? "Substituir" : "Carregar"}
+                              <input
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                                className="hidden"
+                                disabled={busy}
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) uploadLogo(type, f);
+                                  e.target.value = "";
+                                }}
+                              />
+                            </label>
+                            {url && (
+                              <button
+                                onClick={() => deleteLogo(type)}
+                                disabled={busy}
+                                className="px-2 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-md hover:bg-red-50 disabled:opacity-50"
+                              >
+                                Remover
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button
