@@ -164,36 +164,60 @@ async def upload_listing_photos(
     listing_id: str,
     files: List[UploadFile] = File(...),
 ) -> Dict[str, Any]:
-    """Upload de fotos para uma listing. Guarda via DocumentStorageService."""
+    """Upload de fotos para uma listing. Grava em Supabase Storage bucket
+    `properties` e cria Document com file_path em formato bucket."""
+    from uuid import uuid4
+    from pathlib import Path as _Path
     from src.database import supabase_rest as db
     from src.database.db import get_session
-    from src.shared.document_storage import DocumentStorageService
+    from src.database.models_v2 import Document
+    from src.shared.storage_provider import BUCKET_PROPERTIES, upload_file
 
     listing = db.get_by_id("listings", listing_id)
     if not listing:
         raise HTTPException(status_code=404, detail="Listing nao encontrada")
 
     tid = db.ensure_tenant()
+    mime_map = {
+        ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+        ".png": "image/png", ".webp": "image/webp",
+    }
 
-    # DocumentStorageService ainda precisa de session para gravar Document no DB
     with get_session() as session:
-        storage = DocumentStorageService(session)
         uploaded = []
         photos = list(listing.get("photos") or [])
 
         for i, file in enumerate(files):
             content = await file.read()
-            doc = storage.upload_document(
-                file_content=content,
-                filename=file.filename or f"photo_{i}.jpg",
+            ext = _Path(file.filename or "photo.jpg").suffix.lower() or ".jpg"
+            mime = mime_map.get(ext, "application/octet-stream")
+
+            doc_id = str(uuid4())
+            bucket_path = f"tenants/{tid}/listings/{listing_id}/{doc_id}{ext}"
+            upload_file(BUCKET_PROPERTIES, bucket_path, content, mime)
+
+            doc = Document(
+                id=doc_id,
                 tenant_id=tid,
                 deal_id=listing.get("deal_id"),
+                entity_type="listing",
+                entity_id=listing_id,
+                filename=file.filename or f"photo_{i}{ext}",
+                stored_filename=f"{doc_id}{ext}",
+                file_path=f"{BUCKET_PROPERTIES}:{bucket_path}",
+                file_size=len(content),
+                mime_type=mime,
+                file_extension=ext.lstrip("."),
                 document_type="listing_photo",
                 title=f"Foto {len(photos) + i + 1}",
+                uploaded_by="system",
             )
+            session.add(doc)
+            session.flush()
+
             photo_entry = {
-                "document_id": doc["id"],
-                "url": f"/api/v1/documents/{doc['id']}/download",
+                "document_id": doc_id,
+                "url": f"/api/v1/documents/{doc_id}/download",
                 "filename": file.filename,
                 "order": len(photos) + i,
                 "is_cover": len(photos) == 0 and i == 0,

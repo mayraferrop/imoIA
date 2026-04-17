@@ -613,31 +613,45 @@ class CreativeService:
     def _resolve_document_to_data_uri(
         url: Optional[str], session: Any
     ) -> str:
-        """Converte URL de API (/api/v1/documents/xxx/download) para data URI base64.
+        """Converte URL de API (/api/v1/documents/xxx/download) para URL acessivel.
 
-        Playwright headless nao consegue aceder a file:// nem a localhost,
-        por isso embedimos a imagem directamente no HTML como data URI.
+        Suporta dois tipos de storage no Document:
+        - Supabase Storage (file_path = "{bucket}:{path}") → retorna signed URL.
+          O Worker (e qualquer cliente externo) consegue fazer fetch sem auth.
+        - Filesystem legacy (file_path absoluto no disco) → retorna data URI
+          base64 (necessario para Playwright headless que nao acede a local).
         """
         if not url:
             return ""
-        # Se ja for URL absoluta (https://) ou data URI, retornar directamente
         if url.startswith(("http://", "https://", "data:")):
             return url
-        # Extrair document_id do padrao /api/v1/documents/{id}/download
         import re
         m = re.search(r'/api/v1/documents/([a-f0-9-]+)/download', url)
         if not m:
             return url
         doc_id = m.group(1)
         doc = session.get(Document, doc_id)
-        if not doc:
+        if not doc or not doc.file_path:
             return ""
+
+        # Supabase Storage: file_path = "{bucket}:{path_no_leading_slash}"
+        if ":" in doc.file_path and not doc.file_path.startswith("/"):
+            bucket, bucket_path = doc.file_path.split(":", 1)
+            try:
+                from src.shared.storage_provider import get_signed_url
+                return get_signed_url(bucket, bucket_path, expires_in=3600)
+            except Exception as exc:
+                logger.warning(
+                    f"Signed URL falhou para doc={doc_id}: {exc}"
+                )
+                return ""
+
+        # Legacy filesystem → data URI
         file_path = _Path(doc.file_path)
         if not file_path.is_absolute():
             file_path = _Path.cwd() / file_path
         if not file_path.exists():
             return ""
-        # Converter para data URI base64
         raw = file_path.read_bytes()
         mime = doc.mime_type or "image/jpeg"
         b64 = base64.b64encode(raw).decode("ascii")
