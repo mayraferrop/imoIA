@@ -1,0 +1,8 @@
+name = "imoia-creatives"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "7db177a480b9622fc1dde62efae53d7b"
+
+# CREATIVES_SECRET deve ser definido via: wrangler secret put CREATIVES_SECRET
+# Não colocar aqui (fica no repo).

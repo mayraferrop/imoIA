@@ -938,13 +938,20 @@ class CreativeService:
     def _try_generate_png(
         width: int, height: int, template_data: Dict[str, Any]
     ) -> Optional[bytes]:
-        """Gera PNG via Playwright (HTML→screenshot) ou Pillow fallback."""
-        # Tentar Playwright primeiro (alta qualidade)
+        """Gera PNG via Worker @vercel/og (primeiro), Playwright ou Pillow (fallbacks)."""
+        # 1) Cloudflare Worker com @vercel/og — renderer principal
+        from src.modules.m7_marketing.html_renderer import render_via_worker
+        creative_type = template_data.get("creative_type", "")
+        worker_result = render_via_worker(creative_type, template_data)
+        if worker_result:
+            return worker_result
+
+        # 2) Playwright local (legacy, alta qualidade mas lento)
         pw_result = CreativeService._try_playwright_render(width, height, template_data)
         if pw_result:
             return pw_result
 
-        # Fallback: Pillow (placeholder branded)
+        # 3) Pillow (placeholder branded, último recurso)
         return CreativeService._try_pillow_fallback(width, height, template_data)
 
     @staticmethod
