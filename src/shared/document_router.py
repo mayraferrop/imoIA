@@ -12,13 +12,15 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form
-from fastapi.responses import Response
+from fastapi.responses import RedirectResponse, Response
 from loguru import logger
 
 from src.database.db import get_session
+from src.database.models_v2 import Document
 # FIXME(jwt-refactor): migrar para JWT do utilizador quando tabelas tiverem policies 'authenticated'
 from src.database import supabase_rest as db
 from src.shared.document_storage import DocumentStorageService
+from src.shared.storage_provider import get_signed_url
 
 router = APIRouter()
 
@@ -54,9 +56,29 @@ async def upload_document(
 
 
 @router.get("/{document_id}/download", summary="Download de documento")
-async def download_document(document_id: str) -> Response:
-    """Retorna o ficheiro para download."""
+async def download_document(document_id: str):
+    """Retorna o ficheiro para download.
+
+    - Documentos em bucket (file_path = `bucket:path`) → redirect (302) para
+      signed URL com TTL 1h. Permite `<img src>` sem header Authorization.
+    - Documentos legacy em filesystem → stream directo (comportamento antigo).
+    """
     with get_session() as session:
+        doc = session.get(Document, document_id)
+        if not doc or not doc.file_path:
+            raise HTTPException(status_code=404, detail="Documento nao encontrado")
+
+        # Formato bucket: "{bucket}:{path}" — nao comeca com "/"
+        if ":" in doc.file_path and not doc.file_path.startswith("/"):
+            bucket, bucket_path = doc.file_path.split(":", 1)
+            try:
+                signed = get_signed_url(bucket, bucket_path, expires_in=3600)
+            except Exception as exc:
+                logger.error(f"Signed URL falhou para doc={document_id}: {exc}")
+                raise HTTPException(status_code=500, detail="Erro a gerar URL")
+            return RedirectResponse(url=signed, status_code=302)
+
+        # Legacy filesystem
         storage = DocumentStorageService(session)
         try:
             content, filename, mime_type = storage.get_file_content(document_id)

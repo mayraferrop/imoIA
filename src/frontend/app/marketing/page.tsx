@@ -56,6 +56,7 @@ interface Creative {
   height?: number;
   document_id?: string;
   file_url?: string;
+  signed_url?: string | null;
 }
 
 const CREATIVE_LABELS: Record<string, string> = {
@@ -727,17 +728,19 @@ export default function MarketingPage() {
                                 const downloadUrl = c.document_id
                                   ? `${API_BASE}/api/v1/documents/${c.document_id}/download`
                                   : null;
+                                // Preferência: signed_url (directo, sem auth) > downloadUrl (redirect na API)
+                                const previewUrl = c.signed_url || downloadUrl;
                                 const isVertical = (c.height ?? 0) > (c.width ?? 0);
                                 return (
                                   <div key={c.id} className="bg-slate-50 rounded-lg border border-slate-100 overflow-hidden group">
                                     {/* Thumbnail preview */}
-                                    {downloadUrl && c.format === "png" ? (
+                                    {previewUrl && c.format === "png" ? (
                                       <div className={cn(
                                         "bg-slate-200 flex items-center justify-center overflow-hidden",
                                         isVertical ? "h-36" : "h-28"
                                       )}>
                                         <img
-                                          src={downloadUrl}
+                                          src={previewUrl}
                                           alt={label}
                                           className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -751,9 +754,9 @@ export default function MarketingPage() {
                                     <div className="p-3">
                                       <p className="text-sm font-medium text-slate-900">{label}</p>
                                       <p className="text-xs text-slate-500">{c.width}x{c.height} {c.format?.toUpperCase()}</p>
-                                      {downloadUrl && (
+                                      {(previewUrl || downloadUrl) && (
                                         <a
-                                          href={downloadUrl}
+                                          href={previewUrl || downloadUrl || "#"}
                                           className="text-xs font-medium text-teal-700 hover:text-teal-800 mt-1.5 inline-block"
                                           target="_blank"
                                           rel="noopener noreferrer"

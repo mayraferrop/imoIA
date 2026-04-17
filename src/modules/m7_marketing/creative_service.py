@@ -29,6 +29,11 @@ from src.database.models_v2 import (
     Property,
     Tenant,
 )
+from src.shared.storage_provider import (
+    BUCKET_CREATIVES,
+    get_signed_url,
+    upload_file,
+)
 
 from pathlib import Path as _Path
 
@@ -167,8 +172,27 @@ _CREATIVE_SPECS: Dict[str, Dict[str, Any]] = {
 # ---------------------------------------------------------------------------
 
 
-def _creative_to_dict(c: ListingCreative) -> Dict[str, Any]:
-    """Serializa ListingCreative para dict."""
+def _creative_to_dict(
+    c: ListingCreative, session: Optional[Any] = None
+) -> Dict[str, Any]:
+    """Serializa ListingCreative para dict.
+
+    Quando o Document associado esta em Supabase Storage (file_path no formato
+    ``{bucket}:{path}``), inclui ``signed_url`` com TTL de 1h para render
+    directo no frontend via tag <img> sem auth adicional.
+    """
+    signed_url: Optional[str] = None
+    if session and c.document_id:
+        try:
+            doc = session.get(Document, c.document_id)
+            if doc and doc.file_path and ":" in doc.file_path and not doc.file_path.startswith("/"):
+                bucket, bucket_path = doc.file_path.split(":", 1)
+                signed_url = get_signed_url(bucket, bucket_path, expires_in=3600)
+        except Exception as exc:
+            logger.warning(
+                f"Nao foi possivel gerar signed_url para creative {c.id}: {exc}"
+            )
+
     return {
         "id": c.id,
         "tenant_id": c.tenant_id,
@@ -180,6 +204,7 @@ def _creative_to_dict(c: ListingCreative) -> Dict[str, Any]:
         "language": c.language,
         "document_id": c.document_id,
         "file_url": c.file_url,
+        "signed_url": signed_url,
         "file_size": c.file_size,
         "title_used": c.title_used,
         "description_used": c.description_used,
@@ -368,7 +393,7 @@ class CreativeService:
         """
         with get_session() as session:
             creative = session.get(ListingCreative, creative_id)
-            return _creative_to_dict(creative) if creative else None
+            return _creative_to_dict(creative, session) if creative else None
 
     def list_creatives(
         self,
@@ -405,7 +430,7 @@ class CreativeService:
                 stmt = stmt.where(ListingCreative.language == language)
 
             creatives = session.execute(stmt).scalars().all()
-            return [_creative_to_dict(c) for c in creatives]
+            return [_creative_to_dict(c, session) for c in creatives]
 
     def delete_creative(self, creative_id: str) -> bool:
         """Remove um criativo da base de dados.
@@ -452,7 +477,7 @@ class CreativeService:
             creative.approved_at = datetime.now(tz=timezone.utc)
             session.flush()
             logger.info(f"Criativo {creative_id} aprovado por {approved_by}")
-            return _creative_to_dict(creative)
+            return _creative_to_dict(creative, session)
 
     def get_creative_stats(self) -> Dict[str, Any]:
         """Retorna estatisticas globais de criativos.
@@ -582,7 +607,7 @@ class CreativeService:
                 f"type={creative_type}, lang={language}, "
                 f"doc={document_id}"
             )
-            return _creative_to_dict(creative)
+            return _creative_to_dict(creative, session)
 
     @staticmethod
     def _resolve_document_to_data_uri(
@@ -879,16 +904,14 @@ class CreativeService:
         if raw_bytes is None:
             return None, None, None
 
-        # Guardar ficheiro no disco
-        storage_dir = _Path("storage/creatives") / (listing.deal_id or "general")
-        storage_dir.mkdir(parents=True, exist_ok=True)
-
+        # Upload para Supabase Storage (bucket privado, acesso via signed URL)
         document_id = str(uuid4())
         stored_filename = f"{document_id}.{fmt}"
-        file_path = storage_dir / stored_filename
-        file_path.write_bytes(raw_bytes)
+        bucket_path = f"tenants/{listing.tenant_id}/{stored_filename}"
+        mime_type = "application/pdf" if fmt == "pdf" else "image/png"
+        upload_file(BUCKET_CREATIVES, bucket_path, raw_bytes, mime_type)
 
-        # Registar Document
+        # Registar Document com referencia ao bucket (formato "{bucket}:{path}")
         doc = Document(
             id=document_id,
             tenant_id=listing.tenant_id,
@@ -897,9 +920,9 @@ class CreativeService:
             entity_id=listing.id,
             filename=f"{creative_type}.{fmt}",
             stored_filename=stored_filename,
-            file_path=str(file_path),
+            file_path=f"{BUCKET_CREATIVES}:{bucket_path}",
             file_size=len(raw_bytes),
-            mime_type="application/pdf" if fmt == "pdf" else "image/png",
+            mime_type=mime_type,
             file_extension=fmt,
             document_type="creative",
             title=template_data.get("title", ""),

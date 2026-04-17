@@ -251,6 +251,7 @@ Quando receber instruções para trabalhar em paralelo, monte este time automati
 | Abr/2026 | SQLite removido, DATABASE_URL obrigatório | Sem fallback — PostgreSQL é o único BD suportado |
 | Abr/2026 | Backup semanal via cron + scripts/backup_supabase.py | Domingos 3h, exporta JSON para backups/ |
 | Abr/2026 | Fase 2A Auth concluída e validada (PV-D 8/8 passou) | Magic link PKCE + middleware SSR + RLS multi-tenant + isolamento por org (X-Organization-Id) |
+| Abr/2026 | Supabase Storage adoptado como único sistema de ficheiros (criativos M7, logos brand kit, docs M5) | Endpoint `/documents/{id}/download` com JWT retornava 401 em tags `<img>` (não enviam Authorization). Signed URLs resolvem previews + uploads + escalabilidade numa intervenção estrutural. Substitui filesystem local em `storage/` |
 
 > Adicionar novas entradas aqui quando decisões técnicas relevantes forem tomadas.
 
