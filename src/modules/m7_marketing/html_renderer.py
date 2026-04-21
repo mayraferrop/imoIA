@@ -14,11 +14,11 @@ from __future__ import annotations
 import hashlib
 import io
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import httpx
 from loguru import logger
-from PIL import Image
+from PIL import Image, ImageFilter
 
 
 # Mapeamento creative_type -> template do Worker.
@@ -30,6 +30,15 @@ _TEMPLATE_MAP: Dict[str, str] = {
     # "ig_post": "ig_post",
     # "ig_story": "ig_story",
     # "fb_post": "fb_post",
+}
+
+# Dimensões finais do canvas por template. Mirror de TEMPLATE_SPECS no Worker
+# (worker-creatives/src/types.ts). Usadas para pré-croppar a imagem primária
+# com LANCZOS localmente em vez de deixar Satori/Resvg reescalar com qualidade
+# inferior.
+_TEMPLATE_DIMS: Dict[str, Tuple[int, int]] = {
+    "property_card": (1080, 1350),
+    "listing_main": (1200, 900),
 }
 
 
@@ -59,13 +68,17 @@ def render_via_worker(
         )
         return None
 
-    primary_image_src = _to_worker_compatible_url(_abs_url(primary_image_url))
+    target_w, target_h = _TEMPLATE_DIMS.get(template, (None, None))
+    primary_image_src = _to_worker_compatible_url(
+        _abs_url(primary_image_url), target_w=target_w, target_h=target_h
+    )
     if not primary_image_src:
         logger.warning(
             f"[html_renderer] falha ao preparar imagem para {creative_type}; fallback"
         )
         return None
 
+    # Logo mantém aspect ratio original — não passar target dims.
     logo_src = _to_worker_compatible_url(_abs_url(template_data.get("logo_url")))
     payload = {
         "template": template,
@@ -143,37 +156,60 @@ def _is_jpeg_or_png_url(url: str) -> bool:
 
 def _to_worker_compatible_url(
     url: Optional[str],
+    target_w: Optional[int] = None,
+    target_h: Optional[int] = None,
     max_dim: int = 4096,
     quality: int = 95,
 ) -> Optional[str]:
     """Garante uma URL HTTPS que o Worker consegue fetch + Satori decode.
 
     Satori/Resvg (workers-og 0.0.27) não suporta data URIs de forma fiável
-    e WebP falha intermitentemente com CF error 1102. Estratégia:
+    e WebP falha intermitentemente com CF error 1102.
 
-    - Já é URL Supabase Storage signed → passa direto (Satori aceita JPEG/PNG).
-    - Termina em .jpg/.jpeg/.png → passa direto (evita round-trip desnecessário).
-    - Outro caso (WebP, AVIF, relativa, data:) → baixa, converte para JPEG
-      com Pillow preservando qualidade original (quality=95, sem downscale para
-      dimensões ≤4096px), upload a bucket `creatives` em `source-cache/<sha1>.jpg`
-      (idempotente — cache natural por hash da URL) e devolve signed URL.
+    Quando `target_w` e `target_h` são fornecidos, a imagem é **pré-croppada e
+    redimensionada com Pillow LANCZOS + UnsharpMask** para as dimensões exactas
+    do canvas do template. Isto move o resampling da cadeia Resvg (bilinear
+    básico) para Pillow (LANCZOS + sharpen), o que produz bordas nítidas mesmo
+    quando a fonte tem de ser upscaled para preencher formatos portrait. Sem
+    target dims (ex: logos), mantém aspect ratio original.
+
+    Fluxo:
+    - Supabase Storage signed ou .jpg/.jpeg/.png sem target dims → passa direto.
+    - Qualquer outro caso (ou com target dims) → Pillow processa → JPEG 95 →
+      upload a bucket `creatives` em `source-cache/<digest>.jpg` (idempotente
+      por hash da URL + dims) → signed URL.
     """
     if not url:
         return None
+
+    need_processing = target_w is not None and target_h is not None
+
     if url.startswith("data:"):
-        return _rehost_bytes(
-            _data_uri_to_bytes(url), url_hint=url[:60], max_dim=max_dim, quality=quality
+        return _prepare_bytes(
+            _data_uri_to_bytes(url),
+            url_hint=url[:60],
+            target_w=target_w,
+            target_h=target_h,
+            max_dim=max_dim,
+            quality=quality,
         )
+
     if url.startswith(("http://", "https://")):
-        if _is_supabase_signed(url):
-            return url
-        if _is_jpeg_or_png_url(url):
-            return url
+        # Backward-compat: sem target dims, URLs já JPEG/PNG ou Supabase
+        # signed passam direto (Satori aceita e poupamos round-trip).
+        if not need_processing:
+            if _is_supabase_signed(url) or _is_jpeg_or_png_url(url):
+                return url
         try:
             resp = httpx.get(url, timeout=15.0, follow_redirects=True)
             resp.raise_for_status()
-            return _rehost_bytes(
-                resp.content, url_hint=url, max_dim=max_dim, quality=quality
+            return _prepare_bytes(
+                resp.content,
+                url_hint=url,
+                target_w=target_w,
+                target_h=target_h,
+                max_dim=max_dim,
+                quality=quality,
             )
         except httpx.HTTPError as exc:
             logger.warning(
@@ -181,6 +217,33 @@ def _to_worker_compatible_url(
             )
             return None
     return None
+
+
+def _cover_crop_resize(
+    img: Image.Image, target_w: int, target_h: int
+) -> Image.Image:
+    """Equivalente Pillow LANCZOS de CSS `object-fit: cover`.
+
+    Crop centrado para aspect ratio alvo, depois LANCZOS para dims exactas.
+    Produz resampling muito superior ao de Resvg (bilinear), o que importa
+    quando o canvas tem aspect ratio diferente da foto e há upscale local.
+    """
+    src_w, src_h = img.size
+    src_ratio = src_w / src_h
+    target_ratio = target_w / target_h
+
+    if src_ratio > target_ratio:
+        new_w = int(round(src_h * target_ratio))
+        left = (src_w - new_w) // 2
+        img = img.crop((left, 0, left + new_w, src_h))
+    elif src_ratio < target_ratio:
+        new_h = int(round(src_w / target_ratio))
+        top = (src_h - new_h) // 2
+        img = img.crop((0, top, src_w, top + new_h))
+
+    if img.size == (target_w, target_h):
+        return img
+    return img.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
 
 def _is_supabase_signed(url: str) -> bool:
@@ -199,10 +262,23 @@ def _data_uri_to_bytes(url: str) -> bytes:
     return body.encode()
 
 
-def _rehost_bytes(
-    raw: bytes, url_hint: str, max_dim: int, quality: int
+def _prepare_bytes(
+    raw: bytes,
+    url_hint: str,
+    target_w: Optional[int],
+    target_h: Optional[int],
+    max_dim: int,
+    quality: int,
 ) -> Optional[str]:
-    """Decodifica `raw` com Pillow, converte p/ JPEG e hospeda no Supabase."""
+    """Decodifica, processa (crop+LANCZOS+sharpen se target dims) e hospeda.
+
+    Com target dims: crop tipo `object-fit: cover` + resize LANCZOS +
+    UnsharpMask leve. Entrega ao Worker JPEG com dimensões exactas do canvas
+    → Satori faz paste 1:1 sem reinterpolar (qualidade muito superior).
+
+    Sem target dims: apenas converte formato (WebP/AVIF → JPEG) preservando
+    resolução original até `max_dim`.
+    """
     try:
         img = Image.open(io.BytesIO(raw))
         if img.mode in ("RGBA", "LA", "P"):
@@ -211,8 +287,17 @@ def _rehost_bytes(
             img = bg
         elif img.mode != "RGB":
             img = img.convert("RGB")
-        if max(img.size) > max_dim:
+
+        if target_w and target_h:
+            img = _cover_crop_resize(img, target_w, target_h)
+            # Sharpen conservador: compensa softness de upscale sem criar halos.
+            # radius=1.0, percent=40, threshold=3 são valores seguros para fotos.
+            img = img.filter(
+                ImageFilter.UnsharpMask(radius=1.0, percent=40, threshold=3)
+            )
+        elif max(img.size) > max_dim:
             img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=quality, optimize=True, progressive=False)
         jpeg_bytes = buf.getvalue()
@@ -227,7 +312,11 @@ def _rehost_bytes(
             upload_file,
         )
 
-        digest = hashlib.sha1(url_hint.encode("utf-8")).hexdigest()[:16]
+        # Cache key inclui dims para não colidir entre templates com aspect
+        # ratios diferentes (property_card 1080x1350 vs listing_main 1200x900).
+        dims_tag = f"_{target_w}x{target_h}" if target_w and target_h else ""
+        cache_input = f"{url_hint}|q{quality}{dims_tag}"
+        digest = hashlib.sha1(cache_input.encode("utf-8")).hexdigest()[:16]
         path = f"source-cache/{digest}.jpg"
         upload_file(BUCKET_CREATIVES, path, jpeg_bytes, "image/jpeg", upsert=True)
         return get_signed_url(BUCKET_CREATIVES, path, expires_in=3600)
