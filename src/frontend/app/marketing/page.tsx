@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { fetcher, apiPost, apiPatch, apiUpload, apiDelete, API_BASE } from "@/lib/api";
 import { formatEUR, cn } from "@/lib/utils";
 
@@ -56,26 +57,6 @@ interface ListingPhoto {
   is_cover?: boolean;
 }
 
-interface Creative {
-  id: string;
-  creative_type?: string;
-  format?: string;
-  width?: number;
-  height?: number;
-  document_id?: string;
-  file_url?: string;
-  signed_url?: string | null;
-}
-
-const CREATIVE_LABELS: Record<string, string> = {
-  ig_post: "Instagram Post",
-  ig_story: "Instagram Story",
-  fb_post: "Facebook Post",
-  property_card: "Property Card",
-  whatsapp_card: "WhatsApp Card",
-  flyer: "Flyer A4",
-};
-
 interface MktStats {
   active_listings?: number;
   total_value?: number;
@@ -114,8 +95,6 @@ export default function MarketingPage() {
   const [showBkForm, setShowBkForm] = useState(false);
   const [listings, setListings] = useState<Listing[]>([]);
   const [stats, setStats] = useState<MktStats | null>(null);
-  const [expandedListing, setExpandedListing] = useState<string | null>(null);
-  const [listingCreatives, setListingCreatives] = useState<Record<string, Creative[]>>({});
   const [activeTab, setActiveTab] = useState<"marca" | "publicacoes">("marca");
   const [loading, setLoading] = useState(true);
 
@@ -241,59 +220,6 @@ export default function MarketingPage() {
     });
     setShowBkForm(false);
     loadData();
-  }
-
-  async function loadCreatives(listingId: string) {
-    const data = await fetcher(`/api/v1/marketing/listings/${listingId}/creatives`);
-    setListingCreatives((prev) => ({ ...prev, [listingId]: data ?? [] }));
-  }
-
-  const [uploadingPhotos, setUploadingPhotos] = useState<Record<string, boolean>>({});
-
-  async function uploadListingPhotos(listingId: string, files: FileList | File[]) {
-    const arr = Array.from(files);
-    if (arr.length === 0) return;
-    const tooBig = arr.find((f) => f.size > 15 * 1024 * 1024);
-    if (tooBig) {
-      alert(`Ficheiro excede 15MB: ${tooBig.name}`);
-      return;
-    }
-    setUploadingPhotos((p) => ({ ...p, [listingId]: true }));
-    try {
-      const fd = new FormData();
-      for (const f of arr) fd.append("files", f);
-      const res = await apiUpload(`/api/v1/marketing/listings/${listingId}/photos`, fd);
-      if (!res) {
-        alert("Upload falhou");
-        return;
-      }
-      await loadData();
-    } finally {
-      setUploadingPhotos((p) => ({ ...p, [listingId]: false }));
-    }
-  }
-
-  async function setCoverPhoto(listingId: string, documentId: string) {
-    const res = await apiPost(
-      `/api/v1/marketing/listings/${listingId}/photos/set-cover?document_id=${documentId}`
-    );
-    if (res) await loadData();
-  }
-
-  async function deleteListingPhoto(listingId: string, documentId: string) {
-    if (!confirm("Remover esta foto?")) return;
-    setUploadingPhotos((p) => ({ ...p, [listingId]: true }));
-    try {
-      await apiDelete(`/api/v1/marketing/listings/${listingId}/photos/${documentId}`);
-      await loadData();
-    } finally {
-      setUploadingPhotos((p) => ({ ...p, [listingId]: false }));
-    }
-  }
-
-  async function generateCreatives(listingId: string) {
-    await apiPost(`/api/v1/marketing/listings/${listingId}/creatives/generate-all`);
-    loadCreatives(listingId);
   }
 
   async function createListing() {
@@ -751,297 +677,51 @@ export default function MarketingPage() {
                 const title = listing.title_pt || listing.notes || "Publicação";
                 const status = listing.status ?? "?";
                 const statusColor = STATUS_COLORS[status] ?? "#94A3B8";
-                const isExpanded = expandedListing === listing.id;
+                const coverPhoto = listing.photos?.find(
+                  (p) => p.is_cover || (!!listing.cover_photo_url && !!p.document_id && listing.cover_photo_url.includes(p.document_id))
+                );
+                const thumbUrl = coverPhoto?.document_id
+                  ? `${API_BASE}/api/v1/documents/${coverPhoto.document_id}/download`
+                  : coverPhoto?.url ?? listing.cover_photo_url;
+                const photoCount = listing.photos?.length ?? 0;
 
                 return (
-                  <div key={listing.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                    <button
-                      onClick={() => {
-                        setExpandedListing(isExpanded ? null : listing.id);
-                        if (!isExpanded && !listingCreatives[listing.id]) {
-                          loadCreatives(listing.id);
-                        }
-                      }}
-                      className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-                        <span className="text-sm font-medium text-teal-700">{formatEUR(listing.listing_price)}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span
-                          className="text-xs font-medium px-2.5 py-1 rounded-full"
-                          style={{ backgroundColor: `${statusColor}15`, color: statusColor }}
-                        >
-                          {status}
-                        </span>
-                        <svg
-                          className={cn("w-4 h-4 text-slate-400 transition-transform", isExpanded && "rotate-180")}
-                          fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </button>
-
-                    {isExpanded && (
-                      <div className="px-5 pb-5 border-t border-slate-100 pt-4 space-y-4">
-                        {/* Info */}
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-1 text-sm">
-                            <p className="text-slate-500">Tipo: <span className="text-slate-900">{listing.listing_type ?? "N/A"}</span></p>
-                            {listing.slug && <p className="text-slate-500">Slug: <code className="text-xs bg-slate-100 px-1 rounded">{listing.slug}</code></p>}
-                          </div>
-                          <div>
-                            {listing.short_description_pt && (
-                              <p className="text-sm text-slate-500">{listing.short_description_pt}</p>
-                            )}
-                            {listing.highlights && listing.highlights.length > 0 && (
-                              <ul className="mt-1 text-xs text-slate-500 list-disc list-inside">
-                                {listing.highlights.slice(0, 6).map((h, i) => <li key={i}>{h}</li>)}
-                              </ul>
-                            )}
-                          </div>
+                  <Link
+                    key={listing.id}
+                    href={`/marketing/${listing.id}`}
+                    className="block bg-white rounded-xl border border-slate-200 hover:border-teal-300 hover:shadow-sm transition-all overflow-hidden"
+                  >
+                    <div className="flex items-center gap-4 p-4">
+                      {thumbUrl ? (
+                        <div className="w-20 h-16 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0">
+                          <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
                         </div>
-
-                        {/* Content sections */}
-                        <div className="space-y-3">
-                          {listing.title_pt && (
-                            <div>
-                              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Website</h4>
-                              <p className="text-sm text-slate-700 font-medium">{listing.title_pt}</p>
-                              {listing.description_pt && <p className="text-sm text-slate-500 mt-1 line-clamp-3">{listing.description_pt}</p>}
-                            </div>
-                          )}
-                          {listing.content_whatsapp && (
-                            <div>
-                              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">WhatsApp</h4>
-                              <pre className="bg-slate-50 rounded-lg p-3 text-xs text-slate-700 whitespace-pre-wrap overflow-auto max-h-32">{listing.content_whatsapp}</pre>
-                            </div>
-                          )}
-                          {listing.content_instagram_post && (
-                            <div>
-                              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Instagram</h4>
-                              <pre className="bg-slate-50 rounded-lg p-3 text-xs text-slate-700 whitespace-pre-wrap overflow-auto max-h-32">{listing.content_instagram_post}</pre>
-                            </div>
-                          )}
-                          {listing.content_facebook_post && (
-                            <div>
-                              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Facebook</h4>
-                              <pre className="bg-slate-50 rounded-lg p-3 text-xs text-slate-700 whitespace-pre-wrap overflow-auto max-h-32">{listing.content_facebook_post}</pre>
-                            </div>
-                          )}
-                          {listing.content_linkedin && (
-                            <div>
-                              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">LinkedIn</h4>
-                              <pre className="bg-slate-50 rounded-lg p-3 text-xs text-slate-700 whitespace-pre-wrap overflow-auto max-h-32">{listing.content_linkedin}</pre>
-                            </div>
-                          )}
-                          {listing.content_portal && (
-                            <div>
-                              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Portal (Idealista)</h4>
-                              <pre className="bg-slate-50 rounded-lg p-3 text-xs text-slate-700 whitespace-pre-wrap overflow-auto max-h-32">{listing.content_portal}</pre>
-                            </div>
-                          )}
-                          {listing.content_email_subject && (
-                            <div>
-                              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Email</h4>
-                              <p className="text-sm text-slate-700">Subject: <code className="text-xs bg-slate-100 px-1 rounded">{listing.content_email_subject}</code></p>
-                            </div>
-                          )}
-                          {(listing.meta_title || listing.meta_description) && (
-                            <div>
-                              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">SEO</h4>
-                              {listing.meta_title && <p className="text-sm text-slate-700">Title: <code className="text-xs bg-slate-100 px-1 rounded">{listing.meta_title}</code></p>}
-                              {listing.meta_description && <p className="text-xs text-slate-500 mt-1">{listing.meta_description}</p>}
-                            </div>
-                          )}
+                      ) : (
+                        <div className="w-20 h-16 rounded-lg bg-slate-100 flex-shrink-0 flex items-center justify-center text-slate-300 text-xs">
+                          sem foto
                         </div>
-
-                        {/* Photos */}
-                        <div className="border-t border-slate-100 pt-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-sm font-semibold text-slate-700">
-                              Fotos do imóvel
-                              {listing.photos?.length ? (
-                                <span className="ml-2 text-xs font-normal text-slate-400">
-                                  {listing.photos.length} {listing.photos.length === 1 ? "foto" : "fotos"}
-                                </span>
-                              ) : null}
-                            </h4>
-                            <label
-                              className={cn(
-                                "text-xs font-medium cursor-pointer",
-                                uploadingPhotos[listing.id]
-                                  ? "text-slate-400"
-                                  : "text-teal-700 hover:text-teal-800"
-                              )}
-                            >
-                              {uploadingPhotos[listing.id] ? "A enviar..." : "+ Adicionar fotos"}
-                              <input
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                multiple
-                                className="hidden"
-                                disabled={uploadingPhotos[listing.id]}
-                                onChange={(e) => {
-                                  if (e.target.files && e.target.files.length > 0) {
-                                    uploadListingPhotos(listing.id, e.target.files);
-                                    e.target.value = "";
-                                  }
-                                }}
-                              />
-                            </label>
-                          </div>
-                          {listing.photos?.length ? (
-                            <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
-                              {listing.photos.map((photo) => {
-                                const photoUrl = photo.document_id
-                                  ? `${API_BASE}/api/v1/documents/${photo.document_id}/download`
-                                  : photo.url;
-                                const isCover = photo.is_cover || (
-                                  !!listing.cover_photo_url &&
-                                  !!photo.document_id &&
-                                  listing.cover_photo_url.includes(photo.document_id)
-                                );
-                                return (
-                                  <div
-                                    key={photo.document_id ?? photo.url}
-                                    className="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200"
-                                  >
-                                    <img
-                                      src={photoUrl}
-                                      alt={photo.filename ?? "foto"}
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0.3"; }}
-                                    />
-                                    {isCover && (
-                                      <span className="absolute top-1 left-1 text-[10px] font-semibold bg-teal-600 text-white px-1.5 py-0.5 rounded">
-                                        CAPA
-                                      </span>
-                                    )}
-                                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center gap-1 p-1.5">
-                                      {!isCover && photo.document_id && (
-                                        <button
-                                          onClick={() => setCoverPhoto(listing.id, photo.document_id!)}
-                                          className="text-[10px] font-medium bg-white/90 hover:bg-white text-slate-800 px-2 py-1 rounded"
-                                          title="Definir como capa"
-                                        >
-                                          Capa
-                                        </button>
-                                      )}
-                                      {photo.document_id && (
-                                        <button
-                                          onClick={() => deleteListingPhoto(listing.id, photo.document_id!)}
-                                          className="text-[10px] font-medium bg-red-500/90 hover:bg-red-500 text-white px-2 py-1 rounded"
-                                          title="Remover"
-                                        >
-                                          Remover
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <label
-                              className={cn(
-                                "block border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
-                                uploadingPhotos[listing.id]
-                                  ? "border-slate-200 bg-slate-50 cursor-wait"
-                                  : "border-slate-300 hover:border-teal-500 hover:bg-teal-50/30"
-                              )}
-                            >
-                              <p className="text-sm text-slate-500">
-                                {uploadingPhotos[listing.id] ? "A enviar..." : "Arraste ou clique para adicionar fotos"}
-                              </p>
-                              <p className="text-xs text-slate-400 mt-1">
-                                JPG, PNG ou WebP — máx 15MB por ficheiro
-                              </p>
-                              <input
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                multiple
-                                className="hidden"
-                                disabled={uploadingPhotos[listing.id]}
-                                onChange={(e) => {
-                                  if (e.target.files && e.target.files.length > 0) {
-                                    uploadListingPhotos(listing.id, e.target.files);
-                                    e.target.value = "";
-                                  }
-                                }}
-                              />
-                            </label>
-                          )}
-                        </div>
-
-                        {/* Creatives */}
-                        <div className="border-t border-slate-100 pt-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-sm font-semibold text-slate-700">Criativos</h4>
-                            <button
-                              onClick={() => generateCreatives(listing.id)}
-                              className="text-xs font-medium text-teal-700 hover:text-teal-800"
-                            >
-                              {listingCreatives[listing.id]?.length ? "Regenerar todos" : "Gerar criativos"}
-                            </button>
-                          </div>
-                          {listingCreatives[listing.id]?.length ? (
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                              {listingCreatives[listing.id].map((c) => {
-                                const label = CREATIVE_LABELS[c.creative_type ?? ""] ?? c.creative_type;
-                                const downloadUrl = c.document_id
-                                  ? `${API_BASE}/api/v1/documents/${c.document_id}/download`
-                                  : null;
-                                // Preferência: signed_url (directo, sem auth) > downloadUrl (redirect na API)
-                                const previewUrl = c.signed_url || downloadUrl;
-                                const isVertical = (c.height ?? 0) > (c.width ?? 0);
-                                return (
-                                  <div key={c.id} className="bg-slate-50 rounded-lg border border-slate-100 overflow-hidden group">
-                                    {/* Thumbnail preview */}
-                                    {previewUrl && c.format === "png" ? (
-                                      <div className={cn(
-                                        "bg-slate-200 flex items-center justify-center overflow-hidden",
-                                        isVertical ? "h-36" : "h-28"
-                                      )}>
-                                        <img
-                                          src={previewUrl}
-                                          alt={label}
-                                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                                        />
-                                      </div>
-                                    ) : (
-                                      <div className="h-20 bg-slate-100 flex items-center justify-center">
-                                        <span className="text-2xl text-slate-300">{c.format === "pdf" ? "PDF" : "IMG"}</span>
-                                      </div>
-                                    )}
-                                    <div className="p-3">
-                                      <p className="text-sm font-medium text-slate-900">{label}</p>
-                                      <p className="text-xs text-slate-500">{c.width}x{c.height} {c.format?.toUpperCase()}</p>
-                                      {(previewUrl || downloadUrl) && (
-                                        <a
-                                          href={previewUrl || downloadUrl || "#"}
-                                          className="text-xs font-medium text-teal-700 hover:text-teal-800 mt-1.5 inline-block"
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                        >
-                                          Download
-                                        </a>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-slate-400">Sem criativos gerados. Clique em &quot;Gerar criativos&quot; para criar.</p>
-                          )}
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-semibold text-slate-900 truncate">{title}</h3>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                          <span className="font-medium text-teal-700">{formatEUR(listing.listing_price)}</span>
+                          <span>·</span>
+                          <span>{listing.listing_type ?? "—"}</span>
+                          <span>·</span>
+                          <span>{photoCount} {photoCount === 1 ? "foto" : "fotos"}</span>
                         </div>
                       </div>
-                    )}
-                  </div>
+                      <span
+                        className="text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: `${statusColor}15`, color: statusColor }}
+                      >
+                        {status}
+                      </span>
+                      <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </Link>
                 );
               })}
             </div>
