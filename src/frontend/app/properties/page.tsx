@@ -114,6 +114,18 @@ export default function PropertiesPage() {
   const [dataSource, setDataSource] = useState<"supabase" | "fastapi">("supabase");
   const [triggerLoading, setTriggerLoading] = useState(false);
   const [triggerMsg, setTriggerMsg] = useState("");
+  type PipelineGroupLog = {
+    grupo: string;
+    grupo_id: string;
+    mensagens_buscadas: number;
+    mensagens_filtradas: number;
+    oportunidades: number;
+    arquivado: boolean | null;
+    estado?: string;
+    erro?: string | null;
+  };
+  const [groupLogs, setGroupLogs] = useState<PipelineGroupLog[]>([]);
+  const [showGroupLogs, setShowGroupLogs] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createMsg, setCreateMsg] = useState("");
@@ -188,6 +200,10 @@ export default function PropertiesPage() {
           setTriggerMsg(
             `Pipeline concluido: ${data.groups_processed ?? 0} grupos, ${data.messages_fetched ?? 0} mensagens, ${data.opportunities_found ?? 0} oportunidades${archived}${erros}`
           );
+          if (Array.isArray(data.group_logs)) {
+            setGroupLogs(data.group_logs);
+            setShowGroupLogs(true);
+          }
           setTriggerLoading(false);
           fetchData();
           if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -468,6 +484,65 @@ export default function PropertiesPage() {
       {triggerMsg && (
         <div className={`px-4 py-3 rounded-lg text-sm ${triggerMsg.includes("Erro") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
           {triggerMsg}
+          {groupLogs.length > 0 && (
+            <button
+              onClick={() => setShowGroupLogs(!showGroupLogs)}
+              className="ml-3 underline text-xs"
+            >
+              {showGroupLogs ? "ocultar detalhe" : "ver detalhe por grupo"}
+            </button>
+          )}
+        </div>
+      )}
+      {showGroupLogs && groupLogs.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-700">
+              Detalhe por grupo ({groupLogs.length})
+            </span>
+            <button
+              onClick={() => setShowGroupLogs(false)}
+              className="text-xs text-slate-500 hover:text-slate-700"
+            >
+              fechar
+            </button>
+          </div>
+          <div className="max-h-96 overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50 sticky top-0">
+                <tr className="text-left text-slate-600">
+                  <th className="px-3 py-2 font-medium">Grupo</th>
+                  <th className="px-3 py-2 font-medium text-right">Msgs lidas</th>
+                  <th className="px-3 py-2 font-medium text-right">Filtradas</th>
+                  <th className="px-3 py-2 font-medium text-right">Opps</th>
+                  <th className="px-3 py-2 font-medium text-center">Archive</th>
+                  <th className="px-3 py-2 font-medium">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groupLogs.map((gl, i) => (
+                  <tr key={`${gl.grupo_id}-${i}`} className="border-t border-slate-100 hover:bg-slate-50">
+                    <td className="px-3 py-1.5 text-slate-800 truncate max-w-xs" title={gl.grupo}>{gl.grupo}</td>
+                    <td className="px-3 py-1.5 text-right text-slate-600">{gl.mensagens_buscadas ?? 0}</td>
+                    <td className="px-3 py-1.5 text-right text-slate-600">{gl.mensagens_filtradas ?? 0}</td>
+                    <td className="px-3 py-1.5 text-right font-medium text-teal-700">{gl.oportunidades ?? 0}</td>
+                    <td className="px-3 py-1.5 text-center">
+                      {gl.arquivado === true ? (
+                        <span className="text-green-600">✓</span>
+                      ) : gl.arquivado === false ? (
+                        <span className="text-red-600">✗</span>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5 text-slate-500">
+                      {gl.erro ? <span className="text-red-600">{gl.erro}</span> : gl.estado ?? "ok"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
       {createMsg && (

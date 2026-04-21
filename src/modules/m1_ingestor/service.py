@@ -46,6 +46,7 @@ class PipelineResult:
     errors: List[str]
     groups_archived: int = 0
     groups_to_archive: int = 0
+    group_logs: List[Dict[str, Any]] = field(default_factory=list)
 
 
 def _get_whatsapp_client() -> WhatsAppClient:
@@ -986,6 +987,7 @@ def run_pipeline() -> PipelineResult:
             "processado_em": datetime.now(tz=timezone.utc).isoformat(),
             "mensagens_buscadas": len(messages),
             "mensagens_filtradas": 0, "oportunidades": 0,
+            "arquivado": None,  # preenchido na FASE 4 (archive)
             "estado": fr.get("estado", "ok"), "erro": fr.get("erro"),
         }
 
@@ -1095,8 +1097,13 @@ def run_pipeline() -> PipelineResult:
     if groups_to_archive:
         # Sequencial para evitar rate limiting na Whapi
         for gid in groups_to_archive:
-            if _archive_group_task(gid):
+            ok = _archive_group_task(gid)
+            if ok:
                 archive_count += 1
+            for gl in group_logs:
+                if gl.get("grupo_id") == gid:
+                    gl["arquivado"] = ok
+                    break
 
     phase_archive_elapsed = time.monotonic() - phase_archive_start
     if archive_count < len(groups_to_archive):
@@ -1120,6 +1127,7 @@ def run_pipeline() -> PipelineResult:
         errors=errors,
         groups_archived=archive_count,
         groups_to_archive=len(groups_to_archive),
+        group_logs=group_logs,
     )
 
     logger.info("=" * 60)

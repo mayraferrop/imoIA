@@ -56,6 +56,7 @@ def _run_pipeline_background() -> None:
                 "groups_processed": result.groups_processed,
                 "groups_archived": result.groups_archived,
                 "groups_to_archive": result.groups_to_archive,
+                "group_logs": result.group_logs,
                 "errors": result.errors,
             }
         logger.info(
