@@ -270,6 +270,62 @@ async def list_listing_photos(listing_id: str) -> List[Dict[str, Any]]:
     return list(listing.get("photos") or [])
 
 
+@router.delete(
+    "/listings/{listing_id}/photos/{document_id}", summary="Remover foto"
+)
+async def delete_listing_photo(
+    listing_id: str, document_id: str
+) -> Dict[str, Any]:
+    """Remove foto da listing: apaga bucket, Document e actualiza photos/cover."""
+    from src.database import supabase_rest as db
+    from src.database.db import get_session
+    from src.database.models_v2 import Document
+    from src.shared.storage_provider import delete_file
+
+    listing = db.get_by_id("listings", listing_id)
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing nao encontrada")
+
+    photos = list(listing.get("photos") or [])
+    target = next((p for p in photos if p.get("document_id") == document_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Foto nao encontrada")
+
+    was_cover = bool(target.get("is_cover")) or (
+        listing.get("cover_photo_url")
+        and document_id in str(listing.get("cover_photo_url"))
+    )
+
+    with get_session() as session:
+        doc = session.get(Document, document_id)
+        if doc and doc.file_path and ":" in doc.file_path:
+            bucket, bucket_path = doc.file_path.split(":", 1)
+            try:
+                delete_file(bucket, bucket_path)
+            except Exception as exc:
+                logger.warning(
+                    f"delete_file falhou bucket={bucket} path={bucket_path}: {exc}"
+                )
+        if doc:
+            session.delete(doc)
+
+    new_photos = [p for p in photos if p.get("document_id") != document_id]
+    for i, p in enumerate(new_photos):
+        p["order"] = i
+
+    patch: Dict[str, Any] = {"photos": new_photos}
+    if was_cover:
+        if new_photos:
+            new_cover = new_photos[0]
+            new_cover["is_cover"] = True
+            patch["cover_photo_url"] = new_cover["url"]
+        else:
+            patch["cover_photo_url"] = None
+    db.update("listings", listing_id, patch)
+
+    return {"deleted": document_id, "remaining": len(new_photos)}
+
+
 # ---------------------------------------------------------------------------
 # Brand Kit logo upload
 # ---------------------------------------------------------------------------

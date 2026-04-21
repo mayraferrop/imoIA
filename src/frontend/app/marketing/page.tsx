@@ -44,8 +44,16 @@ interface Listing {
   meta_title?: string;
   meta_description?: string;
   notes?: string;
-  photos?: { url: string; is_cover?: boolean }[];
+  photos?: ListingPhoto[];
   cover_photo_url?: string;
+}
+
+interface ListingPhoto {
+  document_id?: string;
+  url: string;
+  filename?: string;
+  order?: number;
+  is_cover?: boolean;
 }
 
 interface Creative {
@@ -238,6 +246,49 @@ export default function MarketingPage() {
   async function loadCreatives(listingId: string) {
     const data = await fetcher(`/api/v1/marketing/listings/${listingId}/creatives`);
     setListingCreatives((prev) => ({ ...prev, [listingId]: data ?? [] }));
+  }
+
+  const [uploadingPhotos, setUploadingPhotos] = useState<Record<string, boolean>>({});
+
+  async function uploadListingPhotos(listingId: string, files: FileList | File[]) {
+    const arr = Array.from(files);
+    if (arr.length === 0) return;
+    const tooBig = arr.find((f) => f.size > 15 * 1024 * 1024);
+    if (tooBig) {
+      alert(`Ficheiro excede 15MB: ${tooBig.name}`);
+      return;
+    }
+    setUploadingPhotos((p) => ({ ...p, [listingId]: true }));
+    try {
+      const fd = new FormData();
+      for (const f of arr) fd.append("files", f);
+      const res = await apiUpload(`/api/v1/marketing/listings/${listingId}/photos`, fd);
+      if (!res) {
+        alert("Upload falhou");
+        return;
+      }
+      await loadData();
+    } finally {
+      setUploadingPhotos((p) => ({ ...p, [listingId]: false }));
+    }
+  }
+
+  async function setCoverPhoto(listingId: string, documentId: string) {
+    const res = await apiPost(
+      `/api/v1/marketing/listings/${listingId}/photos/set-cover?document_id=${documentId}`
+    );
+    if (res) await loadData();
+  }
+
+  async function deleteListingPhoto(listingId: string, documentId: string) {
+    if (!confirm("Remover esta foto?")) return;
+    setUploadingPhotos((p) => ({ ...p, [listingId]: true }));
+    try {
+      await apiDelete(`/api/v1/marketing/listings/${listingId}/photos/${documentId}`);
+      await loadData();
+    } finally {
+      setUploadingPhotos((p) => ({ ...p, [listingId]: false }));
+    }
   }
 
   async function generateCreatives(listingId: string) {
@@ -804,6 +855,124 @@ export default function MarketingPage() {
                               {listing.meta_title && <p className="text-sm text-slate-700">Title: <code className="text-xs bg-slate-100 px-1 rounded">{listing.meta_title}</code></p>}
                               {listing.meta_description && <p className="text-xs text-slate-500 mt-1">{listing.meta_description}</p>}
                             </div>
+                          )}
+                        </div>
+
+                        {/* Photos */}
+                        <div className="border-t border-slate-100 pt-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-sm font-semibold text-slate-700">
+                              Fotos do imóvel
+                              {listing.photos?.length ? (
+                                <span className="ml-2 text-xs font-normal text-slate-400">
+                                  {listing.photos.length} {listing.photos.length === 1 ? "foto" : "fotos"}
+                                </span>
+                              ) : null}
+                            </h4>
+                            <label
+                              className={cn(
+                                "text-xs font-medium cursor-pointer",
+                                uploadingPhotos[listing.id]
+                                  ? "text-slate-400"
+                                  : "text-teal-700 hover:text-teal-800"
+                              )}
+                            >
+                              {uploadingPhotos[listing.id] ? "A enviar..." : "+ Adicionar fotos"}
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                multiple
+                                className="hidden"
+                                disabled={uploadingPhotos[listing.id]}
+                                onChange={(e) => {
+                                  if (e.target.files && e.target.files.length > 0) {
+                                    uploadListingPhotos(listing.id, e.target.files);
+                                    e.target.value = "";
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                          {listing.photos?.length ? (
+                            <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                              {listing.photos.map((photo) => {
+                                const photoUrl = photo.document_id
+                                  ? `${API_BASE}/api/v1/documents/${photo.document_id}/download`
+                                  : photo.url;
+                                const isCover = photo.is_cover || (
+                                  !!listing.cover_photo_url &&
+                                  !!photo.document_id &&
+                                  listing.cover_photo_url.includes(photo.document_id)
+                                );
+                                return (
+                                  <div
+                                    key={photo.document_id ?? photo.url}
+                                    className="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200"
+                                  >
+                                    <img
+                                      src={photoUrl}
+                                      alt={photo.filename ?? "foto"}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0.3"; }}
+                                    />
+                                    {isCover && (
+                                      <span className="absolute top-1 left-1 text-[10px] font-semibold bg-teal-600 text-white px-1.5 py-0.5 rounded">
+                                        CAPA
+                                      </span>
+                                    )}
+                                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center gap-1 p-1.5">
+                                      {!isCover && photo.document_id && (
+                                        <button
+                                          onClick={() => setCoverPhoto(listing.id, photo.document_id!)}
+                                          className="text-[10px] font-medium bg-white/90 hover:bg-white text-slate-800 px-2 py-1 rounded"
+                                          title="Definir como capa"
+                                        >
+                                          Capa
+                                        </button>
+                                      )}
+                                      {photo.document_id && (
+                                        <button
+                                          onClick={() => deleteListingPhoto(listing.id, photo.document_id!)}
+                                          className="text-[10px] font-medium bg-red-500/90 hover:bg-red-500 text-white px-2 py-1 rounded"
+                                          title="Remover"
+                                        >
+                                          Remover
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <label
+                              className={cn(
+                                "block border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
+                                uploadingPhotos[listing.id]
+                                  ? "border-slate-200 bg-slate-50 cursor-wait"
+                                  : "border-slate-300 hover:border-teal-500 hover:bg-teal-50/30"
+                              )}
+                            >
+                              <p className="text-sm text-slate-500">
+                                {uploadingPhotos[listing.id] ? "A enviar..." : "Arraste ou clique para adicionar fotos"}
+                              </p>
+                              <p className="text-xs text-slate-400 mt-1">
+                                JPG, PNG ou WebP — máx 15MB por ficheiro
+                              </p>
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                multiple
+                                className="hidden"
+                                disabled={uploadingPhotos[listing.id]}
+                                onChange={(e) => {
+                                  if (e.target.files && e.target.files.length > 0) {
+                                    uploadListingPhotos(listing.id, e.target.files);
+                                    e.target.value = "";
+                                  }
+                                }}
+                              />
+                            </label>
                           )}
                         </div>
 
