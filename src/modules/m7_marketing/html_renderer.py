@@ -11,11 +11,14 @@ Sem estas vars, a função retorna None e o chamador faz fallback para Pillow.
 
 from __future__ import annotations
 
+import hashlib
+import io
 import os
 from typing import Any, Dict, Optional
 
 import httpx
 from loguru import logger
+from PIL import Image
 
 
 # Mapeamento creative_type -> template do Worker.
@@ -56,13 +59,21 @@ def render_via_worker(
         )
         return None
 
+    primary_image_src = _to_worker_compatible_url(_abs_url(primary_image_url))
+    if not primary_image_src:
+        logger.warning(
+            f"[html_renderer] falha ao preparar imagem para {creative_type}; fallback"
+        )
+        return None
+
+    logo_src = _to_worker_compatible_url(_abs_url(template_data.get("logo_url")))
     payload = {
         "template": template,
         "brand": {
             "brand_name": template_data.get("brand_name", ""),
             "tagline": template_data.get("tagline"),
-            "logo_primary_url": _abs_url(template_data.get("logo_url")),
-            "logo_white_url": _abs_url(template_data.get("logo_url")),
+            "logo_primary_url": logo_src,
+            "logo_white_url": logo_src,
             "primary_color": template_data.get("color_primary"),
             "secondary_color": template_data.get("color_secondary"),
             "accent_color": template_data.get("color_accent"),
@@ -81,7 +92,7 @@ def render_via_worker(
             "bathrooms": template_data.get("bathrooms"),
             "energy_rating": template_data.get("energy_rating"),
             "highlights": template_data.get("highlights", []) or [],
-            "primary_image_url": _abs_url(primary_image_url),
+            "primary_image_url": primary_image_src,
         },
     }
 
@@ -122,3 +133,105 @@ def _abs_url(url: Optional[str]) -> Optional[str]:
         return url
     backend = os.getenv("BACKEND_PUBLIC_URL", "https://imoia.onrender.com")
     return f"{backend.rstrip('/')}{url}"
+
+
+def _is_jpeg_or_png_url(url: str) -> bool:
+    """True se a URL aponta claramente para ficheiro JPEG/PNG (por extensão)."""
+    lower = url.lower().split("?", 1)[0]
+    return lower.endswith((".jpg", ".jpeg", ".png"))
+
+
+def _to_worker_compatible_url(
+    url: Optional[str],
+    max_dim: int = 1200,
+    quality: int = 82,
+) -> Optional[str]:
+    """Garante uma URL HTTPS que o Worker consegue fetch + Satori decode.
+
+    Satori/Resvg (workers-og 0.0.27) não suporta data URIs de forma fiável
+    e WebP falha intermitentemente com CF error 1102. Estratégia:
+
+    - Já é URL Supabase Storage signed → passa direto (Satori aceita JPEG/PNG).
+    - Termina em .jpg/.jpeg/.png → passa direto (evita round-trip desnecessário).
+    - Outro caso (WebP, AVIF, relativa, data:) → baixa, converte para JPEG
+      com Pillow, upload a bucket `creatives` em `source-cache/<sha1>.jpg`
+      (idempotente — cache natural por hash da URL) e devolve signed URL.
+    """
+    if not url:
+        return None
+    if url.startswith("data:"):
+        return _rehost_bytes(
+            _data_uri_to_bytes(url), url_hint=url[:60], max_dim=max_dim, quality=quality
+        )
+    if url.startswith(("http://", "https://")):
+        if _is_supabase_signed(url):
+            return url
+        if _is_jpeg_or_png_url(url):
+            return url
+        try:
+            resp = httpx.get(url, timeout=15.0, follow_redirects=True)
+            resp.raise_for_status()
+            return _rehost_bytes(
+                resp.content, url_hint=url, max_dim=max_dim, quality=quality
+            )
+        except httpx.HTTPError as exc:
+            logger.warning(
+                f"[html_renderer] fetch falhou ({url[:80]}): {exc}"
+            )
+            return None
+    return None
+
+
+def _is_supabase_signed(url: str) -> bool:
+    supa = os.getenv("SUPABASE_URL", "").rstrip("/")
+    if not supa:
+        return False
+    return url.startswith(f"{supa}/storage/v1/object/sign/")
+
+
+def _data_uri_to_bytes(url: str) -> bytes:
+    import base64 as _b64
+
+    head, _, body = url.partition(",")
+    if ";base64" in head:
+        return _b64.b64decode(body)
+    return body.encode()
+
+
+def _rehost_bytes(
+    raw: bytes, url_hint: str, max_dim: int, quality: int
+) -> Optional[str]:
+    """Decodifica `raw` com Pillow, converte p/ JPEG e hospeda no Supabase."""
+    try:
+        img = Image.open(io.BytesIO(raw))
+        if img.mode in ("RGBA", "LA", "P"):
+            bg = Image.new("RGB", img.size, (255, 255, 255))
+            bg.paste(img, mask=img.split()[-1] if img.mode in ("RGBA", "LA") else None)
+            img = bg
+        elif img.mode != "RGB":
+            img = img.convert("RGB")
+        if max(img.size) > max_dim:
+            img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality, optimize=True, progressive=False)
+        jpeg_bytes = buf.getvalue()
+    except (OSError, ValueError) as exc:
+        logger.warning(f"[html_renderer] Pillow falhou ({url_hint[:80]}): {exc}")
+        return None
+
+    try:
+        from src.shared.storage_provider import (
+            BUCKET_CREATIVES,
+            get_signed_url,
+            upload_file,
+        )
+
+        digest = hashlib.sha1(url_hint.encode("utf-8")).hexdigest()[:16]
+        path = f"source-cache/{digest}.jpg"
+        upload_file(BUCKET_CREATIVES, path, jpeg_bytes, "image/jpeg", upsert=True)
+        return get_signed_url(BUCKET_CREATIVES, path, expires_in=3600)
+    except (RuntimeError, httpx.HTTPError) as exc:
+        logger.warning(
+            f"[html_renderer] upload Supabase falhou ({url_hint[:80]}): {exc}"
+        )
+        return None
