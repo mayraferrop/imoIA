@@ -48,20 +48,30 @@ class WhatsAppClient:
             base_url: URL base da API. Se None, deteta automaticamente.
         """
         settings = get_settings()
-        self.token = token or settings.whapi_token
 
         if base_url:
+            # Override manual (ex: testes). Detecta backend pelo URL.
             self.base_url = base_url.rstrip("/")
             self.backend = "baileys" if "localhost" in base_url or "127.0.0.1" in base_url else "whapi"
-        elif self.token:
-            self.base_url = settings.whapi_base_url.rstrip("/")
-            self.backend = "whapi"
-        else:
-            self.base_url = "http://localhost:3000"
+            self.token = token or (settings.whatsapp_api_token if self.backend == "baileys" else settings.whapi_token)
+        elif settings.whatsapp_backend == "baileys" and settings.whatsapp_api_base:
+            # Baileys Bridge self-hosted (Fly.io, etc)
             self.backend = "baileys"
+            self.base_url = settings.whatsapp_api_base.rstrip("/")
+            self.token = token or settings.whatsapp_api_token
+        elif settings.whatsapp_backend == "baileys":
+            # Baileys local (dev)
+            self.backend = "baileys"
+            self.base_url = "http://localhost:3000"
+            self.token = token or settings.whatsapp_api_token
+        else:
+            # Whapi.cloud (legacy default)
+            self.backend = "whapi"
+            self.base_url = settings.whapi_base_url.rstrip("/")
+            self.token = token or settings.whapi_token
 
         self._headers: Dict[str, str] = {"Content-Type": "application/json"}
-        if self.backend == "whapi" and self.token:
+        if self.token:
             self._headers["Authorization"] = f"Bearer {self.token}"
 
         logger.info(f"WhatsApp client inicializado: backend={self.backend}, url={self.base_url}")

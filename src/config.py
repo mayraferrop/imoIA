@@ -21,7 +21,12 @@ load_dotenv(_PROJECT_ROOT / ".env")
 class Settings:
     """Configurações globais do ImoIA."""
 
-    # Whapi.Cloud
+    # WhatsApp — dois backends: Whapi.Cloud (legacy) ou Baileys Bridge (self-hosted)
+    # Se WHATSAPP_BACKEND=baileys, usa WHATSAPP_API_BASE + WHATSAPP_API_TOKEN.
+    # Caso contrário usa whapi_token + whapi_base_url.
+    whatsapp_backend: str = field(default_factory=lambda: os.getenv("WHATSAPP_BACKEND", "whapi").lower())
+    whatsapp_api_base: str = field(default_factory=lambda: os.getenv("WHATSAPP_API_BASE", ""))
+    whatsapp_api_token: str = field(default_factory=lambda: os.getenv("WHATSAPP_API_TOKEN", ""))
     whapi_token: str = field(default_factory=lambda: os.getenv("WHAPI_TOKEN", "0jeZavSFafPUIdP7cftpoEKtkwSjEn9H"))
     whapi_base_url: str = "https://gate.whapi.cloud"
 
