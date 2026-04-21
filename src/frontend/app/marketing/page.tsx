@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { fetcher, apiPost, apiPatch, apiUpload, apiDelete, API_BASE } from "@/lib/api";
 import { formatEUR, cn } from "@/lib/utils";
 
@@ -154,10 +155,22 @@ export default function MarketingPage() {
     }
   }, [listings]);
 
+  const router = useRouter();
   const prefetchListing = useCallback((id: string) => {
+    router.prefetch(`/marketing/${id}`);
     globalMutate(`/api/v1/marketing/listings/${id}`);
     globalMutate(`/api/v1/marketing/listings/${id}/creatives`);
-  }, []);
+  }, [router]);
+
+  useEffect(() => {
+    if (!listings.length) return;
+    const t = setTimeout(() => {
+      for (const l of listings) {
+        router.prefetch(`/marketing/${l.id}`);
+      }
+    }, 100);
+    return () => clearTimeout(t);
+  }, [listings, router]);
 
   const populateBkForm = useCallback((bk: BrandKit | null) => {
     setBkName(bk?.brand_name ?? "");
