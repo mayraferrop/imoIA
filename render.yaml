@@ -16,3 +16,25 @@ services:
         sync: false
       - key: WHAPI_TOKEN
         sync: false
+
+  - type: web
+    name: imoia-whatsapp-bridge
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    rootDir: whatsapp-bridge
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    disk:
+      name: bridge-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: PORT
+        value: 3000
+      - key: BRIDGE_TOKEN
+        sync: false
+      - key: BAILEYS_LOG
+        value: silent
