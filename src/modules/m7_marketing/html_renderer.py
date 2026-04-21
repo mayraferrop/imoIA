@@ -143,8 +143,8 @@ def _is_jpeg_or_png_url(url: str) -> bool:
 
 def _to_worker_compatible_url(
     url: Optional[str],
-    max_dim: int = 1200,
-    quality: int = 82,
+    max_dim: int = 4096,
+    quality: int = 95,
 ) -> Optional[str]:
     """Garante uma URL HTTPS que o Worker consegue fetch + Satori decode.
 
@@ -154,7 +154,8 @@ def _to_worker_compatible_url(
     - Já é URL Supabase Storage signed → passa direto (Satori aceita JPEG/PNG).
     - Termina em .jpg/.jpeg/.png → passa direto (evita round-trip desnecessário).
     - Outro caso (WebP, AVIF, relativa, data:) → baixa, converte para JPEG
-      com Pillow, upload a bucket `creatives` em `source-cache/<sha1>.jpg`
+      com Pillow preservando qualidade original (quality=95, sem downscale para
+      dimensões ≤4096px), upload a bucket `creatives` em `source-cache/<sha1>.jpg`
       (idempotente — cache natural por hash da URL) e devolve signed URL.
     """
     if not url:
