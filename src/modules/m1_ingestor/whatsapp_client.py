@@ -50,9 +50,13 @@ class WhatsAppClient:
         settings = get_settings()
 
         if base_url:
-            # Override manual (ex: testes). Detecta backend pelo URL.
+            # Override manual (ex: testes). Respeita WHATSAPP_BACKEND se definido;
+            # caso contrario usa heuristica (localhost/127.0.0.1 -> baileys).
             self.base_url = base_url.rstrip("/")
-            self.backend = "baileys" if "localhost" in base_url or "127.0.0.1" in base_url else "whapi"
+            if settings.whatsapp_backend in ("baileys", "whapi"):
+                self.backend = settings.whatsapp_backend
+            else:
+                self.backend = "baileys" if "localhost" in base_url or "127.0.0.1" in base_url else "whapi"
             self.token = token or (settings.whatsapp_api_token if self.backend == "baileys" else settings.whapi_token)
         elif settings.whatsapp_backend == "baileys" and settings.whatsapp_api_base:
             # Baileys Bridge self-hosted (Fly.io, etc)
@@ -164,9 +168,8 @@ class WhatsAppClient:
 
         data = self._request("GET", "/groups")
         groups = data.get("groups", [])
-        active_groups = [g for g in groups if not g.get("is_archived", False)]
-        logger.info(f"Encontrados {len(active_groups)} grupos ativos de {len(groups)} total")
-        return active_groups
+        logger.info(f"Encontrados {len(groups)} grupos no bridge (archive do device ignorado — filtro por is_active na BD)")
+        return groups
 
     def _list_groups_whapi(self) -> List[Dict[str, Any]]:
         """Lista grupos via Whapi.Cloud usando /chats (inclui sub-grupos de comunidades).
