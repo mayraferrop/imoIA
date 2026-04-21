@@ -35,6 +35,8 @@ class PipelineResult:
         messages_fetched: Total de mensagens buscadas.
         opportunities_found: Total de oportunidades detetadas.
         groups_processed: Total de grupos processados.
+        groups_archived: Total de grupos arquivados com sucesso.
+        groups_to_archive: Total de grupos que tentámos arquivar.
         errors: Lista de erros ocorridos.
     """
 
@@ -42,6 +44,8 @@ class PipelineResult:
     opportunities_found: int
     groups_processed: int
     errors: List[str]
+    groups_archived: int = 0
+    groups_to_archive: int = 0
 
 
 def _get_whatsapp_client() -> WhatsAppClient:
@@ -1063,25 +1067,11 @@ def run_pipeline() -> PipelineResult:
     phase3_elapsed = time.monotonic() - phase3_start
     logger.info(f"FASE 3 (classificacao): {total_filtered} msgs, {total_opportunities} opps em {phase3_elapsed:.1f}s")
 
-    # --- FASE 4: Marcar como lido ANTES de arquivar (PUT última msg) ---
-    # Usa mark_group_as_read_light (1 PUT por grupo) em vez de 50 PUTs.
-    # Feito ANTES do archive para garantir que msgs são lidas primeiro.
-    phase4_start = time.monotonic()
-    read_client = WhatsAppClient()
-    active_read = 0
-    for group in active_with_unread:
-        gid = group.get("id", "")
-        if gid:
-            try:
-                read_client.mark_group_as_read_light(gid)
-                active_read += 1
-            except Exception as e:
-                logger.warning(f"Falha mark_as_read {group.get('name', '?')}: {e}")
-    phase4_elapsed = time.monotonic() - phase4_start
-    logger.info(f"FASE 4 (mark_as_read light): {active_read}/{len(active_with_unread)} em {phase4_elapsed:.1f}s")
-
-    # --- FASE 5: Archive grupos não-arquivados (POST archive) ---
-    phase5_start = time.monotonic()
+    # --- FASE 4: Archive grupos não-arquivados (POST archive) ---
+    # Nota: mark-as-read (PATCH ou PUT individual) não sincroniza com o device
+    # físico via Whapi companion mode — removido. O archive sozinho remove
+    # os grupos da caixa principal, que é o objetivo prático.
+    phase_archive_start = time.monotonic()
     archive_count = 0
 
     def _archive_group_task(gid: str) -> bool:
@@ -1101,20 +1091,20 @@ def run_pipeline() -> PipelineResult:
         g.get("id") for g in active_groups
         if g.get("id") and not g.get("is_archived", False)
     ]
-    logger.info(f"FASE 5: {len(groups_to_archive)} grupos por arquivar")
+    logger.info(f"FASE 4: {len(groups_to_archive)} grupos por arquivar")
     if groups_to_archive:
         # Sequencial para evitar rate limiting na Whapi
         for gid in groups_to_archive:
             if _archive_group_task(gid):
                 archive_count += 1
 
-    phase5_elapsed = time.monotonic() - phase5_start
+    phase_archive_elapsed = time.monotonic() - phase_archive_start
     if archive_count < len(groups_to_archive):
-        logger.warning(f"FASE 5: archive INCOMPLETO {archive_count}/{len(groups_to_archive)} em {phase5_elapsed:.1f}s")
+        logger.warning(f"FASE 4: archive INCOMPLETO {archive_count}/{len(groups_to_archive)} em {phase_archive_elapsed:.1f}s")
     else:
-        logger.info(f"FASE 5 (archive): {archive_count}/{len(groups_to_archive)} em {phase5_elapsed:.1f}s")
+        logger.info(f"FASE 4 (archive): {archive_count}/{len(groups_to_archive)} em {phase_archive_elapsed:.1f}s")
 
-    # --- FASE 6: Restaurar presença offline (notificações push) ---
+    # --- FASE 5: Restaurar presença offline (notificações push) ---
     try:
         offline_client = WhatsAppClient()
         offline_client.set_presence_offline()
@@ -1128,6 +1118,8 @@ def run_pipeline() -> PipelineResult:
         opportunities_found=total_opportunities,
         groups_processed=groups_processed,
         errors=errors,
+        groups_archived=archive_count,
+        groups_to_archive=len(groups_to_archive),
     )
 
     logger.info("=" * 60)
@@ -1138,7 +1130,7 @@ def run_pipeline() -> PipelineResult:
     logger.info(f"  FASE 1b inativos: {phase1b_elapsed:.1f}s")
     logger.info(f"  FASE 2 dedup: {phase2_elapsed:.1f}s")
     logger.info(f"  FASE 3 classificacao: {phase3_elapsed:.1f}s")
-    logger.info(f"  FASE 4 archive: {phase4_elapsed:.1f}s")
+    logger.info(f"  FASE 4 archive: {phase_archive_elapsed:.1f}s")
     logger.info(f"  Grupos com unread: {len(active_with_unread)} activos + {len(inactive_with_unread)} inativos")
     logger.info(f"  Grupos skip (ja lidos): {len(active_already_read)}")
     logger.info(f"  Mensagens buscadas: {total_messages}")

@@ -33,6 +33,8 @@ _pipeline_state: Dict[str, Any] = {
     "messages_fetched": 0,
     "opportunities_found": 0,
     "groups_processed": 0,
+    "groups_archived": 0,
+    "groups_to_archive": 0,
     "errors": [],
 }
 
@@ -52,11 +54,14 @@ def _run_pipeline_background() -> None:
                 "messages_fetched": result.messages_fetched,
                 "opportunities_found": result.opportunities_found,
                 "groups_processed": result.groups_processed,
+                "groups_archived": result.groups_archived,
+                "groups_to_archive": result.groups_to_archive,
                 "errors": result.errors,
             }
         logger.info(
             f"Pipeline M1 concluido: {result.messages_fetched} msgs, "
-            f"{result.opportunities_found} oportunidades"
+            f"{result.opportunities_found} oportunidades, "
+            f"{result.groups_archived}/{result.groups_to_archive} arquivados"
         )
     except Exception as e:
         with _pipeline_lock:
@@ -67,6 +72,8 @@ def _run_pipeline_background() -> None:
                 "messages_fetched": 0,
                 "opportunities_found": 0,
                 "groups_processed": 0,
+                "groups_archived": 0,
+                "groups_to_archive": 0,
                 "errors": [str(e)],
             }
         logger.error(f"Pipeline M1 falhou: {e}")
@@ -91,6 +98,8 @@ async def trigger_pipeline() -> Dict[str, Any]:
             "messages_fetched": 0,
             "opportunities_found": 0,
             "groups_processed": 0,
+            "groups_archived": 0,
+            "groups_to_archive": 0,
             "errors": [],
         }
 

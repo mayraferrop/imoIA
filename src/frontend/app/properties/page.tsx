@@ -182,8 +182,11 @@ export default function PropertiesPage() {
 
         if (data.status === "done") {
           const erros = data.errors?.length ? ` | ${data.errors.length} erro(s)` : "";
+          const archived = data.groups_to_archive
+            ? ` | ${data.groups_archived ?? 0}/${data.groups_to_archive} arquivados`
+            : "";
           setTriggerMsg(
-            `Pipeline concluido: ${data.groups_processed ?? 0} grupos, ${data.messages_fetched ?? 0} mensagens, ${data.opportunities_found ?? 0} oportunidades${erros}`
+            `Pipeline concluido: ${data.groups_processed ?? 0} grupos, ${data.messages_fetched ?? 0} mensagens, ${data.opportunities_found ?? 0} oportunidades${archived}${erros}`
           );
           setTriggerLoading(false);
           fetchData();
