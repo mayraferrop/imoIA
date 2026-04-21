@@ -17,10 +17,20 @@ key no frontend — a leitura no browser e feita via signed URLs publicas.
 from __future__ import annotations
 
 import os
-from typing import Optional
+import threading
+import time
+from typing import Dict, Optional, Tuple
 
 import httpx
 from loguru import logger
+
+
+# Cache in-memory dos signed URLs: (bucket, path) -> (url, expires_epoch).
+# TTL efectivo = expires_in - _SIGNED_URL_SAFETY_MARGIN, para não devolver
+# URLs quase-a-expirar. Thread-safe via lock.
+_SIGNED_URL_CACHE: Dict[Tuple[str, str], Tuple[str, float]] = {}
+_SIGNED_URL_LOCK = threading.Lock()
+_SIGNED_URL_SAFETY_MARGIN = 300  # segundos de margem antes da expiração real
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +165,10 @@ def upload_file(
 def get_signed_url(bucket: str, path: str, expires_in: int = 3600) -> str:
     """Gera signed URL para download de um objecto.
 
+    Usa cache in-memory: se existir URL ainda válida (com margem de
+    _SIGNED_URL_SAFETY_MARGIN), devolve sem chamar Supabase. Evita o custo
+    de POST síncrono por foto em endpoints com múltiplos assets.
+
     Parametros
     ----------
     bucket: id do bucket
@@ -165,6 +179,13 @@ def get_signed_url(bucket: str, path: str, expires_in: int = 3600) -> str:
     -------
     URL absoluta e publica (sem necessidade de auth) valida durante expires_in.
     """
+    cache_key = (bucket, path)
+    now = time.time()
+    with _SIGNED_URL_LOCK:
+        cached = _SIGNED_URL_CACHE.get(cache_key)
+        if cached and cached[1] > now:
+            return cached[0]
+
     _ensure_config()
     url = f"{_SUPA_URL}/storage/v1/object/sign/{bucket}/{path}"
     resp = httpx.post(
@@ -185,10 +206,16 @@ def get_signed_url(bucket: str, path: str, expires_in: int = 3600) -> str:
         raise RuntimeError(f"Resposta inesperada do signed URL: {data}")
     # Supabase devolve path relativo — prefixa com URL do projecto
     if signed_path.startswith("/"):
-        return f"{_SUPA_URL}/storage/v1{signed_path}"
-    if signed_path.startswith("http"):
-        return signed_path
-    return f"{_SUPA_URL}/storage/v1/{signed_path}"
+        full_url = f"{_SUPA_URL}/storage/v1{signed_path}"
+    elif signed_path.startswith("http"):
+        full_url = signed_path
+    else:
+        full_url = f"{_SUPA_URL}/storage/v1/{signed_path}"
+
+    expires_epoch = now + max(expires_in - _SIGNED_URL_SAFETY_MARGIN, 60)
+    with _SIGNED_URL_LOCK:
+        _SIGNED_URL_CACHE[cache_key] = (full_url, expires_epoch)
+    return full_url
 
 
 def get_public_url(bucket: str, path: str) -> str:

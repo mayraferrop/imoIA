@@ -1,14 +1,29 @@
 /**
- * imoIA WhatsApp Bridge
+ * imoIA WhatsApp Bridge (Baileys)
  *
- * Servidor Express local que expoe a API do WhatsApp via Baileys.
- * O Python (imoIA) chama http://localhost:3000 em vez de Whapi.Cloud.
+ * Substitui Whapi.cloud — conecta ao WhatsApp como device (não companion),
+ * portanto archive/mark-as-read sincronizam 100% com o telemóvel primário.
  *
- * Endpoints:
- *   GET  /status           — estado da conexao + QR code
- *   GET  /groups            — listar grupos
- *   GET  /messages/:groupId — mensagens de um grupo
- *   PATCH /groups/:groupId  — arquivar grupo
+ * Endpoints consumidos por src/modules/m1_ingestor/whatsapp_client.py:
+ *   GET  /status             — estado da conexão + QR code
+ *   GET  /groups             — listar grupos ativos
+ *   GET  /messages/:groupId  — mensagens de um grupo (?count=N&since=unix_ts)
+ *   PATCH /groups/:groupId   — marcar como lido + archive (body: {archive: true})
+ *
+ * Endpoints de operação:
+ *   GET  /qr                 — QR code HTML renderizado (para pair via browser)
+ *   GET  /healthz            — healthcheck
+ *   POST /resync             — força resync do app state
+ *   POST /logout             — desliga sessão
+ *
+ * Auth:
+ *   Endpoints aceitam header `Authorization: Bearer <BRIDGE_TOKEN>` se a env
+ *   BRIDGE_TOKEN estiver definida. /qr, /status, /healthz ficam sempre abertos
+ *   para permitir pairing inicial e monitorização.
+ *
+ * Persistência:
+ *   DATA_DIR (default: ./data) contém auth_state/ e messages.json.
+ *   Em produção deve apontar para volume persistente (ex: /data no Fly.io).
  */
 
 import makeWASocket, {
@@ -24,73 +39,61 @@ import { Boom } from "@hapi/boom";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import QRCode from "qrcode";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const AUTH_DIR = path.join(__dirname, "auth_state");
-const MSG_STORE_FILE = path.join(__dirname, "messages.json");
 
-// Logger do Baileys (silent por defeito, usar BAILEYS_LOG=debug para diagnostico)
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
+const AUTH_DIR = path.join(DATA_DIR, "auth_state");
+const MSG_STORE_FILE = path.join(DATA_DIR, "messages.json");
+const BRIDGE_TOKEN = process.env.BRIDGE_TOKEN || "";
+const PORT = Number(process.env.PORT || process.env.BRIDGE_PORT || 3000);
+const MAX_MESSAGES_PER_GROUP = Number(process.env.MAX_MESSAGES_PER_GROUP || 500);
+
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
 const logger = pino({ level: process.env.BAILEYS_LOG || "silent" });
 
-// Buffer de mensagens em memoria (groupId -> array de mensagens)
 const messageStore = {};
-const MAX_MESSAGES_PER_GROUP = 500;
-
-// Carregar mensagens guardadas
 if (fs.existsSync(MSG_STORE_FILE)) {
   try {
     const saved = JSON.parse(fs.readFileSync(MSG_STORE_FILE, "utf-8"));
     Object.assign(messageStore, saved);
-    console.log(`Mensagens carregadas: ${Object.keys(saved).length} grupos`);
+    console.log(`[boot] Mensagens carregadas: ${Object.keys(saved).length} grupos`);
   } catch {
-    console.log("Ficheiro de mensagens corrompido, a comecar do zero.");
+    console.log("[boot] messages.json corrompido, a começar do zero.");
   }
 }
 
-// Guardar mensagens a cada 60 segundos
 setInterval(() => {
   try {
     fs.writeFileSync(MSG_STORE_FILE, JSON.stringify(messageStore), "utf-8");
   } catch (err) {
-    console.error("Erro ao guardar mensagens:", err.message);
+    console.error("[persist] Erro ao gravar mensagens:", err.message);
   }
 }, 60_000);
 
-// Estado global
 let sock = null;
 let qrCode = null;
 let connectionStatus = "disconnected";
+const groupsCache = {};
 
-/**
- * Extrai conteudo de texto e tipo de uma mensagem Baileys.
- */
 function extractContent(msg) {
   const m = msg.message;
   if (!m) return { content: "", type: "unknown" };
-
-  if (m.conversation) {
-    return { content: m.conversation, type: "text" };
-  }
-  if (m.extendedTextMessage?.text) {
-    return { content: m.extendedTextMessage.text, type: "text" };
-  }
-  if (m.imageMessage?.caption) {
-    return { content: m.imageMessage.caption, type: "image" };
-  }
-  if (m.videoMessage?.caption) {
-    return { content: m.videoMessage.caption, type: "video" };
-  }
+  if (m.conversation) return { content: m.conversation, type: "text" };
+  if (m.extendedTextMessage?.text) return { content: m.extendedTextMessage.text, type: "text" };
+  if (m.imageMessage?.caption) return { content: m.imageMessage.caption, type: "image" };
+  if (m.videoMessage?.caption) return { content: m.videoMessage.caption, type: "video" };
   if (m.documentMessage) return { content: "", type: "document" };
   if (m.stickerMessage) return { content: "", type: "sticker" };
   if (m.reactionMessage) return { content: "", type: "reaction" };
   if (m.protocolMessage) return { content: "", type: "protocol" };
-
   return { content: "", type: "unknown" };
 }
 
-/**
- * Converte timestamp do Baileys para numero unix.
- */
 function getTimestamp(msg) {
   const ts = msg.messageTimestamp;
   if (!ts) return 0;
@@ -98,9 +101,6 @@ function getTimestamp(msg) {
   return Number(ts);
 }
 
-/**
- * Normaliza uma mensagem Baileys para o formato da API.
- */
 function normalizeMessage(msg) {
   const { content, type } = extractContent(msg);
   return {
@@ -113,9 +113,6 @@ function normalizeMessage(msg) {
   };
 }
 
-/**
- * Inicia a conexao com o WhatsApp via Baileys.
- */
 async function startWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const { version } = await fetchLatestBaileysVersion();
@@ -132,121 +129,86 @@ async function startWhatsApp() {
     syncFullHistory: true,
   });
 
-  // Capturar mensagens recebidas e guardar no buffer
   sock.ev.on("messages.upsert", ({ messages: msgs, type }) => {
     let count = 0;
     for (const msg of msgs) {
       const groupId = msg.key?.remoteJid;
       if (!groupId || !groupId.endsWith("@g.us")) continue;
-
-      if (!messageStore[groupId]) {
-        messageStore[groupId] = [];
-      }
-
-      // Evitar duplicados (pelo id da mensagem)
+      if (!messageStore[groupId]) messageStore[groupId] = [];
       const msgId = msg.key?.id;
-      if (msgId && messageStore[groupId].some((m) => m.key?.id === msgId)) {
-        continue;
-      }
-
+      if (msgId && messageStore[groupId].some((m) => m.key?.id === msgId)) continue;
       messageStore[groupId].push(msg);
       count++;
-
-      // Limitar tamanho do buffer
       if (messageStore[groupId].length > MAX_MESSAGES_PER_GROUP) {
-        messageStore[groupId] = messageStore[groupId].slice(
-          -MAX_MESSAGES_PER_GROUP
-        );
+        messageStore[groupId] = messageStore[groupId].slice(-MAX_MESSAGES_PER_GROUP);
       }
     }
-    if (count > 0) {
-      console.log(`[messages.upsert] +${count} mensagens de grupo (type: ${type})`);
-    }
+    if (count > 0) console.log(`[upsert] +${count} (${type})`);
   });
 
-  // Capturar historico sincronizado pelo WhatsApp
   sock.ev.on("messaging-history.set", ({ messages: msgs, isLatest }) => {
     let count = 0;
-    for (const msg of (msgs || [])) {
+    for (const msg of msgs || []) {
       const groupId = msg.key?.remoteJid;
       if (!groupId || !groupId.endsWith("@g.us")) continue;
-
-      if (!messageStore[groupId]) {
-        messageStore[groupId] = [];
-      }
-
+      if (!messageStore[groupId]) messageStore[groupId] = [];
       const msgId = msg.key?.id;
-      if (msgId && messageStore[groupId].some((m) => m.key?.id === msgId)) {
-        continue;
-      }
-
+      if (msgId && messageStore[groupId].some((m) => m.key?.id === msgId)) continue;
       messageStore[groupId].push(msg);
       count++;
-
       if (messageStore[groupId].length > MAX_MESSAGES_PER_GROUP) {
-        messageStore[groupId] = messageStore[groupId].slice(
-          -MAX_MESSAGES_PER_GROUP
-        );
+        messageStore[groupId] = messageStore[groupId].slice(-MAX_MESSAGES_PER_GROUP);
       }
     }
-    console.log(`[history.set] +${count} mensagens de grupo sincronizadas (isLatest: ${isLatest})`);
+    if (count > 0) console.log(`[history] +${count} (latest=${isLatest})`);
   });
 
-  // Eventos de conexao
+  sock.ev.on("chats.upsert", (chats) => {
+    for (const c of chats) if (c.id?.endsWith("@g.us")) groupsCache[c.id] = c;
+  });
+  sock.ev.on("chats.update", (updates) => {
+    for (const u of updates) {
+      if (u.id?.endsWith("@g.us")) groupsCache[u.id] = { ...(groupsCache[u.id] || {}), ...u };
+    }
+  });
+
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
       qrCode = qr;
       connectionStatus = "waiting_qr";
-      console.log("\n");
+      console.log("\n" + "=".repeat(50));
+      console.log("  WhatsApp: abrir /qr no browser para escanear");
       console.log("=".repeat(50));
-      console.log("  SCAN DO QR CODE NO WHATSAPP");
-      console.log("  Ou aceda a http://localhost:3000/status");
-      console.log("=".repeat(50));
-
-      // Mostrar QR no terminal
       try {
         const qrcodeTerminal = await import("qrcode-terminal");
         qrcodeTerminal.default.generate(qr, { small: true });
       } catch {
-        console.log("QR Code:", qr);
+        console.log("QR:", qr);
       }
     }
 
     if (connection === "close") {
       connectionStatus = "disconnected";
       qrCode = null;
-
       const reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
-
       if (reason === DisconnectReason.loggedOut) {
-        console.log("Sessao terminada. Apague a pasta auth_state e reinicie.");
-        // Limpar auth state
-        if (fs.existsSync(AUTH_DIR)) {
-          fs.rmSync(AUTH_DIR, { recursive: true });
-        }
+        console.log("[conn] Logged out. A apagar auth_state e reiniciar.");
+        if (fs.existsSync(AUTH_DIR)) fs.rmSync(AUTH_DIR, { recursive: true });
         process.exit(1);
       }
-
-      // Reconnect automatico
-      console.log("Conexao perdida. A reconectar em 3 segundos...");
+      console.log("[conn] Perdido. Reconectar em 3s...");
       setTimeout(startWhatsApp, 3000);
     }
 
     if (connection === "open") {
       connectionStatus = "connected";
       qrCode = null;
-      console.log("\n");
-      console.log("=".repeat(50));
-      console.log("  WhatsApp conectado com sucesso!");
-      console.log("  API disponivel em http://localhost:3000");
-      console.log("=".repeat(50));
-      console.log("\n");
+      console.log("\n[conn] WhatsApp conectado. API pronta.\n");
     }
   });
 
-  // Guardar credenciais quando atualizadas
   sock.ev.on("creds.update", saveCreds);
 }
 
@@ -257,7 +219,6 @@ async function startWhatsApp() {
 const app = express();
 app.use(express.json());
 
-// CORS aberto (bridge local)
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET, PATCH, POST, OPTIONS");
@@ -266,98 +227,105 @@ app.use((req, res, next) => {
   next();
 });
 
-/**
- * GET /status
- * Estado da conexao e QR code (se disponivel).
- */
+function requireAuth(req, res, next) {
+  if (!BRIDGE_TOKEN) return next();
+  const header = req.headers.authorization || "";
+  const provided = header.replace(/^Bearer\s+/i, "").trim();
+  if (provided === BRIDGE_TOKEN) return next();
+  return res.status(401).json({ error: "unauthorized" });
+}
+
+function requireConnected(req, res, next) {
+  if (connectionStatus !== "connected") {
+    return res.status(503).json({ error: "whatsapp_not_connected", status: connectionStatus });
+  }
+  next();
+}
+
+app.get("/healthz", (req, res) => {
+  res.json({ ok: true, status: connectionStatus });
+});
+
 app.get("/status", (req, res) => {
   res.json({
     status: connectionStatus,
-    qr: qrCode,
     connected: connectionStatus === "connected",
+    qr: qrCode,
     user: sock?.user
-      ? {
-          id: sock.user.id,
-          name: sock.user.name || sock.user.verifiedName || "N/A",
-        }
+      ? { id: sock.user.id, name: sock.user.name || sock.user.verifiedName || "N/A" }
       : null,
   });
 });
 
-/**
- * GET /groups
- * Lista todos os grupos do WhatsApp.
- */
-app.get("/groups", async (req, res) => {
-  if (connectionStatus !== "connected") {
-    return res.status(503).json({ error: "WhatsApp nao conectado" });
+app.get("/qr", async (req, res) => {
+  if (connectionStatus === "connected") {
+    return res.send(`<!doctype html><html><body style="font-family:system-ui;padding:40px;text-align:center">
+      <h1>WhatsApp conectado</h1>
+      <p>Utilizador: <strong>${sock?.user?.id || "?"}</strong></p>
+      <p>Nenhum QR code necessário.</p>
+    </body></html>`);
   }
+  if (!qrCode) {
+    return res.send(`<!doctype html><html><head><meta http-equiv="refresh" content="2"></head>
+      <body style="font-family:system-ui;padding:40px;text-align:center">
+        <h1>A aguardar QR...</h1>
+        <p>Estado: ${connectionStatus}</p>
+      </body></html>`);
+  }
+  try {
+    const dataUrl = await QRCode.toDataURL(qrCode, { errorCorrectionLevel: "M", width: 400 });
+    res.send(`<!doctype html><html><head><meta http-equiv="refresh" content="15"></head>
+      <body style="font-family:system-ui;padding:40px;text-align:center">
+        <h1>Escaneia no WhatsApp</h1>
+        <p>Abre WhatsApp → Definições → Dispositivos ligados → Ligar dispositivo</p>
+        <img src="${dataUrl}" alt="QR" style="margin:20px auto;border:1px solid #ccc;padding:10px"/>
+        <p style="color:#888">QR expira em ~60s. Página recarrega em 15s.</p>
+      </body></html>`);
+  } catch (err) {
+    res.status(500).send(`Erro ao renderizar QR: ${err.message}`);
+  }
+});
 
+app.get("/groups", requireAuth, requireConnected, async (req, res) => {
   try {
     const groups = await sock.groupFetchAllParticipating();
-    const groupList = Object.values(groups).map((g) => ({
-      id: g.id,
-      name: g.subject || "Sem nome",
-      participants: g.participants?.length || 0,
-      creation: g.creation,
-      desc: g.desc || "",
-    }));
-
+    const groupList = Object.values(groups).map((g) => {
+      const cached = groupsCache[g.id] || {};
+      return {
+        id: g.id,
+        name: g.subject || "Sem nome",
+        participants: g.participants?.length || 0,
+        creation: g.creation,
+        desc: g.desc || "",
+        is_archived: cached.archived === true,
+        unread: cached.unreadCount ?? null,
+      };
+    });
     res.json({ groups: groupList, count: groupList.length });
   } catch (err) {
-    console.error("Erro ao listar grupos:", err.message);
+    console.error("[/groups]", err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-/**
- * GET /messages/:groupId
- * Busca mensagens de um grupo a partir do buffer local.
- * Query params:
- *   - count: numero maximo de mensagens (default 100)
- *   - since: timestamp unix (segundos) para filtrar mensagens mais recentes
- */
-app.get("/messages/:groupId", async (req, res) => {
-  if (connectionStatus !== "connected") {
-    return res.status(503).json({ error: "WhatsApp nao conectado" });
-  }
-
+app.get("/messages/:groupId", requireAuth, requireConnected, (req, res) => {
   const { groupId } = req.params;
   const count = parseInt(req.query.count) || 100;
   const sinceTs = parseInt(req.query.since) || 0;
-
   try {
     const stored = messageStore[groupId] || [];
-
     const messages = stored
       .filter((m) => getTimestamp(m) >= sinceTs)
       .slice(-count)
       .map(normalizeMessage);
-
-    res.json({
-      messages,
-      count: messages.length,
-      group_id: groupId,
-    });
+    res.json({ messages, count: messages.length, group_id: groupId });
   } catch (err) {
-    console.error("Erro ao buscar mensagens:", err.message);
+    console.error("[/messages]", err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-/**
- * PATCH /groups/:groupId
- * Marcar como lido e arquivar grupo.
- * Body: { "archive": true }
- *
- * Usa readMessages (protocolo direto) para marcar como lido.
- * Usa chatModify para archive (requer app state sync keys).
- */
-app.patch("/groups/:groupId", async (req, res) => {
-  if (connectionStatus !== "connected") {
-    return res.status(503).json({ error: "WhatsApp nao conectado" });
-  }
-
+app.patch("/groups/:groupId", requireAuth, requireConnected, async (req, res) => {
   const { groupId } = req.params;
   const { archive } = req.body;
   const results = { markedRead: false, archived: false };
@@ -365,219 +333,73 @@ app.patch("/groups/:groupId", async (req, res) => {
   try {
     const stored = messageStore[groupId] || [];
 
-    // Marcar TODAS as mensagens como lidas via sendReceipts (protocolo direto)
-    // Agrupar por participant para enviar receipts em batch
     const unreadMsgs = stored.filter((m) => m.key && !m.key.fromMe && m.key.id && m.key.remoteJid);
-
     if (unreadMsgs.length > 0) {
-      // Agrupar mensagens por participant
       const byParticipant = {};
       for (const m of unreadMsgs) {
         const participant = m.key.participant || "";
         if (!byParticipant[participant]) byParticipant[participant] = [];
         byParticipant[participant].push(m.key.id);
       }
-
       let readCount = 0;
       for (const [participant, msgIds] of Object.entries(byParticipant)) {
         try {
-          // Enviar 'read' diretamente (nao 'read-self') para garantir que limpa badges
           await sock.sendReceipt(groupId, participant || undefined, msgIds, "read");
           readCount += msgIds.length;
-        } catch (err) {
-          // Tentar com read-self como fallback
+        } catch {
           try {
             await sock.sendReceipt(groupId, participant || undefined, msgIds, "read-self");
             readCount += msgIds.length;
           } catch (err2) {
-            console.error(`[markRead] Erro ${groupId} participant=${participant}:`, err2.message);
+            console.error(`[markRead] ${groupId} p=${participant}:`, err2.message);
           }
         }
       }
-
       if (readCount > 0) {
         results.markedRead = true;
-        console.log(`[markRead] ${readCount} msgs lidas em ${groupId}`);
+        console.log(`[markRead] ${readCount} em ${groupId}`);
       }
     }
 
-    // Tentar arquivar via chatModify (pode falhar se sync keys corrompidas)
     if (archive) {
       const lastMsg = stored.length > 0 ? stored[stored.length - 1] : null;
-      if (lastMsg && lastMsg.key?.id && lastMsg.key?.remoteJid && lastMsg.messageTimestamp) {
+      if (lastMsg?.key?.id && lastMsg?.key?.remoteJid && lastMsg?.messageTimestamp) {
         try {
           await sock.chatModify(
-            { archive: true, lastMessages: [{ key: lastMsg.key, messageTimestamp: lastMsg.messageTimestamp }] },
+            {
+              archive: true,
+              lastMessages: [{ key: lastMsg.key, messageTimestamp: lastMsg.messageTimestamp }],
+            },
             groupId
           );
           results.archived = true;
-          console.log(`[archive] ${groupId} arquivado`);
+          console.log(`[archive] ${groupId} OK`);
         } catch (archErr) {
-          // App state sync pode estar corrompido - nao bloquear
-          console.log(`[archive] ${groupId} falhou (app state): ${archErr.message?.slice(0, 80)}`);
+          console.log(`[archive] ${groupId} falhou: ${archErr.message?.slice(0, 80)}`);
         }
       }
     }
 
     res.json({ success: true, ...results });
   } catch (err) {
-    console.error("Erro geral ao processar grupo:", err.message);
+    console.error("[PATCH /groups]", err.message);
     res.status(500).json({ error: err.message, partial: results });
   }
 });
 
-/**
- * POST /resync
- * Forca resincronizacao do app state com o WhatsApp.
- */
-app.post("/resync", async (req, res) => {
-  if (connectionStatus !== "connected") {
-    return res.status(503).json({ error: "WhatsApp nao conectado" });
-  }
-
+app.post("/resync", requireAuth, requireConnected, async (req, res) => {
   try {
-    console.log("[resync] A forcar resincronizacao do app state...");
-    await sock.resyncAppState(["regular_high", "regular_low", "critical_block", "critical_unblock_low"], false);
-    console.log("[resync] Resincronizacao concluida");
+    await sock.resyncAppState(
+      ["regular_high", "regular_low", "critical_block", "critical_unblock_low"],
+      false
+    );
     res.json({ success: true });
   } catch (err) {
-    console.error("[resync] Erro:", err.message);
     res.json({ success: false, error: err.message });
   }
 });
 
-/**
- * POST /debug/read/:groupId
- * Debug: tenta multiplas abordagens para marcar como lido/arquivar.
- */
-app.post("/debug/read/:groupId", async (req, res) => {
-  if (connectionStatus !== "connected") {
-    return res.status(503).json({ error: "WhatsApp nao conectado" });
-  }
-
-  const { groupId } = req.params;
-  const stored = messageStore[groupId] || [];
-  const log = [];
-
-  log.push(`Store has ${stored.length} msgs for ${groupId}`);
-
-  if (stored.length === 0) {
-    return res.json({ success: false, log, error: "No messages in store" });
-  }
-
-  const lastMsg = stored[stored.length - 1];
-  log.push(`Last msg key: ${JSON.stringify(lastMsg.key)}`);
-
-  // Approach 1: readMessages with original LID keys
-  const unread = stored.filter((m) => m.key && !m.key.fromMe).slice(-5);
-  log.push(`--- Approach 1: readMessages with LID keys (${unread.length} msgs) ---`);
-  try {
-    await sock.readMessages(unread.map((m) => m.key));
-    log.push(`  => OK`);
-  } catch (err) {
-    log.push(`  => ERROR: ${err.message}`);
-  }
-
-  // Approach 2: readMessages with phone number keys (participantPn -> participant)
-  log.push(`--- Approach 2: readMessages with phone keys ---`);
-  const phoneKeys = unread
-    .filter((m) => m.key.participantPn)
-    .map((m) => ({
-      remoteJid: m.key.remoteJid,
-      fromMe: m.key.fromMe,
-      id: m.key.id,
-      participant: m.key.participantPn,
-    }));
-  log.push(`  Keys with participantPn: ${phoneKeys.length}`);
-  if (phoneKeys.length > 0) {
-    try {
-      await sock.readMessages(phoneKeys);
-      log.push(`  => OK`);
-    } catch (err) {
-      log.push(`  => ERROR: ${err.message}`);
-    }
-  }
-
-  // Approach 3: sendReceipt directly with phone participant
-  log.push(`--- Approach 3: sendReceipt directly ---`);
-  const lastUnread = unread[unread.length - 1];
-  if (lastUnread) {
-    const participant = lastUnread.key.participantPn || lastUnread.key.participant;
-    const msgIds = unread.map((m) => m.key.id);
-    try {
-      await sock.sendReceipt(groupId, participant, msgIds, "read");
-      log.push(`  sendReceipt(read) with ${participant} => OK`);
-    } catch (err) {
-      log.push(`  sendReceipt(read) => ERROR: ${err.message}`);
-    }
-    try {
-      await sock.sendReceipt(groupId, participant, msgIds, "read-self");
-      log.push(`  sendReceipt(read-self) with ${participant} => OK`);
-    } catch (err) {
-      log.push(`  sendReceipt(read-self) => ERROR: ${err.message}`);
-    }
-  }
-
-  // Approach 4: chatModify markRead
-  log.push(`--- Approach 4: chatModify markRead ---`);
-  const cleanKey = {
-    remoteJid: lastMsg.key.remoteJid,
-    fromMe: lastMsg.key.fromMe,
-    id: lastMsg.key.id,
-    participant: lastMsg.key.participant,
-  };
-  try {
-    await sock.chatModify(
-      { markRead: true, lastMessages: [{ key: cleanKey, messageTimestamp: lastMsg.messageTimestamp }] },
-      groupId
-    );
-    log.push(`  => OK`);
-  } catch (err) {
-    log.push(`  => ERROR: ${err.message}`);
-  }
-
-  // Approach 5: chatModify markRead with phone participant
-  log.push(`--- Approach 5: chatModify markRead with phone participant ---`);
-  if (lastMsg.key.participantPn) {
-    const phoneKey = {
-      remoteJid: lastMsg.key.remoteJid,
-      fromMe: lastMsg.key.fromMe,
-      id: lastMsg.key.id,
-      participant: lastMsg.key.participantPn,
-    };
-    try {
-      await sock.chatModify(
-        { markRead: true, lastMessages: [{ key: phoneKey, messageTimestamp: lastMsg.messageTimestamp }] },
-        groupId
-      );
-      log.push(`  => OK`);
-    } catch (err) {
-      log.push(`  => ERROR: ${err.message}`);
-    }
-  } else {
-    log.push(`  => SKIP (no participantPn)`);
-  }
-
-  // Approach 6: chatModify archive
-  log.push(`--- Approach 6: chatModify archive ---`);
-  try {
-    await sock.chatModify(
-      { archive: true, lastMessages: [{ key: cleanKey, messageTimestamp: lastMsg.messageTimestamp }] },
-      groupId
-    );
-    log.push(`  => OK`);
-  } catch (err) {
-    log.push(`  => ERROR: ${err.message}`);
-  }
-
-  res.json({ success: true, log });
-});
-
-/**
- * POST /logout
- * Desconecta a sessao do WhatsApp.
- */
-app.post("/logout", async (req, res) => {
+app.post("/logout", requireAuth, async (req, res) => {
   try {
     await sock?.logout();
     res.json({ success: true });
@@ -586,14 +408,10 @@ app.post("/logout", async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// Iniciar
-// ---------------------------------------------------------------------------
-
-const PORT = process.env.BRIDGE_PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(`\nimoIA WhatsApp Bridge a correr na porta ${PORT}`);
-  console.log("A iniciar conexao com o WhatsApp...\n");
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`\nimoIA WhatsApp Bridge na porta ${PORT}`);
+  console.log(`DATA_DIR=${DATA_DIR}`);
+  console.log(`AUTH=${BRIDGE_TOKEN ? "exigido (BRIDGE_TOKEN set)" : "aberto"}`);
+  console.log("A iniciar conexão WhatsApp...\n");
   startWhatsApp();
 });
