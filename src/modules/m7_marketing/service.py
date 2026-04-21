@@ -8,10 +8,29 @@ Persistencia via Supabase REST (sem SQLAlchemy).
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
+
+
+def _as_list(value: Any) -> List[Any]:
+    """Normaliza campos jsonb que podem chegar como str (double-encoded legacy).
+
+    PostgREST devolve jsonb nativo como list/dict, mas registos antigos foram
+    gravados via json.dumps() antes do insert — acabaram como string. Este
+    helper tenta fazer o parse seguro; em caso de falha devolve [].
+    """
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, list) else []
+        except (ValueError, TypeError):
+            return []
+    return []
 
 # FIXME(jwt-refactor): migrar para JWT do utilizador quando tabelas tiverem policies 'authenticated'
 from src.database import supabase_rest as db
@@ -96,13 +115,13 @@ def _listing_to_dict(listing: Dict[str, Any]) -> Dict[str, Any]:
         "title_zh": listing.get("title_zh"),
         "description_zh": listing.get("description_zh"),
         # SEO e destaques
-        "highlights": listing.get("highlights") or [],
+        "highlights": _as_list(listing.get("highlights")),
         "meta_title": listing.get("meta_title"),
         "meta_description": listing.get("meta_description"),
-        "keywords": listing.get("keywords") or [],
+        "keywords": _as_list(listing.get("keywords")),
         "slug": listing.get("slug"),
         # Media
-        "photos": listing.get("photos") or [],
+        "photos": _as_list(listing.get("photos")),
         "cover_photo_url": listing.get("cover_photo_url"),
         "video_url": listing.get("video_url"),
         "virtual_tour_url": listing.get("virtual_tour_url"),
@@ -125,7 +144,7 @@ def _listing_to_dict(listing: Dict[str, Any]) -> Dict[str, Any]:
         # WhatsApp
         "whatsapp_sent": listing.get("whatsapp_sent"),
         "whatsapp_sent_at": listing.get("whatsapp_sent_at"),
-        "whatsapp_groups_sent": listing.get("whatsapp_groups_sent") or [],
+        "whatsapp_groups_sent": _as_list(listing.get("whatsapp_groups_sent")),
         "published_at": listing.get("published_at"),
         # Metricas
         "days_on_market": listing.get("days_on_market"),

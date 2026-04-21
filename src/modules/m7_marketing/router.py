@@ -22,7 +22,7 @@ from src.modules.m7_marketing.schemas import (
     RegenerateFieldSchema,
     WhatsAppSendSchema,
 )
-from src.modules.m7_marketing.service import MarketingService
+from src.modules.m7_marketing.service import MarketingService, _as_list
 from src.modules.m7_marketing.languages import SUPPORTED_LANGUAGES, CHANNEL_SPECS
 
 router = APIRouter()
@@ -185,7 +185,7 @@ async def upload_listing_photos(
 
     with get_session() as session:
         uploaded = []
-        photos = list(listing.get("photos") or [])
+        photos = _as_list(listing.get("photos"))
 
         for i, file in enumerate(files):
             content = await file.read()
@@ -246,7 +246,7 @@ async def set_cover_photo(
     if not listing:
         raise HTTPException(status_code=404, detail="Listing nao encontrada")
 
-    photos = list(listing.get("photos") or [])
+    photos = _as_list(listing.get("photos"))
     for p in photos:
         p["is_cover"] = p.get("document_id") == document_id
 
@@ -267,7 +267,7 @@ async def list_listing_photos(listing_id: str) -> List[Dict[str, Any]]:
     listing = db.get_by_id("listings", listing_id)
     if not listing:
         raise HTTPException(status_code=404, detail="Listing nao encontrada")
-    return list(listing.get("photos") or [])
+    return _as_list(listing.get("photos"))
 
 
 @router.delete(
@@ -286,7 +286,7 @@ async def delete_listing_photo(
     if not listing:
         raise HTTPException(status_code=404, detail="Listing nao encontrada")
 
-    photos = list(listing.get("photos") or [])
+    photos = _as_list(listing.get("photos"))
     target = next((p for p in photos if p.get("document_id") == document_id), None)
     if not target:
         raise HTTPException(status_code=404, detail="Foto nao encontrada")

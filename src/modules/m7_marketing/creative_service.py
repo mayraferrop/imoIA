@@ -788,7 +788,8 @@ class CreativeService:
 
         # Resolver cover_photo — rodar foto por tipo de criativo
         # Cada tipo usa foto diferente para variedade visual
-        photos_list = listing.photos or []
+        from src.modules.m7_marketing.service import _as_list
+        photos_list = _as_list(listing.photos)
         photo_index_map = {
             "property_card": 0,
             "ig_post": 1,
