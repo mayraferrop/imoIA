@@ -67,13 +67,26 @@ if (fs.existsSync(MSG_STORE_FILE)) {
   }
 }
 
-setInterval(() => {
+function persistMessageStore() {
+  const tmp = `${MSG_STORE_FILE}.tmp`;
   try {
-    fs.writeFileSync(MSG_STORE_FILE, JSON.stringify(messageStore), "utf-8");
+    fs.writeFileSync(tmp, JSON.stringify(messageStore), "utf-8");
+    fs.renameSync(tmp, MSG_STORE_FILE);
   } catch (err) {
     console.error("[persist] Erro ao gravar mensagens:", err.message);
+    try { fs.existsSync(tmp) && fs.unlinkSync(tmp); } catch {}
   }
-}, 60_000);
+}
+
+setInterval(persistMessageStore, 60_000);
+
+for (const sig of ["SIGTERM", "SIGINT"]) {
+  process.on(sig, () => {
+    console.log(`[${sig}] a gravar messages.json antes de sair...`);
+    persistMessageStore();
+    process.exit(0);
+  });
+}
 
 let sock = null;
 let qrCode = null;
@@ -325,43 +338,63 @@ app.get("/messages/:groupId", requireAuth, requireConnected, (req, res) => {
   }
 });
 
+async function markGroupRead(groupId) {
+  const stored = messageStore[groupId] || [];
+  const unreadMsgs = stored.filter((m) => m.key && !m.key.fromMe && m.key.id && m.key.remoteJid);
+  if (unreadMsgs.length === 0) {
+    return { markedRead: false, count: 0, reason: "no_buffer" };
+  }
+  const byParticipant = {};
+  for (const m of unreadMsgs) {
+    const participant = m.key.participant || "";
+    if (!byParticipant[participant]) byParticipant[participant] = [];
+    byParticipant[participant].push(m.key.id);
+  }
+  let readCount = 0;
+  for (const [participant, msgIds] of Object.entries(byParticipant)) {
+    try {
+      await sock.sendReceipt(groupId, participant || undefined, msgIds, "read");
+      readCount += msgIds.length;
+    } catch {
+      try {
+        await sock.sendReceipt(groupId, participant || undefined, msgIds, "read-self");
+        readCount += msgIds.length;
+      } catch (err2) {
+        console.error(`[markRead] ${groupId} p=${participant}:`, err2.message);
+      }
+    }
+  }
+
+  const lastMsg = stored[stored.length - 1];
+  if (lastMsg?.key?.id && lastMsg?.messageTimestamp) {
+    try {
+      await sock.chatModify(
+        {
+          markRead: true,
+          lastMessages: [{ key: lastMsg.key, messageTimestamp: lastMsg.messageTimestamp }],
+        },
+        groupId
+      );
+    } catch (err) {
+      console.log(`[markRead chatModify] ${groupId}: ${err.message?.slice(0, 80)}`);
+    }
+  }
+
+  return { markedRead: readCount > 0, count: readCount };
+}
+
 app.patch("/groups/:groupId", requireAuth, requireConnected, async (req, res) => {
   const { groupId } = req.params;
   const { archive } = req.body;
   const results = { markedRead: false, archived: false };
 
   try {
-    const stored = messageStore[groupId] || [];
-
-    const unreadMsgs = stored.filter((m) => m.key && !m.key.fromMe && m.key.id && m.key.remoteJid);
-    if (unreadMsgs.length > 0) {
-      const byParticipant = {};
-      for (const m of unreadMsgs) {
-        const participant = m.key.participant || "";
-        if (!byParticipant[participant]) byParticipant[participant] = [];
-        byParticipant[participant].push(m.key.id);
-      }
-      let readCount = 0;
-      for (const [participant, msgIds] of Object.entries(byParticipant)) {
-        try {
-          await sock.sendReceipt(groupId, participant || undefined, msgIds, "read");
-          readCount += msgIds.length;
-        } catch {
-          try {
-            await sock.sendReceipt(groupId, participant || undefined, msgIds, "read-self");
-            readCount += msgIds.length;
-          } catch (err2) {
-            console.error(`[markRead] ${groupId} p=${participant}:`, err2.message);
-          }
-        }
-      }
-      if (readCount > 0) {
-        results.markedRead = true;
-        console.log(`[markRead] ${readCount} em ${groupId}`);
-      }
-    }
+    const readRes = await markGroupRead(groupId);
+    results.markedRead = readRes.markedRead;
+    if (readRes.markedRead) console.log(`[markRead] ${readRes.count} em ${groupId}`);
 
     if (archive) {
+      const stored = messageStore[groupId] || [];
       const lastMsg = stored.length > 0 ? stored[stored.length - 1] : null;
       if (lastMsg?.key?.id && lastMsg?.key?.remoteJid && lastMsg?.messageTimestamp) {
         try {
@@ -384,6 +417,36 @@ app.patch("/groups/:groupId", requireAuth, requireConnected, async (req, res) =>
   } catch (err) {
     console.error("[PATCH /groups]", err.message);
     res.status(500).json({ error: err.message, partial: results });
+  }
+});
+
+app.post("/mark-all-read", requireAuth, requireConnected, async (req, res) => {
+  const summary = { total_groups: 0, marked: 0, skipped_empty: 0, errors: 0, details: [] };
+  try {
+    const groups = await sock.groupFetchAllParticipating();
+    const groupIds = Object.keys(groups);
+    summary.total_groups = groupIds.length;
+
+    for (const gid of groupIds) {
+      try {
+        const r = await markGroupRead(gid);
+        if (r.markedRead) {
+          summary.marked++;
+          summary.details.push({ id: gid, name: groups[gid].subject, count: r.count });
+        } else {
+          summary.skipped_empty++;
+        }
+      } catch (err) {
+        summary.errors++;
+        console.error(`[mark-all-read] ${gid}:`, err.message);
+      }
+    }
+
+    console.log(`[mark-all-read] ${summary.marked}/${summary.total_groups} marcados`);
+    res.json({ success: true, ...summary });
+  } catch (err) {
+    console.error("[mark-all-read]", err.message);
+    res.status(500).json({ error: err.message, partial: summary });
   }
 });
 
