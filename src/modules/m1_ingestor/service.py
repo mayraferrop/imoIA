@@ -989,6 +989,10 @@ def run_pipeline() -> PipelineResult:
             "mensagens_buscadas": len(messages),
             "mensagens_filtradas": 0, "oportunidades": 0,
             "arquivado": None,  # preenchido na FASE 4 (archive)
+            "unread_before": group.get("unread", 0),
+            "archived_before": bool(group.get("is_archived", False)),
+            "unread_after": None,
+            "archived_after": None,
             "estado": fr.get("estado", "ok"), "erro": fr.get("erro"),
         }
 
@@ -1124,6 +1128,24 @@ def run_pipeline() -> PipelineResult:
         logger.warning(f"FASE 4: archive INCOMPLETO {archive_count}/{len(groups_to_archive)} em {phase_archive_elapsed:.1f}s")
     else:
         logger.info(f"FASE 4 (archive): {archive_count}/{len(groups_to_archive)} em {phase_archive_elapsed:.1f}s")
+
+    # Capturar estado pos-pipeline (unread + archived) para auditoria por grupo
+    try:
+        post_groups = wa_client.list_active_groups()
+        post_map = {
+            g.get("id"): {
+                "unread": g.get("unread", 0) or 0,
+                "archived": bool(g.get("is_archived", False)),
+            }
+            for g in post_groups if g.get("id")
+        }
+        for gl in group_logs:
+            gid = gl.get("grupo_id")
+            if gid and gid in post_map:
+                gl["unread_after"] = post_map[gid]["unread"]
+                gl["archived_after"] = post_map[gid]["archived"]
+    except Exception as e:
+        logger.warning(f"Falha a capturar estado pos-pipeline: {e}")
 
     # --- FASE 5: Restaurar presença offline (notificações push) ---
     try:

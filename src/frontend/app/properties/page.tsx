@@ -121,6 +121,10 @@ export default function PropertiesPage() {
     mensagens_filtradas: number;
     oportunidades: number;
     arquivado: boolean | null;
+    unread_before?: number;
+    unread_after?: number | null;
+    archived_before?: boolean;
+    archived_after?: boolean | null;
     estado?: string;
     erro?: string | null;
   };
@@ -515,17 +519,36 @@ export default function PropertiesPage() {
                   <th className="px-3 py-2 font-medium text-right">Msgs lidas</th>
                   <th className="px-3 py-2 font-medium text-right">Filtradas</th>
                   <th className="px-3 py-2 font-medium text-right">Opps</th>
-                  <th className="px-3 py-2 font-medium text-center">Archive</th>
+                  <th className="px-3 py-2 font-medium text-center">Unread (antes → depois)</th>
+                  <th className="px-3 py-2 font-medium text-center">Arquivado (antes → depois)</th>
+                  <th className="px-3 py-2 font-medium text-center">Archive API</th>
                   <th className="px-3 py-2 font-medium">Estado</th>
                 </tr>
               </thead>
               <tbody>
-                {groupLogs.map((gl, i) => (
+                {groupLogs.map((gl, i) => {
+                  const ub = gl.unread_before ?? 0;
+                  const ua = gl.unread_after;
+                  const ab = gl.archived_before ?? false;
+                  const aa = gl.archived_after;
+                  const unreadChanged = ua != null && ua !== ub;
+                  const archivedChanged = aa != null && aa !== ab;
+                  return (
                   <tr key={`${gl.grupo_id}-${i}`} className="border-t border-slate-100 hover:bg-slate-50">
                     <td className="px-3 py-1.5 text-slate-800 truncate max-w-xs" title={gl.grupo}>{gl.grupo}</td>
                     <td className="px-3 py-1.5 text-right text-slate-600">{gl.mensagens_buscadas ?? 0}</td>
                     <td className="px-3 py-1.5 text-right text-slate-600">{gl.mensagens_filtradas ?? 0}</td>
                     <td className="px-3 py-1.5 text-right font-medium text-teal-700">{gl.oportunidades ?? 0}</td>
+                    <td className="px-3 py-1.5 text-center text-slate-600">
+                      <span className={unreadChanged ? "font-medium text-teal-700" : ""}>
+                        {ub} → {ua ?? "—"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-1.5 text-center">
+                      <span className={archivedChanged ? "font-medium text-teal-700" : "text-slate-600"}>
+                        {ab ? "sim" : "não"} → {aa == null ? "—" : (aa ? "sim" : "não")}
+                      </span>
+                    </td>
                     <td className="px-3 py-1.5 text-center">
                       {gl.arquivado === true ? (
                         <span className="text-green-600">✓</span>
@@ -539,7 +562,8 @@ export default function PropertiesPage() {
                       {gl.erro ? <span className="text-red-600">{gl.erro}</span> : gl.estado ?? "ok"}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
