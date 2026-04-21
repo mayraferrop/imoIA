@@ -680,9 +680,7 @@ export default function MarketingPage() {
                 const coverPhoto = listing.photos?.find(
                   (p) => p.is_cover || (!!listing.cover_photo_url && !!p.document_id && listing.cover_photo_url.includes(p.document_id))
                 );
-                const thumbUrl = coverPhoto?.document_id
-                  ? `${API_BASE}/api/v1/documents/${coverPhoto.document_id}/download`
-                  : coverPhoto?.url ?? listing.cover_photo_url;
+                const thumbUrl = coverPhoto?.url ?? listing.cover_photo_url;
                 const photoCount = listing.photos?.length ?? 0;
 
                 return (

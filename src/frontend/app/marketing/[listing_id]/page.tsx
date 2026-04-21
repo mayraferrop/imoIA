@@ -253,9 +253,7 @@ export default function ListingDetailPage() {
         !!listing.cover_photo_url &&
         listing.cover_photo_url.includes(p.document_id))
   );
-  const coverUrl = cover?.document_id
-    ? `${API_BASE}/api/v1/documents/${cover.document_id}/download`
-    : cover?.url ?? listing.cover_photo_url;
+  const coverUrl = cover?.url ?? listing.cover_photo_url;
 
   return (
     <div className="space-y-6">
@@ -395,9 +393,7 @@ export default function ListingDetailPage() {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {photos.map((photo) => {
-                const photoUrl = photo.document_id
-                  ? `${API_BASE}/api/v1/documents/${photo.document_id}/download`
-                  : photo.url;
+                const photoUrl = photo.url;
                 const isCover =
                   photo.is_cover ||
                   (!!listing.cover_photo_url &&
@@ -854,9 +850,7 @@ function ListingPreview({
             </h3>
             <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
               {photos.slice(0, 12).map((photo) => {
-                const src = photo.document_id
-                  ? `${API_BASE}/api/v1/documents/${photo.document_id}/download`
-                  : photo.url;
+                const src = photo.url;
                 return (
                   <div
                     key={photo.document_id ?? photo.url}

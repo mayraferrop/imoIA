@@ -39,31 +39,60 @@ from src.modules.m7_marketing.content_generator import ContentGenerator
 _DEFAULT_TENANT_SLUG = "default"
 
 
-def _resolve_photo_urls(photos: List[Any]) -> List[Any]:
+def _resolve_photo_urls(
+    photos: List[Any], cover_only: bool = False
+) -> List[Any]:
     """Troca URLs /api/v1/documents/.../download por signed URLs directas.
 
-    Elimina o redirect 302 via backend: o browser passa a pedir directo ao
-    Supabase Storage. Faz batch lookup de Documents por document_id para
-    evitar N+1.
+    Motivação: tags `<img>` não enviam Authorization, logo o endpoint
+    protegido devolve 401. Signed URL do Supabase carrega directo, sem auth.
 
-    Em falha, preserva a URL original (fallback gracioso).
+    - `cover_only=True`: resolve apenas a foto de cover (1 req a Supabase por
+      listing). Usado em list_listings para evitar N*M requests.
+    - `cover_only=False`: resolve todas (paralelizado). Usado em get_listing.
+
+    Em falha por foto, preserva URL original (fallback gracioso).
     """
-    doc_ids = [
-        p.get("document_id")
-        for p in photos
-        if isinstance(p, dict) and p.get("document_id")
-    ]
-    if not doc_ids:
+    target_photos = [p for p in photos if isinstance(p, dict) and p.get("document_id")]
+    if cover_only:
+        cover = next((p for p in target_photos if p.get("is_cover")), None)
+        target_photos = [cover] if cover else (target_photos[:1] if target_photos else [])
+    if not target_photos:
         return photos
 
     try:
+        from concurrent.futures import ThreadPoolExecutor
         from src.database.db import get_session
         from src.database.models_v2 import Document
         from src.shared.storage_provider import get_signed_url
 
+        doc_ids = [p["document_id"] for p in target_photos]
         with get_session() as session:
             docs = session.query(Document).filter(Document.id.in_(doc_ids)).all()
             doc_map = {str(d.id): d.file_path for d in docs}
+
+        def _sign(doc_id: str) -> Optional[str]:
+            file_path = doc_map.get(doc_id)
+            if not file_path or ":" not in file_path:
+                return None
+            bucket, bucket_path = file_path.split(":", 1)
+            try:
+                return get_signed_url(bucket, bucket_path, expires_in=3600)
+            except Exception as exc:
+                logger.warning(f"[photo_urls] signed URL falhou doc={doc_id}: {exc}")
+                return None
+
+        # Paralelização: mais rápido que serial para N>2
+        url_by_doc: Dict[str, str] = {}
+        if len(target_photos) == 1:
+            signed = _sign(doc_ids[0])
+            if signed:
+                url_by_doc[doc_ids[0]] = signed
+        else:
+            with ThreadPoolExecutor(max_workers=min(10, len(doc_ids))) as ex:
+                for doc_id, signed in zip(doc_ids, ex.map(_sign, doc_ids)):
+                    if signed:
+                        url_by_doc[doc_id] = signed
 
         resolved = []
         for p in photos:
@@ -72,15 +101,8 @@ def _resolve_photo_urls(photos: List[Any]) -> List[Any]:
                 continue
             new = dict(p)
             doc_id = new.get("document_id")
-            file_path = doc_map.get(doc_id) if doc_id else None
-            if file_path and ":" in file_path:
-                bucket, bucket_path = file_path.split(":", 1)
-                try:
-                    new["url"] = get_signed_url(bucket, bucket_path, expires_in=3600)
-                except Exception as exc:
-                    logger.warning(
-                        f"[photo_urls] signed URL falhou doc={doc_id}: {exc}"
-                    )
+            if doc_id and doc_id in url_by_doc:
+                new["url"] = url_by_doc[doc_id]
             resolved.append(new)
         return resolved
     except Exception as exc:
@@ -521,11 +543,16 @@ class MarketingService:
             limit=limit,
             offset=offset,
         )
+        items = [_listing_to_dict(lst) for lst in result["items"]]
+        # Resolver apenas a foto de cover de cada listing (1 signed URL/listing)
+        # para que os thumbs dos cards carreguem sem passar pelo backend.
+        for item in items:
+            item["photos"] = _resolve_photo_urls(item["photos"], cover_only=True)
         return {
             "total": result["total"],
             "limit": limit,
             "offset": offset,
-            "items": [_listing_to_dict(lst) for lst in result["items"]],
+            "items": items,
         }
 
     def update_listing(
