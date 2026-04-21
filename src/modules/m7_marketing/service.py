@@ -39,6 +39,55 @@ from src.modules.m7_marketing.content_generator import ContentGenerator
 _DEFAULT_TENANT_SLUG = "default"
 
 
+def _resolve_photo_urls(photos: List[Any]) -> List[Any]:
+    """Troca URLs /api/v1/documents/.../download por signed URLs directas.
+
+    Elimina o redirect 302 via backend: o browser passa a pedir directo ao
+    Supabase Storage. Faz batch lookup de Documents por document_id para
+    evitar N+1.
+
+    Em falha, preserva a URL original (fallback gracioso).
+    """
+    doc_ids = [
+        p.get("document_id")
+        for p in photos
+        if isinstance(p, dict) and p.get("document_id")
+    ]
+    if not doc_ids:
+        return photos
+
+    try:
+        from src.database.db import get_session
+        from src.database.models_v2 import Document
+        from src.shared.storage_provider import get_signed_url
+
+        with get_session() as session:
+            docs = session.query(Document).filter(Document.id.in_(doc_ids)).all()
+            doc_map = {str(d.id): d.file_path for d in docs}
+
+        resolved = []
+        for p in photos:
+            if not isinstance(p, dict):
+                resolved.append(p)
+                continue
+            new = dict(p)
+            doc_id = new.get("document_id")
+            file_path = doc_map.get(doc_id) if doc_id else None
+            if file_path and ":" in file_path:
+                bucket, bucket_path = file_path.split(":", 1)
+                try:
+                    new["url"] = get_signed_url(bucket, bucket_path, expires_in=3600)
+                except Exception as exc:
+                    logger.warning(
+                        f"[photo_urls] signed URL falhou doc={doc_id}: {exc}"
+                    )
+            resolved.append(new)
+        return resolved
+    except Exception as exc:
+        logger.warning(f"[photo_urls] fallback batch doc lookup falhou: {exc}")
+        return photos
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -412,9 +461,18 @@ class MarketingService:
         return _listing_to_dict(listing)
 
     def get_listing(self, listing_id: str) -> Optional[Dict[str, Any]]:
-        """Retorna um listing completo por ID."""
+        """Retorna um listing completo por ID.
+
+        Resolve signed URLs directas para fotos (elimina redirect 302 do
+        endpoint /documents/{id}/download — cada <img> vai directo a Supabase).
+        Só no detalhe porque em listagens o custo N*signed URL é proibitivo.
+        """
         listing = db.get_by_id("listings", listing_id)
-        return _listing_to_dict(listing) if listing else None
+        if not listing:
+            return None
+        result = _listing_to_dict(listing)
+        result["photos"] = _resolve_photo_urls(result["photos"])
+        return result
 
     def get_listing_by_deal(self, deal_id: str) -> Optional[Dict[str, Any]]:
         """Retorna listing associada a um deal."""
