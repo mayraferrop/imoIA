@@ -430,7 +430,53 @@ class CreativeService:
                 stmt = stmt.where(ListingCreative.language == language)
 
             creatives = session.execute(stmt).scalars().all()
-            return [_creative_to_dict(c, session) for c in creatives]
+
+            # Batch: buscar todos os Documents de uma vez (evita N+1) e
+            # paralelizar geração de signed URLs (cada POST ~100-300ms a
+            # Supabase; em série com N=6 dá 1-2s).
+            doc_ids = [c.document_id for c in creatives if c.document_id]
+            doc_map: Dict[str, str] = {}
+            if doc_ids:
+                docs = (
+                    session.query(Document)
+                    .filter(Document.id.in_(doc_ids))
+                    .all()
+                )
+                doc_map = {
+                    str(d.id): d.file_path
+                    for d in docs
+                    if d.file_path and ":" in d.file_path and not d.file_path.startswith("/")
+                }
+
+            def _resolve(doc_id: str) -> Optional[str]:
+                file_path = doc_map.get(doc_id)
+                if not file_path:
+                    return None
+                bucket, bucket_path = file_path.split(":", 1)
+                try:
+                    return get_signed_url(bucket, bucket_path, expires_in=3600)
+                except Exception as exc:
+                    logger.warning(
+                        f"signed_url falhou creative doc={doc_id}: {exc}"
+                    )
+                    return None
+
+            url_by_doc: Dict[str, str] = {}
+            if doc_ids:
+                from concurrent.futures import ThreadPoolExecutor
+                with ThreadPoolExecutor(max_workers=min(10, len(doc_ids))) as ex:
+                    for doc_id, signed in zip(doc_ids, ex.map(_resolve, doc_ids)):
+                        if signed:
+                            url_by_doc[doc_id] = signed
+
+            # Construir dicts sem passar `session` para não re-fazer lookup
+            result = []
+            for c in creatives:
+                d = _creative_to_dict(c, session=None)
+                if c.document_id and c.document_id in url_by_doc:
+                    d["signed_url"] = url_by_doc[c.document_id]
+                result.append(d)
+            return result
 
     def delete_creative(self, creative_id: str) -> bool:
         """Remove um criativo da base de dados.
