@@ -25,6 +25,10 @@ from src.modules.m1_ingestor.prompt_builder import build_system_prompt
 from src.config import get_settings
 
 
+class InsufficientCreditsError(RuntimeError):
+    """Créditos Anthropic insuficientes — pipeline deve abortar em vez de fazer N retries."""
+
+
 @dataclass
 class OpportunityResult:
     """Resultado da classificação de uma mensagem."""
@@ -96,9 +100,15 @@ class OpportunityClassifier:
                 executor.submit(self._classify_chunk, chunk): idx
                 for idx, chunk in enumerate(chunks)
             }
-            for future in as_completed(future_to_idx):
-                idx = future_to_idx[future]
-                results_map[idx] = future.result()
+            try:
+                for future in as_completed(future_to_idx):
+                    idx = future_to_idx[future]
+                    results_map[idx] = future.result()
+            except InsufficientCreditsError:
+                # Cancelar restantes futures e propagar
+                for f in future_to_idx:
+                    f.cancel()
+                raise
 
         # Reconstituir na ordem original
         results: List[OpportunityResult] = []
@@ -155,6 +165,17 @@ class OpportunityClassifier:
             response_text = self._call_api(user_content)
             parsed = self._parse_response(response_text)
             return self._build_results(parsed, chunk)
+        except anthropic.BadRequestError as e:
+            # credit balance too low → abortar pipeline em vez de N retries
+            msg = str(e).lower()
+            if "credit balance" in msg or "too low" in msg:
+                logger.error("Créditos Anthropic insuficientes — abortar pipeline")
+                raise InsufficientCreditsError(
+                    "Créditos Anthropic insuficientes. "
+                    "Adicionar créditos em https://console.anthropic.com/settings/billing"
+                ) from e
+            logger.error(f"Erro ao classificar chunk: {e}")
+            return self._build_fallback_results(chunk)
         except Exception as e:
             logger.error(f"Erro ao classificar chunk: {e}")
             return self._build_fallback_results(chunk)

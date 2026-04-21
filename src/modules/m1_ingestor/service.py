@@ -24,6 +24,7 @@ from sqlalchemy import select
 from src.config import get_settings
 from src.database.db import get_default_organization_id, get_session, init_db
 from src.database.models import Group, MarketData, Message, Opportunity
+from src.modules.m1_ingestor.classifier import InsufficientCreditsError
 from src.modules.m1_ingestor.whatsapp_client import WhatsAppClient
 
 
@@ -1037,7 +1038,20 @@ def run_pipeline() -> PipelineResult:
         ]
 
         logger.info(f"A classificar {len(classifier_messages)} mensagens de {len(group_filtered_map)} grupos")
-        all_classifications = classifier.classify_batch(classifier_messages)
+        try:
+            all_classifications = classifier.classify_batch(classifier_messages)
+        except InsufficientCreditsError as e:
+            logger.error(f"ABORT pipeline: {e}")
+            errors.append(str(e))
+            return PipelineResult(
+                messages_fetched=total_messages,
+                opportunities_found=0,
+                groups_processed=groups_processed,
+                errors=errors,
+                groups_archived=0,
+                groups_to_archive=0,
+                group_logs=group_logs,
+            )
 
         for i, classification in enumerate(all_classifications):
             if i >= len(all_filtered_to_classify):
