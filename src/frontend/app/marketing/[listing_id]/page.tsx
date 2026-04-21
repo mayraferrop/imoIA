@@ -138,8 +138,7 @@ export default function ListingDetailPage() {
     : null;
   const { data: property } = useSWR<PropertyInfo | null>(propertyKey);
 
-  const loading =
-    listing === undefined || creativesData === undefined || brandKit === undefined;
+  const loading = listing === undefined;
 
   const [tab, setTabRaw] = useState<Tab>("fotos");
   const [, startTabTransition] = useTransition();
