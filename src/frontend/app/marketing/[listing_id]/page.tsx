@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -118,42 +119,40 @@ export default function ListingDetailPage() {
   const router = useRouter();
   const listingId = params?.listing_id;
 
-  const [listing, setListing] = useState<Listing | null>(null);
-  const [creatives, setCreatives] = useState<Creative[]>([]);
-  const [brandKit, setBrandKit] = useState<BrandKit | null>(null);
-  const [property, setProperty] = useState<PropertyInfo | null>(null);
-  const [loading, setLoading] = useState(true);
+  const listingKey = listingId ? `/api/v1/marketing/listings/${listingId}` : null;
+  const creativesKey = listingId
+    ? `/api/v1/marketing/listings/${listingId}/creatives`
+    : null;
+  const brandKitKey = "/api/v1/marketing/brand-kit";
+
+  const { data: listing } = useSWR<Listing | null>(listingKey);
+  const { data: creativesData } = useSWR<Creative[] | null>(creativesKey);
+  const { data: brandKit } = useSWR<BrandKit | null>(brandKitKey);
+  const creatives = creativesData ?? [];
+
+  const dealKey = listing?.deal_id ? `/api/v1/deals/${listing.deal_id}` : null;
+  const { data: deal } = useSWR<DealInfo | null>(dealKey);
+
+  const propertyKey = deal?.property_id
+    ? `/api/v1/properties/${deal.property_id}`
+    : null;
+  const { data: property } = useSWR<PropertyInfo | null>(propertyKey);
+
+  const loading =
+    listing === undefined || creativesData === undefined || brandKit === undefined;
+
   const [tab, setTab] = useState<Tab>("fotos");
   const [uploading, setUploading] = useState(false);
   const [regenerating, setRegenerating] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!listingId) return;
-    setLoading(true);
-    try {
-      const [l, c, bk] = await Promise.all([
-        fetcher(`/api/v1/marketing/listings/${listingId}`),
-        fetcher(`/api/v1/marketing/listings/${listingId}/creatives`),
-        fetcher("/api/v1/marketing/brand-kit"),
-      ]);
-      setListing(l);
-      setCreatives(c ?? []);
-      setBrandKit(bk);
-      if (l?.deal_id) {
-        const deal = await fetcher(`/api/v1/deals/${l.deal_id}`) as DealInfo | null;
-        if (deal?.property_id) {
-          const prop = await fetcher(`/api/v1/properties/${deal.property_id}`) as PropertyInfo | null;
-          setProperty(prop);
-        }
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [listingId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+    await Promise.all([
+      globalMutate(listingKey),
+      globalMutate(creativesKey),
+      globalMutate(brandKitKey),
+    ]);
+  }, [listingId, listingKey, creativesKey]);
 
   async function uploadPhotos(files: FileList | File[]) {
     if (!listingId) return;
@@ -614,8 +613,8 @@ export default function ListingDetailPage() {
       {tab === "preview" && (
         <ListingPreview
           listing={listing}
-          property={property}
-          brandKit={brandKit}
+          property={property ?? null}
+          brandKit={brandKit ?? null}
           coverUrl={coverUrl}
           photos={photos}
         />

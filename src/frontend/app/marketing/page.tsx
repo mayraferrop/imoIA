@@ -1,9 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
 import Link from "next/link";
 import { fetcher, apiPost, apiPatch, apiUpload, apiDelete, API_BASE } from "@/lib/api";
 import { formatEUR, cn } from "@/lib/utils";
+
+const BRAND_KIT_KEY = "/api/v1/marketing/brand-kit";
+const LISTINGS_KEY = "/api/v1/marketing/listings?limit=100";
+const STATS_KEY = "/api/v1/marketing/stats";
 
 interface BrandKit {
   brand_name?: string;
@@ -91,12 +96,15 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function MarketingPage() {
-  const [brandKit, setBrandKit] = useState<BrandKit | null>(null);
+  const { data: brandKit } = useSWR<BrandKit | null>(BRAND_KIT_KEY);
+  const { data: listingsData } = useSWR<{ items: Listing[] } | null>(LISTINGS_KEY);
+  const { data: stats } = useSWR<MktStats | null>(STATS_KEY);
+  const listings = listingsData?.items ?? [];
+  const loading =
+    brandKit === undefined || listingsData === undefined || stats === undefined;
+
   const [showBkForm, setShowBkForm] = useState(false);
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [stats, setStats] = useState<MktStats | null>(null);
   const [activeTab, setActiveTab] = useState<"marca" | "publicacoes">("marca");
-  const [loading, setLoading] = useState(true);
 
   // Brand kit form state
   const [bkName, setBkName] = useState("");
@@ -124,27 +132,18 @@ export default function MarketingPage() {
   const [deals, setDeals] = useState<{ id: string; title: string; status: string }[]>([]);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [bk, listingsData, mktStats] = await Promise.all([
-        fetcher("/api/v1/marketing/brand-kit"),
-        fetcher("/api/v1/marketing/listings?limit=100"),
-        fetcher("/api/v1/marketing/stats"),
-      ]);
-      setBrandKit(bk);
-      setListings(listingsData?.items ?? []);
-      setStats(mktStats);
-      if (!bk?.brand_name) setShowBkForm(true);
-    } catch (err) {
-      console.warn("[M7] loadData failed:", err);
-    } finally {
-      setLoading(false);
-    }
+    await Promise.all([
+      globalMutate(BRAND_KIT_KEY),
+      globalMutate(LISTINGS_KEY),
+      globalMutate(STATS_KEY),
+    ]);
   }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (brandKit !== undefined && !brandKit?.brand_name) {
+      setShowBkForm(true);
+    }
+  }, [brandKit]);
 
   const populateBkForm = useCallback((bk: BrandKit | null) => {
     setBkName(bk?.brand_name ?? "");

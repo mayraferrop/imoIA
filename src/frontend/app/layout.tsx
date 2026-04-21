@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { AppShell } from "@/components/layout/app-shell";
+import { SWRProvider } from "@/lib/swr-provider";
 
 export const metadata: Metadata = {
   title: "ImoIA — Gestao de Investimento Imobiliario",
@@ -22,7 +23,9 @@ export default function RootLayout({
           }}
         />
         <AuthProvider>
-          <AppShell>{children}</AppShell>
+          <SWRProvider>
+            <AppShell>{children}</AppShell>
+          </SWRProvider>
         </AuthProvider>
       </body>
     </html>
