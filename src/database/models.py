@@ -15,6 +15,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    String,
     Text,
     func,
 )
@@ -32,6 +33,7 @@ class Group(Base):
     __tablename__ = "groups"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     whatsapp_group_id: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -49,6 +51,7 @@ class Message(Base):
     __tablename__ = "messages"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     whatsapp_message_id: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     group_id: Mapped[int] = mapped_column(Integer, ForeignKey("groups.id"), nullable=False)
     group_name: Mapped[str] = mapped_column(Text, nullable=False)
@@ -71,6 +74,7 @@ class Opportunity(Base):
     __tablename__ = "opportunities"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     message_id: Mapped[int] = mapped_column(Integer, ForeignKey("messages.id"), unique=True, nullable=False)
     is_opportunity: Mapped[bool] = mapped_column(Boolean, nullable=False)
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
@@ -101,6 +105,7 @@ class MarketData(Base):
     __tablename__ = "market_data"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     opportunity_id: Mapped[int] = mapped_column(Integer, ForeignKey("opportunities.id"), unique=True, nullable=False)
 
     # INE (baseline nacional)

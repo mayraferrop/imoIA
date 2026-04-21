@@ -5,8 +5,10 @@ Fornece o engine, a session factory e a função de inicialização.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Generator
 from contextlib import contextmanager
+from typing import Optional
 from urllib.parse import quote_plus, urlparse
 
 from loguru import logger
@@ -18,6 +20,7 @@ from src.database.models import Base
 
 _engine = None
 _SessionLocal = None
+_default_org_id: Optional[str] = None
 
 
 def _get_engine():
@@ -134,8 +137,51 @@ def get_session() -> Generator[Session, None, None]:
 
 def reset_engine() -> None:
     """Reseta o engine e a session factory (útil para testes)."""
-    global _engine, _SessionLocal
+    global _engine, _SessionLocal, _default_org_id
     if _engine is not None:
         _engine.dispose()
     _engine = None
     _SessionLocal = None
+    _default_org_id = None
+
+
+def get_default_organization_id() -> str:
+    """Retorna o organization_id usado pelo pipeline do M1 (single-tenant).
+
+    Ordem de resolução:
+    1. Env var IMOIA_DEFAULT_ORGANIZATION_ID (UUID literal)
+    2. Env var IMOIA_DEFAULT_ORGANIZATION_SLUG → lookup em organizations (default: 'habta')
+    3. Fallback: se existe apenas 1 organização no DB, usa essa
+    """
+    global _default_org_id
+    if _default_org_id is not None:
+        return _default_org_id
+
+    explicit = os.getenv("IMOIA_DEFAULT_ORGANIZATION_ID", "").strip()
+    if explicit:
+        _default_org_id = explicit
+        return _default_org_id
+
+    slug = os.getenv("IMOIA_DEFAULT_ORGANIZATION_SLUG", "habta").strip()
+    engine = _get_engine()
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT id FROM organizations WHERE slug = :slug LIMIT 1"),
+            {"slug": slug},
+        ).first()
+        if row is not None:
+            _default_org_id = str(row[0])
+            return _default_org_id
+
+        rows = conn.execute(text("SELECT id FROM organizations LIMIT 2")).all()
+        if len(rows) == 1:
+            _default_org_id = str(rows[0][0])
+            logger.warning(
+                f"Organização slug='{slug}' não encontrada — usando a única organização existente"
+            )
+            return _default_org_id
+
+    raise RuntimeError(
+        "Não foi possível determinar a organização default. "
+        "Configure IMOIA_DEFAULT_ORGANIZATION_ID ou IMOIA_DEFAULT_ORGANIZATION_SLUG."
+    )

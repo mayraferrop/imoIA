@@ -22,7 +22,7 @@ from loguru import logger
 from sqlalchemy import select
 
 from src.config import get_settings
-from src.database.db import get_session, init_db
+from src.database.db import get_default_organization_id, get_session, init_db
 from src.database.models import Group, MarketData, Message, Opportunity
 from src.modules.m1_ingestor.whatsapp_client import WhatsAppClient
 
@@ -521,6 +521,7 @@ def _save_results(
     opportunities_saved = 0
     group_wa_id = group_info["id"]
     group_name = group_info.get("name", "Desconhecido")
+    org_id = get_default_organization_id()
 
     # Buscar ou criar grupo na BD
     stmt = select(Group).where(Group.whatsapp_group_id == group_wa_id)
@@ -528,6 +529,7 @@ def _save_results(
 
     if db_group is None:
         db_group = Group(
+            organization_id=org_id,
             whatsapp_group_id=group_wa_id,
             name=group_name,
             is_active=True,
@@ -554,6 +556,7 @@ def _save_results(
 
         # Guardar mensagem
         db_message = Message(
+            organization_id=org_id,
             whatsapp_message_id=wa_msg_id,
             group_id=db_group.id,
             group_name=group_name,
@@ -569,6 +572,7 @@ def _save_results(
 
         # Guardar oportunidade
         db_opportunity = Opportunity(
+            organization_id=org_id,
             message_id=db_message.id,
             is_opportunity=classification.is_opportunity,
             confidence=classification.confidence,
@@ -603,6 +607,7 @@ def _save_results(
                 _sir_pos = str(_sir_pos)[:20]
 
             db_market = MarketData(
+                organization_id=org_id,
                 opportunity_id=db_opportunity.id,
                 # INE
                 ine_median_price_m2=market.get("ine_median_price_m2"),
@@ -805,6 +810,7 @@ def run_pipeline() -> PipelineResult:
     # Registar novos grupos na BD
     with get_session() as session:
         new_count = 0
+        org_id = get_default_organization_id()
         for group in active_groups:
             gid = group.get("id", "")
             gname = group.get("name", "Desconhecido")
@@ -816,6 +822,7 @@ def run_pipeline() -> PipelineResult:
 
             if db_group is None:
                 db_group = Group(
+                    organization_id=org_id,
                     whatsapp_group_id=gid,
                     name=gname,
                     is_active=True,
