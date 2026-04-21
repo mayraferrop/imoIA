@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useTransition, memo } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -141,7 +141,11 @@ export default function ListingDetailPage() {
   const loading =
     listing === undefined || creativesData === undefined || brandKit === undefined;
 
-  const [tab, setTab] = useState<Tab>("fotos");
+  const [tab, setTabRaw] = useState<Tab>("fotos");
+  const [, startTabTransition] = useTransition();
+  const setTab = useCallback((t: Tab) => {
+    startTabTransition(() => setTabRaw(t));
+  }, []);
   const [uploading, setUploading] = useState(false);
   const [regenerating, setRegenerating] = useState<string | null>(null);
 
@@ -627,7 +631,7 @@ export default function ListingDetailPage() {
 // ContentField — editor inline com save e regenerar
 // ---------------------------------------------------------------------------
 
-function ContentField({
+const ContentField = memo(function ContentField({
   label,
   value,
   multiline,
@@ -702,13 +706,13 @@ function ContentField({
       )}
     </div>
   );
-}
+});
 
 // ---------------------------------------------------------------------------
 // ListingPreview — render estilo habta.eu
 // ---------------------------------------------------------------------------
 
-function ListingPreview({
+const ListingPreview = memo(function ListingPreview({
   listing,
   property,
   brandKit,
@@ -895,4 +899,4 @@ function ListingPreview({
       </div>
     </div>
   );
-}
+});

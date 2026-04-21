@@ -145,6 +145,20 @@ export default function MarketingPage() {
     }
   }, [brandKit]);
 
+  // Seed SWR cache of individual listings from list response.
+  // Makes navigation to /marketing/[id] instant — data already cached.
+  useEffect(() => {
+    if (!listings.length) return;
+    for (const l of listings) {
+      globalMutate(`/api/v1/marketing/listings/${l.id}`, l, { revalidate: false });
+    }
+  }, [listings]);
+
+  const prefetchListing = useCallback((id: string) => {
+    globalMutate(`/api/v1/marketing/listings/${id}`);
+    globalMutate(`/api/v1/marketing/listings/${id}/creatives`);
+  }, []);
+
   const populateBkForm = useCallback((bk: BrandKit | null) => {
     setBkName(bk?.brand_name ?? "");
     setBkTagline(bk?.tagline ?? "");
@@ -686,6 +700,10 @@ export default function MarketingPage() {
                   <Link
                     key={listing.id}
                     href={`/marketing/${listing.id}`}
+                    prefetch
+                    onMouseEnter={() => prefetchListing(listing.id)}
+                    onFocus={() => prefetchListing(listing.id)}
+                    onTouchStart={() => prefetchListing(listing.id)}
                     className="block bg-white rounded-xl border border-slate-200 hover:border-teal-300 hover:shadow-sm transition-all overflow-hidden"
                   >
                     <div className="flex items-center gap-4 p-4">
