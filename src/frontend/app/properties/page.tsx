@@ -162,9 +162,39 @@ export default function PropertiesPage() {
     }
   }, []);
 
+  // Recupera o resultado do último pipeline (se estado=done) para mostrar tabela após navegar
+  const fetchLastPipelineResult = useCallback(async () => {
+    try {
+      const data = await apiGet<{
+        status?: string;
+        groups_processed?: number;
+        messages_fetched?: number;
+        opportunities_found?: number;
+        groups_to_archive?: number;
+        groups_archived?: number;
+        errors?: string[];
+        group_logs?: PipelineGroupLog[];
+      }>("/api/v1/ingest/status");
+      if (!data || data.status !== "done") return;
+      const erros = data.errors?.length ? ` | ${data.errors.length} erro(s)` : "";
+      const archived = data.groups_to_archive
+        ? ` | ${data.groups_archived ?? 0}/${data.groups_to_archive} arquivados`
+        : "";
+      setTriggerMsg(
+        `Último pipeline: ${data.groups_processed ?? 0} grupos, ${data.messages_fetched ?? 0} mensagens, ${data.opportunities_found ?? 0} oportunidades${archived}${erros}`
+      );
+      if (Array.isArray(data.group_logs) && data.group_logs.length > 0) {
+        setGroupLogs(data.group_logs);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    fetchLastPipelineResult();
+  }, [fetchData, fetchLastPipelineResult]);
 
   // Client-side filtering (exclui descartados por default)
   const filtered = properties.filter((p) => {
