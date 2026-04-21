@@ -1017,7 +1017,7 @@ def run_pipeline() -> PipelineResult:
     phase3_start = time.monotonic()
 
     # Limitar classificação para caber no Render free tier
-    MAX_CLASSIFY = 100
+    MAX_CLASSIFY = 500
     logger.info(f"FASE 3: {len(all_filtered)} mensagens para classificar (de {total_messages} buscadas, max={MAX_CLASSIFY})")
     if len(all_filtered) > MAX_CLASSIFY:
         logger.warning(f"Limitando classificação a {MAX_CLASSIFY} mensagens (de {len(all_filtered)})")
