@@ -439,6 +439,33 @@ app.patch("/groups/:groupId", requireAuth, requireConnected, async (req, res) =>
   }
 });
 
+// Debug: tentar sock.readMessages(keys) — método Baileys distinto de chatModify/sendReceipt.
+// Se funcionar no device, usar para substituir markGroupRead.
+app.post("/debug/read-messages/:groupId", requireAuth, requireConnected, async (req, res) => {
+  const { groupId } = req.params;
+  const stored = messageStore[groupId] || [];
+  const keys = stored
+    .filter((m) => m.key && !m.key.fromMe && m.key.id && m.key.remoteJid)
+    .slice(-50) // últimas 50 — suficiente para testar e evitar spam
+    .map((m) => ({
+      remoteJid: m.key.remoteJid,
+      id: m.key.id,
+      participant: m.key.participant,
+      fromMe: false,
+    }));
+  if (!keys.length) {
+    return res.json({ ok: false, reason: "buffer vazio" });
+  }
+  try {
+    await sock.readMessages(keys);
+    console.log(`[debug/read-messages] ${groupId} OK (${keys.length} msgs)`);
+    res.json({ ok: true, count: keys.length });
+  } catch (err) {
+    console.error(`[debug/read-messages] ${groupId}: ${err.message}`);
+    res.status(500).json({ ok: false, error: err.message?.slice(0, 200) });
+  }
+});
+
 app.post("/resync", requireAuth, requireConnected, async (req, res) => {
   try {
     await sock.resyncAppState(
