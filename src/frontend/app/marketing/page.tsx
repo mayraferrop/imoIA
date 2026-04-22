@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { fetcher, apiPost, apiPatch, apiUpload, apiDelete, API_BASE } from "@/lib/api";
+import { apiPost, apiUpload, apiDelete, API_BASE } from "@/lib/api";
 import { formatEUR, cn } from "@/lib/utils";
 
 const BRAND_KIT_KEY = "/api/v1/marketing/brand-kit";
@@ -124,14 +124,6 @@ export default function MarketingPage() {
   const [bkWhatsapp, setBkWhatsapp] = useState("");
   const [bkLangs, setBkLangs] = useState<string[]>(["pt-PT"]);
 
-  // Create listing form
-  const [showCreate, setShowCreate] = useState(false);
-  const [createDealId, setCreateDealId] = useState("");
-  const [createType, setCreateType] = useState("venda");
-  const [createPrice, setCreatePrice] = useState(0);
-  const [createTitle, setCreateTitle] = useState("");
-  const [deals, setDeals] = useState<{ id: string; title: string; status: string }[]>([]);
-
   const loadData = useCallback(async () => {
     await Promise.all([
       globalMutate(BRAND_KIT_KEY),
@@ -246,32 +238,6 @@ export default function MarketingPage() {
     });
     setShowBkForm(false);
     loadData();
-  }
-
-  async function createListing() {
-    if (!createDealId || createPrice <= 0) return;
-    const result = await apiPost<{ id: string }>(`/api/v1/marketing/deals/${createDealId}/listing`, {
-      listing_type: createType, listing_price: createPrice, auto_generate: false,
-    });
-    if (result) {
-      if (createTitle && result.id) {
-        await apiPatch(`/api/v1/marketing/listings/${result.id}`, { title_pt: createTitle });
-      }
-      setShowCreate(false);
-      loadData();
-    }
-  }
-
-  async function loadDeals() {
-    try {
-      const data = await fetcher("/api/v1/deals/?limit=100");
-      if (data?.items) {
-        setDeals(data.items.map((d: any) => ({ id: d.id, title: d.title ?? d.id.slice(0, 8), status: d.status })));
-        if (data.items.length > 0) setCreateDealId(data.items[0].id);
-      }
-    } catch (err) {
-      console.warn("[M7] loadDeals failed:", err);
-    }
   }
 
   if (loading) {
@@ -755,82 +721,11 @@ export default function MarketingPage() {
             </div>
           )}
 
-          {/* Create listing */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <button
-              onClick={() => {
-                setShowCreate(!showCreate);
-                if (!showCreate && deals.length === 0) loadDeals();
-              }}
-              className="w-full px-5 py-3 flex items-center justify-between hover:bg-slate-50 text-sm font-medium text-slate-600"
-            >
-              Criar publicação manualmente
-              <svg
-                className={cn("w-4 h-4 text-slate-400 transition-transform", showCreate && "rotate-180")}
-                fill="none" viewBox="0 0 24 24" stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {showCreate && (
-              <div className="px-5 pb-5 border-t border-slate-100 pt-4 space-y-4">
-                {deals.length === 0 ? (
-                  <p className="text-sm text-slate-400">Nenhum deal encontrado. Crie um deal no M4 primeiro.</p>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1">Deal</label>
-                        <select
-                          value={createDealId}
-                          onChange={(e) => setCreateDealId(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        >
-                          {deals.map((d) => <option key={d.id} value={d.id}>{d.title} ({d.status})</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1">Tipo</label>
-                        <select
-                          value={createType}
-                          onChange={(e) => setCreateType(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        >
-                          <option value="venda">Venda</option>
-                          <option value="arrendamento">Arrendamento</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1">Preço (EUR)</label>
-                        <input
-                          type="number"
-                          value={createPrice}
-                          onChange={(e) => setCreatePrice(Number(e.target.value))}
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1">Título</label>
-                        <input
-                          type="text"
-                          value={createTitle}
-                          onChange={(e) => setCreateTitle(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      onClick={createListing}
-                      className="px-4 py-2 bg-teal-700 text-white text-sm font-medium rounded-lg hover:bg-teal-800"
-                    >
-                      Criar
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
+          <div className="bg-slate-50 rounded-xl border border-dashed border-slate-200 px-5 py-4">
+            <p className="text-sm text-slate-500">
+              As publicações são criadas automaticamente a partir de deals no <Link href="/pipeline" className="text-teal-700 font-medium hover:underline">M4 — Pipeline</Link>.
+              Propriedades devem ser registadas em <Link href="/properties" className="text-teal-700 font-medium hover:underline">M1 — Propriedades</Link>.
+            </p>
           </div>
         </div>
       )}
