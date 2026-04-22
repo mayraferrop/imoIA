@@ -1031,7 +1031,7 @@ def run_pipeline() -> PipelineResult:
             "processado_em": datetime.now(tz=timezone.utc).isoformat(),
             "mensagens_buscadas": len(messages),
             "mensagens_filtradas": 0, "oportunidades": 0,
-            "arquivado": None,  # obsoleto: FASE 4 removida
+            "arquivado": None,  # preenchido na FASE 4 se mark-as-read foi aceite
             "unread_before": group.get("unread", 0),
             "archived_before": bool(group.get("is_archived", False)),
             "unread_after": None,
@@ -1130,12 +1130,34 @@ def run_pipeline() -> PipelineResult:
     phase3_elapsed = time.monotonic() - phase3_start
     logger.info(f"FASE 3 (classificacao): {total_filtered} msgs, {total_opportunities} opps em {phase3_elapsed:.1f}s")
 
-    # FASE 4 removida: companion mode não propaga mark-as-read para o device
-    # primário (sendReceipt/chatModify retornam OK mas device ignora). Queima
-    # ~2min por pipeline sem benefício — a captura/classificação já aconteceu.
-    phase_archive_elapsed = 0.0
+    # --- FASE 4: Mark-as-read dos grupos activos com unread > 0 ---
+    # Nota: executada depois da classificação para que, mesmo se o mark-as-read
+    # falhar, as oportunidades já tenham sido persistidas.
+    # Usa sock.readMessages do Baileys (único método que propaga ao device em
+    # companion mode). Respeita is_active=True por construção (active_with_unread
+    # já filtrou inactivos).
+    phase_archive_start = time.monotonic()
+    groups_to_archive = [g.get("id") for g in active_with_unread if g.get("id")]
     archive_count = 0
-    groups_to_archive: list[str] = []
+
+    def _mark_read_task(gid: str) -> bool:
+        try:
+            return wa_client.mark_group_read(gid)
+        except Exception as e:
+            logger.warning(f"mark_group_read falhou em {gid}: {e}")
+            return False
+
+    if groups_to_archive:
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {executor.submit(_mark_read_task, gid): gid for gid in groups_to_archive}
+            for fut in as_completed(futures):
+                if fut.result():
+                    archive_count += 1
+    phase_archive_elapsed = time.monotonic() - phase_archive_start
+    logger.info(
+        f"FASE 4 (mark-as-read via readMessages): {archive_count}/{len(groups_to_archive)} "
+        f"em {phase_archive_elapsed:.1f}s"
+    )
 
     # --- FASE 5: Restaurar presença offline (notificações push) ---
     try:
@@ -1164,6 +1186,7 @@ def run_pipeline() -> PipelineResult:
     logger.info(f"  FASE 1b inativos: {phase1b_elapsed:.1f}s")
     logger.info(f"  FASE 2 dedup: {phase2_elapsed:.1f}s")
     logger.info(f"  FASE 3 classificacao: {phase3_elapsed:.1f}s")
+    logger.info(f"  FASE 4 mark-as-read: {phase_archive_elapsed:.1f}s ({archive_count}/{len(groups_to_archive)})")
     logger.info(f"  Grupos com unread: {len(active_with_unread)} activos + {len(inactive_with_unread)} inativos")
     logger.info(f"  Grupos skip (ja lidos): {len(active_already_read)}")
     logger.info(f"  Mensagens buscadas: {total_messages}")

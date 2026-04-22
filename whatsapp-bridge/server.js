@@ -365,66 +365,48 @@ async function chatModifyWithRetry(payload, groupId, maxAttempts = 4) {
 }
 
 async function markGroupRead(groupId) {
+  // sock.readMessages(keys) é o único método do Baileys que propaga mark-as-read
+  // ao device primário em companion mode. sendReceipt e chatModify retornam OK
+  // mas o device ignora. Validado em 2026-04-22: Setubal e PROCURO marcaram;
+  // buffer de 499 msgs (5% Exclusivo) falhou em lote único de 50 — enviar em
+  // chunks para cobrir todo o buffer.
   const stored = messageStore[groupId] || [];
-  const unreadMsgs = stored.filter(
-    (m) => m.key && !m.key.fromMe && m.key.id && m.key.remoteJid && m.key.participant
-  );
+  const keys = stored
+    .filter((m) => m.key && !m.key.fromMe && m.key.id && m.key.remoteJid)
+    .map((m) => ({
+      remoteJid: m.key.remoteJid,
+      id: m.key.id,
+      participant: m.key.participant,
+      fromMe: false,
+    }));
 
-  let readCount = 0;
-
-  if (unreadMsgs.length > 0) {
-    const byParticipant = {};
-    for (const m of unreadMsgs) {
-      const participant = m.key.participant;
-      if (!byParticipant[participant]) byParticipant[participant] = [];
-      byParticipant[participant].push(m.key.id);
+  if (!keys.length) {
+    // Buffer vazio: usa chatModify como fallback (sem garantia de propagar,
+    // mas é o melhor que temos para grupos sem mensagens bufferizadas).
+    const r = await chatModifyWithRetry({ markRead: true }, groupId);
+    if (r.ok) {
+      console.log(`[markRead fallback] ${groupId} OK (no buffer)`);
+      return { markedRead: true, count: 0, path: "fallback" };
     }
-    for (const [participant, msgIds] of Object.entries(byParticipant)) {
-      try {
-        await sock.sendReceipt(groupId, participant, msgIds, "read");
-        readCount += msgIds.length;
-      } catch {
-        try {
-          await sock.sendReceipt(groupId, participant, msgIds, "read-self");
-          readCount += msgIds.length;
-        } catch (err2) {
-          console.error(`[markRead receipt] ${groupId} p=${participant}: ${err2.message?.slice(0, 80)}`);
-        }
-      }
-    }
-
-    const lastMsgWithParticipant = [...unreadMsgs].reverse().find((m) => m.messageTimestamp);
-    if (lastMsgWithParticipant) {
-      const r = await chatModifyWithRetry(
-        {
-          markRead: true,
-          lastMessages: [
-            {
-              key: lastMsgWithParticipant.key,
-              messageTimestamp: lastMsgWithParticipant.messageTimestamp,
-            },
-          ],
-        },
-        groupId
-      );
-      if (r.ok) {
-        console.log(`[markRead chatModify] ${groupId} OK (buffer, tries=${r.attempt})`);
-      } else {
-        console.log(`[markRead chatModify fail] ${groupId}: ${r.error}`);
-      }
-      return { markedRead: readCount > 0, count: readCount, path: "buffer", rateLimited: !r.ok && r.rateLimited };
-    }
-
-    return { markedRead: readCount > 0, count: readCount, path: "buffer" };
+    console.log(`[markRead fallback fail] ${groupId}: ${r.error}`);
+    return { markedRead: false, count: 0, path: "fallback_failed", reason: r.error, rateLimited: r.rateLimited };
   }
 
-  const r = await chatModifyWithRetry({ markRead: true }, groupId);
-  if (r.ok) {
-    console.log(`[markRead fallback] ${groupId} OK (no buffer, tries=${r.attempt})`);
-    return { markedRead: true, count: 0, path: "fallback" };
+  const CHUNK = 50;
+  let sent = 0;
+  let failed = 0;
+  for (let i = 0; i < keys.length; i += CHUNK) {
+    const batch = keys.slice(i, i + CHUNK);
+    try {
+      await sock.readMessages(batch);
+      sent += batch.length;
+    } catch (err) {
+      failed += batch.length;
+      console.error(`[markRead readMessages] ${groupId} chunk ${i}: ${err.message?.slice(0, 80)}`);
+    }
   }
-  console.log(`[markRead fallback fail] ${groupId}: ${r.error}`);
-  return { markedRead: false, count: 0, path: "fallback_failed", reason: r.error, rateLimited: r.rateLimited };
+  console.log(`[markRead] ${groupId} readMessages sent=${sent} failed=${failed} total=${keys.length}`);
+  return { markedRead: sent > 0, count: sent, path: "readMessages" };
 }
 
 app.patch("/groups/:groupId", requireAuth, requireConnected, async (req, res) => {
@@ -436,33 +418,6 @@ app.patch("/groups/:groupId", requireAuth, requireConnected, async (req, res) =>
   } catch (err) {
     console.error("[PATCH /groups]", err.message);
     res.status(500).json({ error: err.message });
-  }
-});
-
-// Debug: tentar sock.readMessages(keys) — método Baileys distinto de chatModify/sendReceipt.
-// Se funcionar no device, usar para substituir markGroupRead.
-app.post("/debug/read-messages/:groupId", requireAuth, requireConnected, async (req, res) => {
-  const { groupId } = req.params;
-  const stored = messageStore[groupId] || [];
-  const keys = stored
-    .filter((m) => m.key && !m.key.fromMe && m.key.id && m.key.remoteJid)
-    .slice(-50) // últimas 50 — suficiente para testar e evitar spam
-    .map((m) => ({
-      remoteJid: m.key.remoteJid,
-      id: m.key.id,
-      participant: m.key.participant,
-      fromMe: false,
-    }));
-  if (!keys.length) {
-    return res.json({ ok: false, reason: "buffer vazio" });
-  }
-  try {
-    await sock.readMessages(keys);
-    console.log(`[debug/read-messages] ${groupId} OK (${keys.length} msgs)`);
-    res.json({ ok: true, count: keys.length });
-  } catch (err) {
-    console.error(`[debug/read-messages] ${groupId}: ${err.message}`);
-    res.status(500).json({ ok: false, error: err.message?.slice(0, 200) });
   }
 });
 
