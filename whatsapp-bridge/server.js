@@ -439,69 +439,6 @@ app.patch("/groups/:groupId", requireAuth, requireConnected, async (req, res) =>
   }
 });
 
-let markAllReadJob = null;
-
-async function runMarkAllReadJob() {
-  const job = {
-    status: "running",
-    started_at: new Date().toISOString(),
-    finished_at: null,
-    total_groups: 0,
-    marked_buffer: 0,
-    marked_fallback: 0,
-    failed: 0,
-    errors: 0,
-    global_pauses: 0,
-  };
-  markAllReadJob = job;
-  try {
-    const groups = await sock.groupFetchAllParticipating();
-    const groupIds = Object.keys(groups);
-    job.total_groups = groupIds.length;
-
-    for (const gid of groupIds) {
-      try {
-        const r = await markGroupRead(gid);
-        if (r.path === "buffer" && r.markedRead) job.marked_buffer++;
-        else if (r.path === "fallback" && r.markedRead) job.marked_fallback++;
-        else job.failed++;
-
-        if (r.rateLimited) {
-          job.global_pauses++;
-          console.log(`[mark-all-read] rate-limit global — pausar 30s (pause #${job.global_pauses})`);
-          await sleep(30000);
-        }
-      } catch (err) {
-        job.errors++;
-        console.error(`[mark-all-read] ${gid}: ${err.message}`);
-      }
-      await sleep(500);
-    }
-
-    console.log(
-      `[mark-all-read] buffer=${job.marked_buffer} fallback=${job.marked_fallback} failed=${job.failed}/${job.total_groups} pauses=${job.global_pauses}`
-    );
-  } catch (err) {
-    console.error("[mark-all-read]", err.message);
-    job.error = err.message;
-  }
-  job.status = "done";
-  job.finished_at = new Date().toISOString();
-}
-
-app.post("/mark-all-read", requireAuth, requireConnected, async (req, res) => {
-  if (markAllReadJob && markAllReadJob.status === "running") {
-    return res.status(409).json({ error: "job already running", job: markAllReadJob });
-  }
-  runMarkAllReadJob(); // fire-and-forget
-  res.status(202).json({ status: "started", message: "use GET /mark-all-read/status" });
-});
-
-app.get("/mark-all-read/status", requireAuth, (req, res) => {
-  if (!markAllReadJob) return res.json({ status: "idle" });
-  res.json(markAllReadJob);
-});
-
 app.post("/resync", requireAuth, requireConnected, async (req, res) => {
   try {
     await sock.resyncAppState(
