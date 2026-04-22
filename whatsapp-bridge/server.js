@@ -8,7 +8,7 @@
  *   GET  /status             — estado da conexão + QR code
  *   GET  /groups             — listar grupos ativos
  *   GET  /messages/:groupId  — mensagens de um grupo (?count=N&since=unix_ts)
- *   PATCH /groups/:groupId   — marcar como lido + archive (body: {archive: true})
+ *   PATCH /groups/:groupId   — marcar como lido (buffer + fallback chatModify)
  *
  * Endpoints de operação:
  *   GET  /qr                 — QR code HTML renderizado (para pair via browser)
@@ -338,90 +338,92 @@ app.get("/messages/:groupId", requireAuth, requireConnected, (req, res) => {
   }
 });
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function markGroupRead(groupId) {
   const stored = messageStore[groupId] || [];
-  const unreadMsgs = stored.filter((m) => m.key && !m.key.fromMe && m.key.id && m.key.remoteJid);
-  if (unreadMsgs.length === 0) {
-    return { markedRead: false, count: 0, reason: "no_buffer" };
-  }
-  const byParticipant = {};
-  for (const m of unreadMsgs) {
-    const participant = m.key.participant || "";
-    if (!byParticipant[participant]) byParticipant[participant] = [];
-    byParticipant[participant].push(m.key.id);
-  }
+  const unreadMsgs = stored.filter(
+    (m) => m.key && !m.key.fromMe && m.key.id && m.key.remoteJid && m.key.participant
+  );
+
   let readCount = 0;
-  for (const [participant, msgIds] of Object.entries(byParticipant)) {
-    try {
-      await sock.sendReceipt(groupId, participant || undefined, msgIds, "read");
-      readCount += msgIds.length;
-    } catch {
+
+  if (unreadMsgs.length > 0) {
+    const byParticipant = {};
+    for (const m of unreadMsgs) {
+      const participant = m.key.participant;
+      if (!byParticipant[participant]) byParticipant[participant] = [];
+      byParticipant[participant].push(m.key.id);
+    }
+    for (const [participant, msgIds] of Object.entries(byParticipant)) {
       try {
-        await sock.sendReceipt(groupId, participant || undefined, msgIds, "read-self");
+        await sock.sendReceipt(groupId, participant, msgIds, "read");
         readCount += msgIds.length;
-      } catch (err2) {
-        console.error(`[markRead] ${groupId} p=${participant}:`, err2.message);
-      }
-    }
-  }
-
-  const lastMsg = stored[stored.length - 1];
-  if (lastMsg?.key?.id && lastMsg?.messageTimestamp) {
-    try {
-      await sock.chatModify(
-        {
-          markRead: true,
-          lastMessages: [{ key: lastMsg.key, messageTimestamp: lastMsg.messageTimestamp }],
-        },
-        groupId
-      );
-    } catch (err) {
-      console.log(`[markRead chatModify] ${groupId}: ${err.message?.slice(0, 80)}`);
-    }
-  }
-
-  return { markedRead: readCount > 0, count: readCount };
-}
-
-app.patch("/groups/:groupId", requireAuth, requireConnected, async (req, res) => {
-  const { groupId } = req.params;
-  const { archive } = req.body;
-  const results = { markedRead: false, archived: false };
-
-  try {
-    const readRes = await markGroupRead(groupId);
-    results.markedRead = readRes.markedRead;
-    if (readRes.markedRead) console.log(`[markRead] ${readRes.count} em ${groupId}`);
-
-    if (archive) {
-      const stored = messageStore[groupId] || [];
-      const lastMsg = stored.length > 0 ? stored[stored.length - 1] : null;
-      if (lastMsg?.key?.id && lastMsg?.key?.remoteJid && lastMsg?.messageTimestamp) {
+      } catch {
         try {
-          await sock.chatModify(
-            {
-              archive: true,
-              lastMessages: [{ key: lastMsg.key, messageTimestamp: lastMsg.messageTimestamp }],
-            },
-            groupId
-          );
-          results.archived = true;
-          console.log(`[archive] ${groupId} OK`);
-        } catch (archErr) {
-          console.log(`[archive] ${groupId} falhou: ${archErr.message?.slice(0, 80)}`);
+          await sock.sendReceipt(groupId, participant, msgIds, "read-self");
+          readCount += msgIds.length;
+        } catch (err2) {
+          console.error(`[markRead receipt] ${groupId} p=${participant}: ${err2.message?.slice(0, 80)}`);
         }
       }
     }
 
-    res.json({ success: true, ...results });
+    const lastMsgWithParticipant = [...unreadMsgs].reverse().find((m) => m.messageTimestamp);
+    if (lastMsgWithParticipant) {
+      try {
+        await sock.chatModify(
+          {
+            markRead: true,
+            lastMessages: [
+              {
+                key: lastMsgWithParticipant.key,
+                messageTimestamp: lastMsgWithParticipant.messageTimestamp,
+              },
+            ],
+          },
+          groupId
+        );
+        console.log(`[markRead chatModify] ${groupId} OK (buffer)`);
+      } catch (err) {
+        console.log(`[markRead chatModify fail] ${groupId}: ${err.message?.slice(0, 80)}`);
+      }
+    }
+
+    return { markedRead: readCount > 0, count: readCount, path: "buffer" };
+  }
+
+  try {
+    await sock.chatModify({ markRead: true }, groupId);
+    console.log(`[markRead fallback] ${groupId} OK (no buffer)`);
+    return { markedRead: true, count: 0, path: "fallback" };
+  } catch (err) {
+    console.log(`[markRead fallback fail] ${groupId}: ${err.message?.slice(0, 80)}`);
+    return { markedRead: false, count: 0, path: "fallback_failed", reason: err.message?.slice(0, 80) };
+  }
+}
+
+app.patch("/groups/:groupId", requireAuth, requireConnected, async (req, res) => {
+  const { groupId } = req.params;
+  try {
+    const r = await markGroupRead(groupId);
+    if (r.markedRead) console.log(`[markRead] ${groupId} (${r.path}, ${r.count} msgs)`);
+    res.json({ success: true, markedRead: r.markedRead, count: r.count, path: r.path });
   } catch (err) {
     console.error("[PATCH /groups]", err.message);
-    res.status(500).json({ error: err.message, partial: results });
+    res.status(500).json({ error: err.message });
   }
 });
 
 app.post("/mark-all-read", requireAuth, requireConnected, async (req, res) => {
-  const summary = { total_groups: 0, marked: 0, skipped_empty: 0, errors: 0, details: [] };
+  const summary = {
+    total_groups: 0,
+    marked_buffer: 0,
+    marked_fallback: 0,
+    failed: 0,
+    errors: 0,
+    details: [],
+  };
   try {
     const groups = await sock.groupFetchAllParticipating();
     const groupIds = Object.keys(groups);
@@ -430,19 +432,25 @@ app.post("/mark-all-read", requireAuth, requireConnected, async (req, res) => {
     for (const gid of groupIds) {
       try {
         const r = await markGroupRead(gid);
-        if (r.markedRead) {
-          summary.marked++;
-          summary.details.push({ id: gid, name: groups[gid].subject, count: r.count });
+        if (r.path === "buffer" && r.markedRead) {
+          summary.marked_buffer++;
+          summary.details.push({ id: gid, name: groups[gid].subject, count: r.count, path: "buffer" });
+        } else if (r.path === "fallback" && r.markedRead) {
+          summary.marked_fallback++;
+          summary.details.push({ id: gid, name: groups[gid].subject, path: "fallback" });
         } else {
-          summary.skipped_empty++;
+          summary.failed++;
         }
       } catch (err) {
         summary.errors++;
-        console.error(`[mark-all-read] ${gid}:`, err.message);
+        console.error(`[mark-all-read] ${gid}: ${err.message}`);
       }
+      await sleep(200);
     }
 
-    console.log(`[mark-all-read] ${summary.marked}/${summary.total_groups} marcados`);
+    console.log(
+      `[mark-all-read] buffer=${summary.marked_buffer} fallback=${summary.marked_fallback} failed=${summary.failed}/${summary.total_groups}`
+    );
     res.json({ success: true, ...summary });
   } catch (err) {
     console.error("[mark-all-read]", err.message);

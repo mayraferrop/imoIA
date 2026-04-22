@@ -578,30 +578,28 @@ class WhatsAppClient:
             logger.warning(f"Erro ao marcar chat {chat_id} como lido: {e}")
             return False
 
-    def archive_group(self, group_id: str) -> bool:
-        """Arquiva um grupo de WhatsApp e marca como lido.
+    def mark_group_read(self, group_id: str) -> bool:
+        """Marca um grupo de WhatsApp como lido no device.
+
+        Archive foi removido — o companion mode do Whapi/Baileys não
+        arquiva no device primário de forma fiável. Apenas mark-as-read
+        é garantido via chatModify (buffer) ou fallback sem lastMessages.
 
         Args:
-            group_id: ID do grupo a arquivar.
+            group_id: ID do grupo a marcar.
 
         Returns:
-            True se o grupo foi arquivado com sucesso.
+            True se mark-as-read foi aceite pelo bridge.
         """
-        logger.info(f"A arquivar grupo {group_id}")
-
         if self.backend == "whapi":
-            return self._archive_whapi(group_id)
+            return self._patch_chat_read(group_id)
 
         try:
-            self._request(
-                "PATCH",
-                f"/groups/{group_id}",
-                json_body={"archive": True},
-            )
-            logger.info(f"Grupo {group_id} arquivado com sucesso")
+            self._request("PATCH", f"/groups/{group_id}")
+            logger.info(f"Grupo {group_id} marcado como lido")
             return True
         except (httpx.HTTPStatusError, httpx.ConnectError) as e:
-            logger.error(f"Erro ao arquivar grupo {group_id}: {e}")
+            logger.error(f"Erro ao marcar grupo {group_id} como lido: {e}")
             return False
 
     def set_presence_offline(self) -> bool:
@@ -626,24 +624,3 @@ class WhatsAppClient:
             logger.warning(f"Falha ao definir presença offline: {e}")
             return False
 
-    def _archive_whapi(self, group_id: str) -> bool:
-        """Arquiva grupo via Whapi.Cloud.
-
-        Usa PATCH read=true + POST archive=true para sincronizar
-        com o device principal. NÃO marca mensagens individualmente
-        com PUT (interfere com o sync do device).
-        """
-        # Marcar como lido no device (sem PUT individual)
-        self._patch_chat_read(group_id)
-
-        try:
-            self._do_request(
-                "POST",
-                f"/chats/{group_id}",
-                json_body={"archive": True},
-            )
-            logger.info(f"Grupo {group_id} arquivado via POST (Whapi)")
-            return True
-        except Exception as e:
-            logger.error(f"Archive POST falhou para {group_id}: {e}")
-            return False

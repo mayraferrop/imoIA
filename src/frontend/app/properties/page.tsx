@@ -220,7 +220,7 @@ export default function PropertiesPage() {
       if (!data || data.status !== "done") return;
       const erros = data.errors?.length ? ` | ${data.errors.length} erro(s)` : "";
       const archived = data.groups_to_archive
-        ? ` | ${data.groups_archived ?? 0}/${data.groups_to_archive} arquivados`
+        ? ` | ${data.groups_archived ?? 0}/${data.groups_to_archive} marcados como lidos`
         : "";
       setTriggerMsg(
         `Último pipeline: ${data.groups_processed ?? 0} grupos, ${data.messages_fetched ?? 0} mensagens, ${data.opportunities_found ?? 0} oportunidades${archived}${erros}`
@@ -282,7 +282,7 @@ export default function PropertiesPage() {
         if (data.status === "done") {
           const erros = data.errors?.length ? ` | ${data.errors.length} erro(s)` : "";
           const archived = data.groups_to_archive
-            ? ` | ${data.groups_archived ?? 0}/${data.groups_to_archive} arquivados`
+            ? ` | ${data.groups_archived ?? 0}/${data.groups_to_archive} marcados como lidos`
             : "";
           setTriggerMsg(
             `Pipeline concluido: ${data.groups_processed ?? 0} grupos, ${data.messages_fetched ?? 0} mensagens, ${data.opportunities_found ?? 0} oportunidades${archived}${erros}`

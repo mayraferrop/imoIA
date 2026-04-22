@@ -1087,35 +1087,34 @@ def run_pipeline() -> PipelineResult:
     phase3_elapsed = time.monotonic() - phase3_start
     logger.info(f"FASE 3 (classificacao): {total_filtered} msgs, {total_opportunities} opps em {phase3_elapsed:.1f}s")
 
-    # --- FASE 4: Archive grupos não-arquivados (POST archive) ---
-    # Nota: mark-as-read (PATCH ou PUT individual) não sincroniza com o device
-    # físico via Whapi companion mode — removido. O archive sozinho remove
-    # os grupos da caixa principal, que é o objetivo prático.
+    # --- FASE 4: Marcar grupos como lidos ---
+    # Archive removido — companion mode não sincroniza archive com o device
+    # primário de forma fiável. Apenas mark-as-read é confiável (via chatModify
+    # com buffer OU fallback sem lastMessages no bridge Baileys).
     phase_archive_start = time.monotonic()
     archive_count = 0
 
-    def _archive_group_task(gid: str) -> bool:
-        """Arquiva grupo com retry (2 tentativas)."""
+    def _mark_read_task(gid: str) -> bool:
+        """Marca grupo como lido com retry (2 tentativas)."""
         for attempt in range(2):
             try:
                 tc = WhatsAppClient()
-                if tc.archive_group(gid):
+                if tc.mark_group_read(gid):
                     return True
                 if attempt == 0:
-                    time.sleep(1)  # pausa antes do retry
+                    time.sleep(1)
             except Exception as e:
-                logger.error(f"Archive falhou para {gid} (tentativa {attempt + 1}): {e}")
+                logger.error(f"Mark-read falhou para {gid} (tentativa {attempt + 1}): {e}")
         return False
 
     groups_to_archive = [
         g.get("id") for g in active_groups
         if g.get("id") and not g.get("is_archived", False)
     ]
-    logger.info(f"FASE 4: {len(groups_to_archive)} grupos por arquivar")
+    logger.info(f"FASE 4: {len(groups_to_archive)} grupos por marcar como lidos")
     if groups_to_archive:
-        # Sequencial para evitar rate limiting na Whapi
         for gid in groups_to_archive:
-            ok = _archive_group_task(gid)
+            ok = _mark_read_task(gid)
             if ok:
                 archive_count += 1
             for gl in group_logs:
@@ -1125,9 +1124,9 @@ def run_pipeline() -> PipelineResult:
 
     phase_archive_elapsed = time.monotonic() - phase_archive_start
     if archive_count < len(groups_to_archive):
-        logger.warning(f"FASE 4: archive INCOMPLETO {archive_count}/{len(groups_to_archive)} em {phase_archive_elapsed:.1f}s")
+        logger.warning(f"FASE 4: mark-read INCOMPLETO {archive_count}/{len(groups_to_archive)} em {phase_archive_elapsed:.1f}s")
     else:
-        logger.info(f"FASE 4 (archive): {archive_count}/{len(groups_to_archive)} em {phase_archive_elapsed:.1f}s")
+        logger.info(f"FASE 4 (mark-read): {archive_count}/{len(groups_to_archive)} em {phase_archive_elapsed:.1f}s")
 
     # Capturar estado pos-pipeline (unread + archived) para auditoria por grupo
     try:

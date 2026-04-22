@@ -62,7 +62,7 @@ def _run_pipeline_background() -> None:
         logger.info(
             f"Pipeline M1 concluido: {result.messages_fetched} msgs, "
             f"{result.opportunities_found} oportunidades, "
-            f"{result.groups_archived}/{result.groups_to_archive} arquivados"
+            f"{result.groups_archived}/{result.groups_to_archive} marcados como lidos"
         )
     except Exception as e:
         with _pipeline_lock:
