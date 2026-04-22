@@ -1000,13 +1000,9 @@ def run_pipeline() -> PipelineResult:
     phase1_elapsed = time.monotonic() - phase1_start
     logger.info(f"FASE 1 (fetch paralelo): {len(fetch_results)} grupos em {phase1_elapsed:.1f}s")
 
-    # --- FASE 1a: Skip mark_as_read individual ---
-    # PUT individual por mensagem interfere com o archive sync no device.
-    # A leitura é feita na FASE 4 via PATCH read=true (junto com archive).
-    phase1a_start = time.monotonic()
+    # FASE 1a removida (mark-as-read não funciona em companion mode)
+    phase1a_elapsed = 0.0
     active_read = 0
-    phase1a_elapsed = time.monotonic() - phase1a_start
-    logger.info(f"FASE 1a: skip (leitura feita na FASE 4 junto com archive)")
 
     # --- FASE 1b: Skip (inativos não precisam de mark_as_read) ---
     phase1b_start = time.monotonic()
@@ -1035,7 +1031,7 @@ def run_pipeline() -> PipelineResult:
             "processado_em": datetime.now(tz=timezone.utc).isoformat(),
             "mensagens_buscadas": len(messages),
             "mensagens_filtradas": 0, "oportunidades": 0,
-            "arquivado": None,  # preenchido na FASE 4 (archive)
+            "arquivado": None,  # obsoleto: FASE 4 removida
             "unread_before": group.get("unread", 0),
             "archived_before": bool(group.get("is_archived", False)),
             "unread_after": None,
@@ -1134,65 +1130,12 @@ def run_pipeline() -> PipelineResult:
     phase3_elapsed = time.monotonic() - phase3_start
     logger.info(f"FASE 3 (classificacao): {total_filtered} msgs, {total_opportunities} opps em {phase3_elapsed:.1f}s")
 
-    # --- FASE 4: Marcar grupos como lidos ---
-    # Archive removido — companion mode não sincroniza archive com o device
-    # primário de forma fiável. Apenas mark-as-read é confiável (via chatModify
-    # com buffer OU fallback sem lastMessages no bridge Baileys).
-    phase_archive_start = time.monotonic()
+    # FASE 4 removida: companion mode não propaga mark-as-read para o device
+    # primário (sendReceipt/chatModify retornam OK mas device ignora). Queima
+    # ~2min por pipeline sem benefício — a captura/classificação já aconteceu.
+    phase_archive_elapsed = 0.0
     archive_count = 0
-
-    def _mark_read_task(gid: str) -> bool:
-        """Marca grupo como lido com retry (2 tentativas)."""
-        for attempt in range(2):
-            try:
-                tc = WhatsAppClient()
-                if tc.mark_group_read(gid):
-                    return True
-                if attempt == 0:
-                    time.sleep(1)
-            except Exception as e:
-                logger.error(f"Mark-read falhou para {gid} (tentativa {attempt + 1}): {e}")
-        return False
-
-    groups_to_archive = [
-        g.get("id") for g in active_groups
-        if g.get("id") and not g.get("is_archived", False)
-    ]
-    logger.info(f"FASE 4: {len(groups_to_archive)} grupos por marcar como lidos")
-    if groups_to_archive:
-        for gid in groups_to_archive:
-            ok = _mark_read_task(gid)
-            if ok:
-                archive_count += 1
-            for gl in group_logs:
-                if gl.get("grupo_id") == gid:
-                    gl["arquivado"] = ok
-                    break
-            time.sleep(0.5)  # rate-limit: evita rate-overlimit no WhatsApp (chatModify)
-
-    phase_archive_elapsed = time.monotonic() - phase_archive_start
-    if archive_count < len(groups_to_archive):
-        logger.warning(f"FASE 4: mark-read INCOMPLETO {archive_count}/{len(groups_to_archive)} em {phase_archive_elapsed:.1f}s")
-    else:
-        logger.info(f"FASE 4 (mark-read): {archive_count}/{len(groups_to_archive)} em {phase_archive_elapsed:.1f}s")
-
-    # Capturar estado pos-pipeline (unread + archived) para auditoria por grupo
-    try:
-        post_groups = wa_client.list_active_groups()
-        post_map = {
-            g.get("id"): {
-                "unread": g.get("unread", 0) or 0,
-                "archived": bool(g.get("is_archived", False)),
-            }
-            for g in post_groups if g.get("id")
-        }
-        for gl in group_logs:
-            gid = gl.get("grupo_id")
-            if gid and gid in post_map:
-                gl["unread_after"] = post_map[gid]["unread"]
-                gl["archived_after"] = post_map[gid]["archived"]
-    except Exception as e:
-        logger.warning(f"Falha a capturar estado pos-pipeline: {e}")
+    groups_to_archive: list[str] = []
 
     # --- FASE 5: Restaurar presença offline (notificações push) ---
     try:
@@ -1221,14 +1164,11 @@ def run_pipeline() -> PipelineResult:
     logger.info(f"  FASE 1b inativos: {phase1b_elapsed:.1f}s")
     logger.info(f"  FASE 2 dedup: {phase2_elapsed:.1f}s")
     logger.info(f"  FASE 3 classificacao: {phase3_elapsed:.1f}s")
-    logger.info(f"  FASE 4 archive: {phase_archive_elapsed:.1f}s")
     logger.info(f"  Grupos com unread: {len(active_with_unread)} activos + {len(inactive_with_unread)} inativos")
     logger.info(f"  Grupos skip (ja lidos): {len(active_already_read)}")
     logger.info(f"  Mensagens buscadas: {total_messages}")
     logger.info(f"  Mensagens apos filtro: {total_filtered}")
     logger.info(f"  Oportunidades: {total_opportunities}")
-    logger.info(f"  Inativos lidos: {inactive_read}")
-    logger.info(f"  Archive: {archive_count}/{len(groups_to_archive)}")
     logger.info(f"  Erros: {len(errors)}")
     if total_filtered > 0 and total_opportunities == 0:
         logger.warning("ATENCAO: 0 oportunidades detetadas!")
