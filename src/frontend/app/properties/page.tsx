@@ -237,6 +237,18 @@ export default function PropertiesPage() {
     fetchLastPipelineResult();
   }, [fetchLastPipelineResult]);
 
+  // Quando o tab volta a ficar visivel, refaz status — evita banner preso
+  // porque o Chrome suspende setInterval em tabs em background.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        fetchLastPipelineResult();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [fetchLastPipelineResult]);
+
   // Client-side filtering (exclui descartados por default)
   const filtered = properties.filter((p) => {
     if (filterMunicipality && !p.municipality?.toLowerCase().includes(filterMunicipality.toLowerCase())) return false;
