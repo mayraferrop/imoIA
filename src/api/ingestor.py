@@ -293,6 +293,25 @@ async def list_groups() -> List[Dict[str, Any]]:
     ]
 
 
+@router.patch("/groups/{group_id}", summary="Actualizar grupo (toggle is_active)")
+async def update_group(group_id: int, body: Dict[str, Any]) -> Dict[str, Any]:
+    """Actualiza campos editáveis de um grupo. Apenas `is_active` é aceite por agora."""
+    if "is_active" not in body:
+        raise HTTPException(status_code=400, detail="campo 'is_active' obrigatório")
+
+    is_active = bool(body["is_active"])
+    updated = db.update("groups", str(group_id), {"is_active": is_active})
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"grupo {group_id} não encontrado")
+
+    logger.info(f"Grupo {group_id} -> is_active={is_active}")
+    return {
+        "id": updated.get("id"),
+        "name": updated.get("name"),
+        "is_active": updated.get("is_active"),
+    }
+
+
 @router.get("/opportunities", summary="Listar oportunidades")
 async def list_opportunities(
     min_confidence: float = Query(0.6, ge=0.0, le=1.0),

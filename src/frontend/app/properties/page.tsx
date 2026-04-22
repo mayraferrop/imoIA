@@ -17,6 +17,7 @@ import { apiGet, API_BASE, getAuthHeaders } from "@/lib/api";
 
 const PROPERTIES_KEY = "/api/v1/properties/?limit=200";
 const STATS_KEY = "/api/v1/ingest/stats";
+const GROUPS_KEY = "/api/v1/ingest/groups";
 
 interface Property {
   id: string;
@@ -67,6 +68,16 @@ interface IngestStats {
   top_districts?: { district: string; count: number }[];
 }
 
+interface GroupRow {
+  id: number;
+  whatsapp_group_id?: string;
+  name: string;
+  is_active: boolean;
+  messages: number;
+  opportunities: number;
+  last_processed_at?: string | null;
+}
+
 const OPP_TYPE_LABELS: Record<string, string> = {
   abaixo_mercado: "Abaixo Mercado",
   venda_urgente: "Venda Urgente",
@@ -113,6 +124,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function PropertiesPage() {
   const { data: propsResp, isLoading: propsLoading } = useSWR<{ items: Property[]; total: number } | null>(PROPERTIES_KEY);
   const { data: stats } = useSWR<IngestStats | null>(STATS_KEY);
+  const { data: groupRows, mutate: mutateGroups } = useSWR<GroupRow[] | null>(GROUPS_KEY);
   const properties = propsResp?.items ?? [];
   const total = propsResp?.total ?? 0;
   const loading = propsLoading;
@@ -134,6 +146,10 @@ export default function PropertiesPage() {
   };
   const [groupLogs, setGroupLogs] = useState<PipelineGroupLog[]>([]);
   const [showGroupLogs, setShowGroupLogs] = useState(false);
+  const [showGroups, setShowGroups] = useState(false);
+  const [groupFilter, setGroupFilter] = useState<"all" | "active" | "inactive">("all");
+  const [groupSearch, setGroupSearch] = useState("");
+  const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createMsg, setCreateMsg] = useState("");
@@ -152,8 +168,41 @@ export default function PropertiesPage() {
     await Promise.all([
       globalMutate(PROPERTIES_KEY),
       globalMutate(STATS_KEY),
+      globalMutate(GROUPS_KEY),
     ]);
   }, []);
+
+  const toggleGroupActive = useCallback(
+    async (id: number, next: boolean) => {
+      setTogglingIds((prev) => {
+        const s = new Set(prev);
+        s.add(id);
+        return s;
+      });
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch(`${API_BASE}/api/v1/ingest/groups/${id}`, {
+          method: "PATCH",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ is_active: next }),
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          throw new Error(`HTTP ${res.status} ${txt}`);
+        }
+        await Promise.all([mutateGroups(), globalMutate(STATS_KEY)]);
+      } catch (err) {
+        setActionMsg(`Erro ao actualizar grupo: ${(err as Error).message}`);
+      } finally {
+        setTogglingIds((prev) => {
+          const s = new Set(prev);
+          s.delete(id);
+          return s;
+        });
+      }
+    },
+    [mutateGroups]
+  );
 
   // Recupera o resultado do último pipeline (se estado=done) para mostrar tabela após navegar
   const fetchLastPipelineResult = useCallback(async () => {
@@ -585,6 +634,131 @@ export default function PropertiesPage() {
           </div>
         </div>
       )}
+
+      {/* Grupos Monitorizados — toggle is_active */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowGroups((v) => !v)}
+          className="w-full px-4 py-3 border-b border-slate-200 flex items-center justify-between hover:bg-slate-50"
+        >
+          <span className="text-sm font-medium text-slate-700">
+            Grupos Monitorizados
+            {groupRows && (
+              <span className="ml-2 text-xs text-slate-500">
+                ({groupRows.filter((g) => g.is_active).length} activos / {groupRows.length} total)
+              </span>
+            )}
+          </span>
+          <span className="text-xs text-slate-500">{showGroups ? "ocultar" : "mostrar"}</span>
+        </button>
+        {showGroups && (
+          <div>
+            <div className="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                placeholder="Filtrar por nome..."
+                value={groupSearch}
+                onChange={(e) => setGroupSearch(e.target.value)}
+                className="flex-1 min-w-[200px] px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden text-xs">
+                {(["all", "active", "inactive"] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setGroupFilter(k)}
+                    className={`px-3 py-1.5 ${
+                      groupFilter === k
+                        ? "bg-teal-600 text-white"
+                        : "bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {k === "all" ? "Todos" : k === "active" ? "Activos" : "Inactivos"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="max-h-[500px] overflow-y-auto">
+              {!groupRows ? (
+                <div className="px-4 py-6 text-center text-sm text-slate-500">A carregar...</div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 sticky top-0">
+                    <tr className="text-left text-slate-600">
+                      <th className="px-3 py-2 font-medium">Grupo</th>
+                      <th className="px-3 py-2 font-medium text-right">Msgs</th>
+                      <th className="px-3 py-2 font-medium text-right">Opps</th>
+                      <th className="px-3 py-2 font-medium">Último</th>
+                      <th className="px-3 py-2 font-medium text-center">Activo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groupRows
+                      .filter((g) => {
+                        if (groupFilter === "active" && !g.is_active) return false;
+                        if (groupFilter === "inactive" && g.is_active) return false;
+                        if (groupSearch.trim()) {
+                          return (g.name || "").toLowerCase().includes(groupSearch.trim().toLowerCase());
+                        }
+                        return true;
+                      })
+                      .map((g) => {
+                        const toggling = togglingIds.has(g.id);
+                        const last = g.last_processed_at
+                          ? new Date(g.last_processed_at).toLocaleString("pt-PT", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "—";
+                        return (
+                          <tr
+                            key={g.id}
+                            className={`border-t border-slate-100 hover:bg-slate-50 ${
+                              !g.is_active ? "opacity-60" : ""
+                            }`}
+                          >
+                            <td className="px-3 py-1.5 text-slate-800 truncate max-w-md" title={g.name}>
+                              {g.name || <span className="text-slate-400">sem nome</span>}
+                            </td>
+                            <td className="px-3 py-1.5 text-right text-slate-600">{g.messages}</td>
+                            <td className="px-3 py-1.5 text-right text-teal-700 font-medium">
+                              {g.opportunities}
+                            </td>
+                            <td className="px-3 py-1.5 text-slate-500">{last}</td>
+                            <td className="px-3 py-1.5 text-center">
+                              <button
+                                type="button"
+                                disabled={toggling}
+                                onClick={() => toggleGroupActive(g.id, !g.is_active)}
+                                className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${
+                                  g.is_active ? "bg-teal-600" : "bg-slate-300"
+                                } ${toggling ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
+                                aria-label={g.is_active ? "Desactivar grupo" : "Activar grupo"}
+                              >
+                                <span
+                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    g.is_active ? "translate-x-5" : "translate-x-1"
+                                  }`}
+                                />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className="px-4 py-2 border-t border-slate-200 bg-slate-50 text-xs text-slate-500">
+              Grupos inactivos não são processados pelo pipeline (sem fetch, sem archive).
+            </div>
+          </div>
+        )}
+      </div>
+
       {createMsg && (
         <div className={`px-4 py-3 rounded-lg text-sm ${createMsg.includes("Erro") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
           {createMsg}
