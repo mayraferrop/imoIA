@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
 import { formatEUR, formatPercent, GRADE_COLORS } from "@/lib/utils";
 import { apiGet, apiPost, apiDelete, API_BASE, getAuthHeaders } from "@/lib/api";
+
+const SCENARIOS_KEY = "/api/v1/financial/scenarios";
 
 interface CashFlowEntry {
   label: string;
@@ -98,8 +101,7 @@ const CAT_COLORS: Record<string, string> = {
 
 export default function FinancialPage() {
   const [activeTab, setActiveTab] = useState<Tab>("simulator");
-  // biome-ignore lint: auto-fetch
-  const handleTabChange = (tab: Tab) => { setActiveTab(tab); if (tab === "saved") fetchSavedScenarios(); };
+  const handleTabChange = (tab: Tab) => setActiveTab(tab);
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [financingMode, setFinancingMode] = useState<"cash" | "mortgage">("cash");
@@ -122,9 +124,14 @@ export default function FinancialPage() {
     { descricao: "2a tranche", tipo: "tranche_intermedia", pct: 5, dias_apos_cpcv: 30 },
   ]);
   const [savedProjection, setSavedProjection] = useState<any>(null);
-  const [savedScenarios, setSavedScenarios] = useState<any[]>([]);
   const [selectedScenario, setSelectedScenario] = useState<any>(null);
-  const [scenariosLoading, setScenariosLoading] = useState(false);
+
+  // Saved scenarios via SWR (loads when tab "saved" is active)
+  const { data: savedScenariosData, isLoading: scenariosLoading } = useSWR<any[] | null>(
+    activeTab === "saved" ? SCENARIOS_KEY : null
+  );
+  const savedScenarios = savedScenariosData ?? [];
+  const refreshSavedScenarios = () => globalMutate(SCENARIOS_KEY);
 
   // IMT
   const [imtResult, setImtResult] = useState<IMTResult | null>(null);
@@ -152,14 +159,7 @@ export default function FinancialPage() {
       .catch(() => {});
   }
 
-  async function fetchSavedScenarios() {
-    setScenariosLoading(true);
-    try {
-      const data = await apiGet("/api/v1/financial/scenarios");
-      if (data) setSavedScenarios(data as any);
-    } catch { /* ignore */ }
-    finally { setScenariosLoading(false); }
-  }
+  const fetchSavedScenarios = refreshSavedScenarios;
 
   async function loadScenarioDetail(modelId: string) {
     const data = await apiGet(`/api/v1/financial/${modelId}/projections`);
@@ -170,7 +170,7 @@ export default function FinancialPage() {
     if (!confirm("Excluir este cenário? Esta acção não pode ser desfeita.")) return;
     const result = await apiDelete(`/api/v1/financial/${scenarioId}`);
     if (result) {
-      setSavedScenarios((prev) => prev.filter((s: any) => s.id !== scenarioId));
+      refreshSavedScenarios();
       if (selectedScenario?.model_id === scenarioId) setSelectedScenario(null);
     }
   }

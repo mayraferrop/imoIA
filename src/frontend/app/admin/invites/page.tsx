@@ -1,9 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE, getAuthHeaders } from "@/lib/api";
 import { t } from "@/lib/i18n";
+
+const INVITES_KEY = "/api/v1/invites";
 
 interface Invite {
   id: string;
@@ -24,34 +27,19 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function AdminInvitesPage() {
   const { activeOrg } = useAuth();
-  const [invites, setInvites] = useState<Invite[]>([]);
-  const [loading, setLoading] = useState(true);
+  const isAdmin = activeOrg?.role === "admin" || activeOrg?.role === "owner";
+  const { data: invitesData, isLoading } = useSWR<Invite[] | null>(
+    isAdmin ? INVITES_KEY : null
+  );
+  const invites = invitesData ?? [];
+  const loading = isAdmin && isLoading;
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const isAdmin = activeOrg?.role === "admin" || activeOrg?.role === "owner";
-
-  const fetchInvites = useCallback(async () => {
-    try {
-      const headers = await getAuthHeaders();
-      const res = await fetch(`${API_BASE}/api/v1/invites`, { headers });
-      if (res.ok) {
-        setInvites(await res.json());
-      }
-    } catch {
-      // silencioso
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isAdmin) fetchInvites();
-    else setLoading(false);
-  }, [isAdmin, fetchInvites]);
+  const refreshInvites = () => globalMutate(INVITES_KEY);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -71,7 +59,7 @@ export default function AdminInvitesPage() {
         setSuccess(t("admin.invites.create_success"));
         setEmail("");
         setRole("member");
-        fetchInvites();
+        refreshInvites();
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.detail || t("admin.invites.create_error"));
@@ -93,7 +81,7 @@ export default function AdminInvitesPage() {
 
       if (res.ok || res.status === 204) {
         setSuccess(t("admin.invites.revoke_success"));
-        fetchInvites();
+        refreshInvites();
       }
     } catch {
       setError(t("admin.invites.revoke_error"));

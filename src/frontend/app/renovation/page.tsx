@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
 import { formatEUR } from "@/lib/utils";
 import { apiGet, apiPost } from "@/lib/api";
 
@@ -111,25 +112,29 @@ const PAYMENT_METHODS = [
 /*  PAGE                                                               */
 /* ================================================================== */
 
+const DEALS_KEY = "/api/v1/deals?limit=50";
+
 export default function RenovationPage() {
-  const [deals, setDeals] = useState<Deal[]>([]);
   const [renovations, setRenovations] = useState<Renovation[]>([]);
   const [selectedRenoId, setSelectedRenoId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<RenovationDetail | null>(null);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [renovLoading, setRenovLoading] = useState(false);
   const [expenseFormOpen, setExpenseFormOpen] = useState(false);
 
-  /* --- Load deals and renovations --- */
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const dealsData = await apiGet<{ items: Deal[] }>("/api/v1/deals?limit=50");
-      const dealsList = dealsData?.items ?? [];
-      setDeals(dealsList);
+  const { data: dealsData, isLoading: dealsLoading } = useSWR<{ items: Deal[] } | null>(DEALS_KEY);
+  const deals = dealsData?.items ?? [];
 
+  /* --- Load renovations once deals list is available --- */
+  useEffect(() => {
+    if (deals.length === 0) {
+      setRenovations([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setRenovLoading(true);
       const renos: Renovation[] = [];
-      for (const deal of dealsList.slice(0, 20)) {
+      for (const deal of deals.slice(0, 20)) {
+        if (cancelled) return;
         const ren = await apiGet<Renovation | Renovation[]>(
           `/api/v1/renovations/deals/${deal.id}`
         );
@@ -141,38 +146,41 @@ export default function RenovationPage() {
           }
         }
       }
-      setRenovations(renos);
-      setLoading(false);
+      if (!cancelled) {
+        setRenovations(renos);
+        setRenovLoading(false);
+      }
     })();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [deals]);
 
-  /* --- Load detail when renovation selected --- */
-  const loadDetail = useCallback(async (renoId: string) => {
-    const reno = renovations.find((r) => r.id === renoId);
-    if (!reno) return;
+  const loading = dealsLoading || renovLoading;
 
-    const [detailData, expensesData] = await Promise.all([
-      apiGet<RenovationDetail>(`/api/v1/renovations/deals/${reno.deal_id}`),
-      apiGet<Expense[]>(`/api/v1/renovations/${renoId}/expenses`),
-    ]);
+  /* --- Detail via SWR --- */
+  const selectedReno = renovations.find((r) => r.id === selectedRenoId);
+  const detailKey = selectedReno ? `/api/v1/renovations/deals/${selectedReno.deal_id}` : null;
+  const expensesKey = selectedRenoId ? `/api/v1/renovations/${selectedRenoId}/expenses` : null;
 
-    if (detailData) setDetail(detailData);
-    if (expensesData) setExpenses(Array.isArray(expensesData) ? expensesData : []);
-  }, [renovations]);
+  const { data: detail } = useSWR<RenovationDetail | null>(detailKey);
+  const { data: expensesData } = useSWR<Expense[] | null>(expensesKey);
+  const expenses = Array.isArray(expensesData) ? expensesData : [];
 
-  useEffect(() => {
-    if (selectedRenoId) loadDetail(selectedRenoId);
-  }, [selectedRenoId, loadDetail]);
+  const refreshDetail = () => {
+    if (detailKey) globalMutate(detailKey);
+    if (expensesKey) globalMutate(expensesKey);
+  };
 
   /* --- Milestone actions --- */
   async function handleStartMilestone(milestoneId: string) {
     await apiPost(`/api/v1/renovations/milestones/${milestoneId}/start`);
-    if (selectedRenoId) loadDetail(selectedRenoId);
+    refreshDetail();
   }
 
   async function handleCompleteMilestone(milestoneId: string) {
     await apiPost(`/api/v1/renovations/milestones/${milestoneId}/complete`);
-    if (selectedRenoId) loadDetail(selectedRenoId);
+    refreshDetail();
   }
 
   /* --- Add expense --- */
@@ -193,7 +201,7 @@ export default function RenovationPage() {
 
     e.currentTarget.reset();
     setExpenseFormOpen(false);
-    loadDetail(selectedRenoId);
+    refreshDetail();
   }
 
   /* ---------------------------------------------------------------- */

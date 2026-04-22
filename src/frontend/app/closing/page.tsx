@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { apiGet, apiPost, apiPatch } from "@/lib/api";
+import { useState, useEffect } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
+import { apiPost, apiPatch } from "@/lib/api";
 import { formatEUR, cn } from "@/lib/utils";
+
+const CLOSINGS_KEY = "/api/v1/closing";
+const DEALS_KEY = "/api/v1/deals?limit=100";
+const PORTFOLIO_KEY = "/api/v1/portfolio/summary";
 
 interface Closing {
   id: string;
@@ -90,9 +95,6 @@ const TRANSITIONS: Record<string, string[]> = {
 
 export default function ClosingPage() {
   const [activeTab, setActiveTab] = useState<"fecho" | "pnl" | "portfolio" | "fiscal">("fecho");
-  const [closings, setClosings] = useState<Closing[]>([]);
-  const [deals, setDeals] = useState<{ id: string; title: string; property_id?: string }[]>([]);
-  const [loading, setLoading] = useState(true);
   const [expandedClosing, setExpandedClosing] = useState<string | null>(null);
 
   // Create closing
@@ -103,44 +105,44 @@ export default function ClosingPage() {
 
   // P&L
   const [pnlDealId, setPnlDealId] = useState("");
-  const [pnlData, setPnlData] = useState<PnlData | null>(null);
   const [pnlSalePrice, setPnlSalePrice] = useState(0);
   const [pnlMonths, setPnlMonths] = useState(0);
 
-  // Portfolio
-  const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
-
   // Fiscal
   const [fiscalYear, setFiscalYear] = useState(new Date().getFullYear());
-  const [fiscalReport, setFiscalReport] = useState<FiscalReport | null>(null);
 
-  /* ------------------------------------------------------------------ */
-  /*  PRIMARY: Load closings from Supabase, with FastAPI fallback        */
-  /* ------------------------------------------------------------------ */
+  // SWR: always-loaded data
+  const { data: closingsData, isLoading: closingsLoading } = useSWR<Closing[] | null>(CLOSINGS_KEY);
+  const { data: dealsResp, isLoading: dealsLoading } = useSWR<{ items: any[] } | null>(DEALS_KEY);
+  const closings = closingsData ?? [];
+  const deals = (dealsResp?.items ?? []).map((d: any) => ({
+    id: d.id,
+    title: d.title ?? d.id.slice(0, 8),
+    property_id: d.property_id,
+  }));
+  const loading = closingsLoading || dealsLoading;
 
-  const loadClosings = useCallback(async () => {
-    const data = await apiGet<Closing[]>("/api/v1/closing");
-    setClosings(data ?? []);
-  }, []);
-
-  const loadDeals = useCallback(async () => {
-    const resp = await apiGet<{ items: any[] }>("/api/v1/deals?limit=100");
-    const items = resp?.items ?? [];
-    setDeals(items.map((d: any) => ({ id: d.id, title: d.title ?? d.id.slice(0, 8), property_id: d.property_id })));
-    if (items.length > 0) {
-      setCreateDealId(items[0].id);
-      setPnlDealId(items[0].id);
-    }
-  }, []);
-
+  // Default first deal as selection when deals arrive
   useEffect(() => {
-    setLoading(true);
-    Promise.all([loadClosings(), loadDeals()])
-      .catch((err) => console.warn("[M9] load failed:", err))
-      .finally(() => setLoading(false));
-  }, [loadClosings, loadDeals]);
+    if (deals.length > 0) {
+      if (!createDealId) setCreateDealId(deals[0].id);
+      if (!pnlDealId) setPnlDealId(deals[0].id);
+    }
+  }, [deals, createDealId, pnlDealId]);
 
-  // Write operations: always via FastAPI (needs business logic)
+  // Conditional SWR: P&L / Portfolio / Fiscal
+  const pnlKey = activeTab === "pnl" && pnlDealId ? `/api/v1/pnl/${pnlDealId}` : null;
+  const fiscalKey = activeTab === "fiscal" ? `/api/v1/portfolio/fiscal-report?year=${fiscalYear}` : null;
+
+  const { data: pnlData, mutate: mutatePnl } = useSWR<PnlData | null>(pnlKey);
+  const { data: portfolio } = useSWR<PortfolioSummary | null>(
+    activeTab === "portfolio" ? PORTFOLIO_KEY : null
+  );
+  const { data: fiscalReport } = useSWR<FiscalReport | null>(fiscalKey);
+
+  const refreshClosings = () => globalMutate(CLOSINGS_KEY);
+
+  // Write operations
   async function createClosing() {
     if (!createDealId) return;
     const dealData = deals.find((d) => d.id === createDealId);
@@ -152,66 +154,44 @@ export default function ClosingPage() {
     });
     if (result) {
       setShowCreate(false);
-      loadClosings();
+      refreshClosings();
     }
   }
 
   async function advanceStatus(closingId: string, targetStatus: string) {
     await apiPatch(`/api/v1/closing/${closingId}/status`, { target_status: targetStatus });
-    loadClosings();
+    refreshClosings();
   }
 
   async function toggleChecklist(closingId: string, key: string, done: boolean) {
     await apiPatch(`/api/v1/closing/${closingId}/checklist/${key}?done=${done}`);
-    loadClosings();
+    refreshClosings();
   }
 
   async function emitTaxGuide(closingId: string, guideType: string, amount: number) {
     if (amount <= 0) return;
     await apiPost(`/api/v1/closing/${closingId}/tax-guide`, { guide_type: guideType, amount });
-    loadClosings();
+    refreshClosings();
   }
 
   async function notifyPreference(closingId: string, entitiesStr: string) {
     const entities = entitiesStr.split(",").map((e) => e.trim()).filter(Boolean);
     if (entities.length === 0) return;
     await apiPost(`/api/v1/closing/${closingId}/preference-right`, { entities });
-    loadClosings();
-  }
-
-  async function loadPnl(dealId: string) {
-    const data = await apiGet<PnlData>(`/api/v1/pnl/${dealId}`);
-    setPnlData(data);
+    refreshClosings();
   }
 
   async function calculatePnl() {
     if (!pnlDealId) return;
     await apiPost(`/api/v1/pnl/${pnlDealId}/calculate?sale_price=${pnlSalePrice}&holding_months=${pnlMonths}`);
-    loadPnl(pnlDealId);
+    mutatePnl();
   }
 
   async function finalizePnl() {
     if (!pnlDealId) return;
     await apiPost(`/api/v1/pnl/${pnlDealId}/finalize`);
-    loadPnl(pnlDealId);
+    mutatePnl();
   }
-
-  async function loadPortfolio() {
-    const data = await apiGet<PortfolioSummary>("/api/v1/portfolio/summary");
-    setPortfolio(data);
-  }
-
-  async function loadFiscal(year: number) {
-    const data = await apiGet<FiscalReport>(`/api/v1/portfolio/fiscal-report?year=${year}`);
-    setFiscalReport(data);
-  }
-
-  // Load tab data on tab switch
-  useEffect(() => {
-    if (activeTab === "pnl" && pnlDealId) loadPnl(pnlDealId);
-    if (activeTab === "portfolio") loadPortfolio();
-    if (activeTab === "fiscal") loadFiscal(fiscalYear);
-  }, [activeTab, pnlDealId, fiscalYear]);
 
   if (loading) {
     return (
@@ -478,7 +458,7 @@ export default function ClosingPage() {
                   <label className="block text-xs text-slate-500 mb-1">Deal</label>
                   <select
                     value={pnlDealId}
-                    onChange={(e) => { setPnlDealId(e.target.value); setPnlData(null); }}
+                    onChange={(e) => setPnlDealId(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                   >
                     {deals.map((d) => <option key={d.id} value={d.id}>{d.title}</option>)}

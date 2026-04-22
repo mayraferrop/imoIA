@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
 import { formatEUR } from "@/lib/utils";
 import { apiGet, apiPost, apiDelete } from "@/lib/api";
+
+const OVERVIEW_KEY = "/api/v1/market/overview";
+const ALERTS_KEY = "/api/v1/market/alerts";
 
 /* ------------------------------------------------------------------ */
 /*  Tipos locais                                                       */
@@ -229,7 +233,9 @@ type TabId = (typeof TABS)[number]["id"];
 /* ================================================================== */
 
 export default function MarketPage() {
-  const [overview, setOverview] = useState<MarketOverview | null>(null);
+  const { data: overview } = useSWR<MarketOverview | null>(OVERVIEW_KEY);
+  const { data: alertsData } = useSWR<MarketAlert[] | null>(ALERTS_KEY);
+  const alerts = Array.isArray(alertsData) ? alertsData : [];
   const [activeTab, setActiveTab] = useState<TabId>("comparables");
   const [loading, setLoading] = useState(false);
 
@@ -241,7 +247,6 @@ export default function MarketPage() {
   const [valuation, setValuation] = useState<ValuationResult | null>(null);
 
   // Alerts
-  const [alerts, setAlerts] = useState<MarketAlert[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // Market Prices (SIR + BPstat)
@@ -249,19 +254,9 @@ export default function MarketPage() {
   const [bpstatIndex, setBpstatIndex] = useState<BPstatIndex | null>(null);
   const [operation, setOperation] = useState<"sale" | "rent">("sale");
 
-  /* --- Load overview + alerts on mount --- */
-  const loadData = useCallback(async () => {
-    const [ov, al] = await Promise.all([
-      apiGet<MarketOverview>("/api/v1/market/overview"),
-      apiGet<MarketAlert[]>("/api/v1/market/alerts"),
-    ]);
-    if (ov) setOverview(ov);
-    if (al) setAlerts(Array.isArray(al) ? al : []);
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const refreshData = async () => {
+    await Promise.all([globalMutate(OVERVIEW_KEY), globalMutate(ALERTS_KEY)]);
+  };
 
   /* --- Comparables search (always FastAPI — needs CASAFARI) --- */
   async function handleSearchComparables(e: React.FormEvent<HTMLFormElement>) {
@@ -323,7 +318,7 @@ export default function MarketPage() {
       price_max: priceMax > 0 ? priceMax : null,
     });
     form.reset();
-    await loadData();
+    await refreshData();
     setLoading(false);
   }
 
@@ -331,14 +326,14 @@ export default function MarketPage() {
   async function handleDeleteAlert(id: string) {
     await apiDelete(`/api/v1/market/alerts/${id}`);
     setConfirmDelete(null);
-    await loadData();
+    await refreshData();
   }
 
   /* --- Check alerts (FastAPI — needs CASAFARI) --- */
   async function handleCheckAlerts() {
     setLoading(true);
     await apiPost("/api/v1/market/alerts/check");
-    await loadData();
+    await refreshData();
     setLoading(false);
   }
 

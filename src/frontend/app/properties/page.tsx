@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
 import { formatEUR, GRADE_COLORS } from "@/lib/utils";
 import {
   BarChart,
@@ -12,7 +13,10 @@ import {
   Cell,
 } from "recharts";
 
-import { apiGet, apiPost, apiPatch, API_BASE, getAuthHeaders } from "@/lib/api";
+import { apiGet, API_BASE, getAuthHeaders } from "@/lib/api";
+
+const PROPERTIES_KEY = "/api/v1/properties/?limit=200";
+const STATS_KEY = "/api/v1/ingest/stats";
 
 interface Property {
   id: string;
@@ -107,11 +111,11 @@ const STATUS_COLORS: Record<string, string> = {
 
 
 export default function PropertiesPage() {
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [stats, setStats] = useState<IngestStats | null>(null);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [dataSource, setDataSource] = useState<"supabase" | "fastapi">("supabase");
+  const { data: propsResp, isLoading: propsLoading } = useSWR<{ items: Property[]; total: number } | null>(PROPERTIES_KEY);
+  const { data: stats } = useSWR<IngestStats | null>(STATS_KEY);
+  const properties = propsResp?.items ?? [];
+  const total = propsResp?.total ?? 0;
+  const loading = propsLoading;
   const [triggerLoading, setTriggerLoading] = useState(false);
   const [triggerMsg, setTriggerMsg] = useState("");
   type PipelineGroupLog = {
@@ -145,21 +149,10 @@ export default function PropertiesPage() {
   const [filterMaxPrice, setFilterMaxPrice] = useState("");
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [propsData, statsData] = await Promise.all([
-        apiGet<{ items: Property[]; total: number }>("/api/v1/properties/?limit=200"),
-        apiGet<IngestStats>("/api/v1/ingest/stats"),
-      ]);
-      setProperties(propsData?.items ?? []);
-      setTotal(propsData?.total ?? 0);
-      setDataSource("fastapi");
-      if (statsData) setStats(statsData);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
+    await Promise.all([
+      globalMutate(PROPERTIES_KEY),
+      globalMutate(STATS_KEY),
+    ]);
   }, []);
 
   // Recupera o resultado do último pipeline (se estado=done) para mostrar tabela após navegar
@@ -192,9 +185,8 @@ export default function PropertiesPage() {
   }, []);
 
   useEffect(() => {
-    fetchData();
     fetchLastPipelineResult();
-  }, [fetchData, fetchLastPipelineResult]);
+  }, [fetchLastPipelineResult]);
 
   // Client-side filtering (exclui descartados por default)
   const filtered = properties.filter((p) => {
@@ -441,10 +433,7 @@ export default function PropertiesPage() {
       });
       if (res.ok) {
         setActionMsg(`Estado alterado para "${STATUS_LABELS[newStatus] || newStatus}"`);
-        // Update local state
-        setProperties((prev) =>
-          prev.map((p) => (p.id === propertyId ? { ...p, status: newStatus } : p))
-        );
+        globalMutate(PROPERTIES_KEY);
       } else {
         setActionMsg("Erro ao alterar estado.");
       }
@@ -492,9 +481,6 @@ export default function PropertiesPage() {
           <h1 className="text-2xl font-bold text-slate-900">M1 — Propriedades</h1>
           <p className="text-sm text-slate-500 mt-1">
             {total} propriedades no sistema
-            <span className="ml-2 text-xs text-slate-400">
-              ({dataSource === "supabase" ? "Supabase" : "FastAPI"})
-            </span>
           </p>
         </div>
         <div className="flex gap-3">

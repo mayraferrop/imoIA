@@ -1,8 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
 import { apiGet, apiPost, apiPatch } from "@/lib/api";
 import { formatEUR, cn, GRADE_COLORS } from "@/lib/utils";
+
+const STATS_KEY = "/api/v1/leads/stats";
+const PIPELINE_KEY = "/api/v1/leads/pipeline-summary";
+const SOURCE_KEY = "/api/v1/leads/source-breakdown";
+const GRADES_KEY = "/api/v1/leads/grades-summary";
 
 interface AIEnrichment {
   adjustment: number;
@@ -119,13 +125,14 @@ const INTERACTION_ICONS: Record<string, string> = {
 };
 
 export default function LeadsPage() {
-  const [stats, setStats] = useState<LeadStats | null>(null);
-  const [pipeline, setPipeline] = useState<PipelineStage[]>([]);
-  const [sourceBreakdown, setSourceBreakdown] = useState<SourceBreakdown[]>([]);
-  const [gradesSummary, setGradesSummary] = useState<Record<string, number>>({});
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [totalLeads, setTotalLeads] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const { data: stats } = useSWR<LeadStats | null>(STATS_KEY);
+  const { data: pipelineData } = useSWR<PipelineStage[] | null>(PIPELINE_KEY);
+  const { data: sourceData } = useSWR<SourceBreakdown[] | null>(SOURCE_KEY);
+  const { data: gradesData } = useSWR<Record<string, number> | null>(GRADES_KEY);
+  const pipeline = pipelineData ?? [];
+  const sourceBreakdown = sourceData ?? [];
+  const gradesSummary = gradesData ?? {};
+
   const [expandedLead, setExpandedLead] = useState<string | null>(null);
   const [leadTimelines, setLeadTimelines] = useState<Record<string, Interaction[]>>({});
 
@@ -148,40 +155,29 @@ export default function LeadsPage() {
   const [newFinancing, setNewFinancing] = useState("unknown");
   const [newNotes, setNewNotes] = useState("");
 
-  const loadOverview = useCallback(async () => {
-    const [s, p, sb, gr] = await Promise.all([
-      apiGet<LeadStats>("/api/v1/leads/stats"),
-      apiGet<PipelineStage[]>("/api/v1/leads/pipeline-summary"),
-      apiGet<SourceBreakdown[]>("/api/v1/leads/source-breakdown"),
-      apiGet<Record<string, number>>("/api/v1/leads/grades-summary"),
+  const leadsParams = new URLSearchParams({ limit: "50" });
+  if (fStage !== "Todos") {
+    const key = Object.entries(STAGE_LABELS).find(([, v]) => v === fStage)?.[0];
+    if (key) leadsParams.set("stage", key);
+  }
+  if (fGrade !== "Todos") leadsParams.set("grade", fGrade);
+  if (fSource) leadsParams.set("source", fSource);
+  if (fSearch) leadsParams.set("search", fSearch);
+  const leadsKey = `/api/v1/leads/?${leadsParams.toString()}`;
+  const { data: leadsResp, isLoading: leadsLoading } = useSWR<{ items: Lead[]; total: number } | null>(leadsKey);
+  const leads = leadsResp?.items ?? [];
+  const totalLeads = leadsResp?.total ?? 0;
+  const loading = stats === undefined && leadsLoading;
+
+  const refreshOverview = async () => {
+    await Promise.all([
+      globalMutate(STATS_KEY),
+      globalMutate(PIPELINE_KEY),
+      globalMutate(SOURCE_KEY),
+      globalMutate(GRADES_KEY),
     ]);
-    setStats(s);
-    setPipeline(p ?? []);
-    setSourceBreakdown(sb ?? []);
-    setGradesSummary(gr ?? {});
-  }, []);
-
-  const loadLeads = useCallback(async () => {
-    const params = new URLSearchParams({ limit: "50" });
-    if (fStage !== "Todos") {
-      const key = Object.entries(STAGE_LABELS).find(([, v]) => v === fStage)?.[0];
-      if (key) params.set("stage", key);
-    }
-    if (fGrade !== "Todos") params.set("grade", fGrade);
-    if (fSource) params.set("source", fSource);
-    if (fSearch) params.set("search", fSearch);
-
-    const data = await apiGet<{ items: Lead[]; total: number }>(`/api/v1/leads/?${params.toString()}`);
-    setLeads(data?.items ?? []);
-    setTotalLeads(data?.total ?? 0);
-  }, [fStage, fGrade, fSource, fSearch]);
-
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([loadOverview(), loadLeads()])
-      .catch((err) => console.warn("[M8] load failed:", err))
-      .finally(() => setLoading(false));
-  }, [loadOverview, loadLeads]);
+  };
+  const refreshLeads = () => globalMutate(leadsKey);
 
   // Write operations: always via FastAPI (needs business logic)
   async function createLead() {
@@ -202,20 +198,20 @@ export default function LeadsPage() {
       setNewName(""); setNewEmail(""); setNewPhone("");
       setNewBudgetMin(0); setNewBudgetMax(0);
       setNewTypology(""); setNewTimeline(""); setNewFinancing("unknown"); setNewNotes("");
-      loadOverview();
-      loadLeads();
+      refreshOverview();
+      refreshLeads();
     }
   }
 
   async function changeStage(leadId: string, stage: string) {
     await apiPatch(`/api/v1/leads/${leadId}/stage`, { stage });
-    loadLeads();
-    loadOverview();
+    refreshLeads();
+    refreshOverview();
   }
 
   async function recalculateScore(leadId: string) {
     await apiPost(`/api/v1/leads/${leadId}/recalculate-score`);
-    loadLeads();
+    refreshLeads();
   }
 
   const [aiScoringId, setAiScoringId] = useState<string | null>(null);
@@ -223,7 +219,7 @@ export default function LeadsPage() {
   async function recalculateWithAI(leadId: string, force: boolean = false) {
     setAiScoringId(leadId);
     await apiPost(`/api/v1/leads/${leadId}/recalculate-score?with_ai=true&force_ai=${force}`);
-    await loadLeads();
+    await refreshLeads();
     setAiScoringId(null);
   }
 
@@ -234,8 +230,8 @@ export default function LeadsPage() {
 
   async function syncHabta() {
     await apiPost("/api/v1/leads/sync-habta");
-    loadOverview();
-    loadLeads();
+    refreshOverview();
+    refreshLeads();
   }
 
   if (loading) {

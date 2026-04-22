@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { apiGet, apiPost, apiPatch, API_BASE, getAuthHeaders } from "@/lib/api";
+import { useState } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
+import { apiPost, apiPatch, API_BASE, getAuthHeaders } from "@/lib/api";
+
+const DEALS_KEY = "/api/v1/deals?limit=50";
 
 /* ------------------------------------------------------------------ */
 /*  Tipos locais                                                       */
@@ -83,43 +86,26 @@ const STATUS_OPTIONS = ["pendente", "em_curso", "obtido", "problema", "na"];
 /* ================================================================== */
 
 export default function DueDiligencePage() {
-  const [deals, setDeals] = useState<Deal[]>([]);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
-  const [checklist, setChecklist] = useState<DDChecklist | null>(null);
-  const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
 
-  /* --- Load deals --- */
-  useEffect(() => {
-    (async () => {
-      const data = await apiGet<{ items: Deal[] }>("/api/v1/deals?limit=50");
-      if (data?.items) {
-        const active = data.items.filter(
-          (d) => d.status !== "descartado" && d.status !== "fechado"
-        );
-        setDeals(active);
-      }
-    })();
-  }, []);
+  const { data: dealsData } = useSWR<{ items: Deal[] } | null>(DEALS_KEY);
+  const deals = (dealsData?.items ?? []).filter(
+    (d) => d.status !== "descartado" && d.status !== "fechado"
+  );
 
-  /* --- Load checklist when deal selected --- */
-  const loadChecklist = useCallback(async (dealId: string) => {
-    setLoading(true);
-    const data = await apiGet<DDChecklist>(
-      `/api/v1/due-diligence/deals/${dealId}/checklist`
-    );
-    setChecklist(data);
-    setLoading(false);
-  }, []);
+  const checklistKey = selectedDealId
+    ? `/api/v1/due-diligence/deals/${selectedDealId}/checklist`
+    : null;
+  const { data: checklist, isLoading: checklistLoading } = useSWR<DDChecklist | null>(checklistKey);
+  const loading = Boolean(selectedDealId) && checklistLoading;
 
-  useEffect(() => {
-    if (selectedDealId) loadChecklist(selectedDealId);
-  }, [selectedDealId, loadChecklist]);
+  const refreshChecklist = () => checklistKey && globalMutate(checklistKey);
 
   /* --- Update item status --- */
   async function handleStatusChange(itemId: string, newStatus: string) {
     await apiPatch(`/api/v1/due-diligence/items/${itemId}`, { status: newStatus });
-    if (selectedDealId) loadChecklist(selectedDealId);
+    refreshChecklist();
   }
 
   /* --- Generate checklist --- */
@@ -127,7 +113,7 @@ export default function DueDiligencePage() {
     if (!selectedDealId) return;
     setGenerating(true);
     await apiPost(`/api/v1/due-diligence/deals/${selectedDealId}/generate`);
-    await loadChecklist(selectedDealId);
+    refreshChecklist();
     setGenerating(false);
   }
 
@@ -141,13 +127,13 @@ export default function DueDiligencePage() {
       red_flag_description: description,
       red_flag_severity: severity || "medium",
     });
-    if (selectedDealId) loadChecklist(selectedDealId);
+    refreshChecklist();
   }
 
   /* --- Resolve red flag --- */
   async function handleResolveRedFlag(itemId: string) {
     await apiPatch(`/api/v1/due-diligence/items/${itemId}`, { red_flag: false, red_flag_description: null });
-    if (selectedDealId) loadChecklist(selectedDealId);
+    refreshChecklist();
   }
 
   /* --- Upload document --- */
@@ -167,7 +153,7 @@ export default function DueDiligencePage() {
           `${API_BASE}/api/v1/due-diligence/items/${itemId}/upload`,
           { method: "POST", headers: authHeaders, body: formData }
         );
-        if (res.ok && selectedDealId) loadChecklist(selectedDealId);
+        if (res.ok) refreshChecklist();
       } catch {
         // ignore
       }

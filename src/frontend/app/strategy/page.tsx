@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { apiGet, apiPost, apiDelete } from "@/lib/api";
+import { useState } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
+import { apiPost, apiDelete } from "@/lib/api";
+
+const STRATEGIES_KEY = "/api/v1/strategies";
 
 // Categorias para agrupamento visual
 const CATEGORY_LABELS: Record<string, string> = {
@@ -37,7 +40,8 @@ interface Strategy {
 
 export default function StrategyPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const { data: strategiesData } = useSWR<Strategy[] | null>(STRATEGIES_KEY);
+  const strategies = strategiesData ?? [];
   const [loading, setLoading] = useState(false);
 
   // Step 1
@@ -55,14 +59,7 @@ export default function StrategyPage() {
   // Editar estrategia existente
   const [editingStrategy, setEditingStrategy] = useState<Strategy | null>(null);
 
-  const fetchStrategies = useCallback(async () => {
-    const data = await apiGet<Strategy[]>("/api/v1/strategies");
-    if (data) setStrategies(data);
-  }, []);
-
-  useEffect(() => {
-    fetchStrategies();
-  }, [fetchStrategies]);
+  const refreshStrategies = () => globalMutate(STRATEGIES_KEY);
 
   // Step 1: Gerar sinais com IA
   const handleSuggest = async () => {
@@ -143,7 +140,7 @@ export default function StrategyPage() {
         })),
       });
       if (!result) throw new Error("Erro ao guardar");
-      await fetchStrategies();
+      await refreshStrategies();
       // Reset
       setStep(1);
       setDescription("");
@@ -158,13 +155,13 @@ export default function StrategyPage() {
 
   const activateStrategy = async (id: string) => {
     await apiPost(`/api/v1/strategies/${id}/activate`);
-    await fetchStrategies();
+    await refreshStrategies();
   };
 
   const deleteStrategy = async (id: string) => {
     if (!confirm("Tem a certeza que deseja remover esta estrategia?")) return;
     await apiDelete(`/api/v1/strategies/${id}`);
-    await fetchStrategies();
+    await refreshStrategies();
   };
 
   const loadStrategyForEdit = (s: Strategy) => {

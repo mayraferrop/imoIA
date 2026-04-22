@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import useSWR from "swr";
 import { formatEUR, GRADE_COLORS } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { t } from "@/lib/i18n";
@@ -141,41 +141,26 @@ function enrichProperties(
 
 export default function DashboardPage() {
   const { session, activeOrg } = useAuth();
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [dealStats, setDealStats] = useState<DealStats>({});
-  const [loading, setLoading] = useState(true);
+  const token = session?.access_token;
+  const orgId = activeOrg?.id;
 
-  useEffect(() => {
-    if (!session?.access_token) return;
+  const { data: rawProperties, isLoading: propsLoading } = useSWR<Property[]>(
+    token ? ["dash:properties", token] : null,
+    async (key: [string, string]) => fetchProperties(key[1]).catch(() => [])
+  );
+  const { data: opportunities = [], isLoading: oppsLoading } = useSWR<Opportunity[]>(
+    token ? ["dash:opportunities", token] : null,
+    async (key: [string, string]) => fetchOpportunities(key[1]).catch(() => [])
+  );
+  const { data: dealStats = {}, isLoading: statsLoading } = useSWR<DealStats>(
+    token && orgId ? ["dash:deal-stats", token, orgId] : null,
+    async (key: [string, string, string]) => fetchDealStats(key[1], key[2])
+  );
 
-    async function load() {
-      setLoading(true);
-      const token = session!.access_token;
-
-      let props: Property[] = [];
-      let opps: Opportunity[] = [];
-      try {
-        [props, opps] = await Promise.all([
-          fetchProperties(token),
-          fetchOpportunities(token),
-        ]);
-        props = enrichProperties(props, opps);
-      } catch {
-        // Supabase REST falhou — sem dados
-      }
-      setProperties(props);
-      setOpportunities(opps);
-
-      if (activeOrg?.id) {
-        const stats = await fetchDealStats(token, activeOrg.id);
-        setDealStats(stats);
-      }
-
-      setLoading(false);
-    }
-    load();
-  }, [session, activeOrg]);
+  const properties = rawProperties && opportunities
+    ? enrichProperties(rawProperties, opportunities)
+    : rawProperties ?? [];
+  const loading = propsLoading || oppsLoading || statsLoading;
 
   // --- Computed chart data ---
 

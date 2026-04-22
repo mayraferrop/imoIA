@@ -1,9 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE, getAuthHeaders } from "@/lib/api";
 import { t } from "@/lib/i18n";
+
+const MEMBERS_KEY = "/api/v1/members";
 
 interface Member {
   user_id: string;
@@ -20,31 +23,16 @@ const ROLE_COLORS: Record<string, string> = {
 
 export default function AdminMembersPage() {
   const { activeOrg, user } = useAuth();
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(true);
+  const isAdmin = activeOrg?.role === "admin" || activeOrg?.role === "owner";
+  const { data: membersData, isLoading } = useSWR<Member[] | null>(
+    isAdmin ? MEMBERS_KEY : null
+  );
+  const members = membersData ?? [];
+  const loading = isAdmin && isLoading;
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const isAdmin = activeOrg?.role === "admin" || activeOrg?.role === "owner";
-
-  const fetchMembers = useCallback(async () => {
-    try {
-      const headers = await getAuthHeaders();
-      const res = await fetch(`${API_BASE}/api/v1/members`, { headers });
-      if (res.ok) {
-        setMembers(await res.json());
-      }
-    } catch {
-      // silencioso
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isAdmin) fetchMembers();
-    else setLoading(false);
-  }, [isAdmin, fetchMembers]);
+  const refreshMembers = () => globalMutate(MEMBERS_KEY);
 
   async function handleRoleChange(userId: string, newRole: string) {
     setError("");
@@ -60,7 +48,7 @@ export default function AdminMembersPage() {
 
       if (res.ok) {
         setSuccess(t("admin.members.role_updated"));
-        fetchMembers();
+        refreshMembers();
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.detail || t("admin.members.role_error"));

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { formatEUR, GRADE_COLORS } from "@/lib/utils";
-import { apiGet, apiPost } from "@/lib/api";
+import { useState } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
+import { formatEUR } from "@/lib/utils";
+import { apiPost } from "@/lib/api";
 
 interface Deal {
   id: string;
@@ -107,25 +108,15 @@ const DEFAULT_STATUS_CONFIG: Record<string, { label: string; color: string; icon
 
 export default function PipelinePage() {
   const [activeTab, setActiveTab] = useState<PipelineTab>("kanban");
-  const [kanban, setKanban] = useState<KanbanData | null>(null);
-  const [stats, setStats] = useState<DealStats | null>(null);
-  const [strategies, setStrategies] = useState<Strategy[]>([]);
-  const [loading, setLoading] = useState(true);
   const [strategyFilter, setStrategyFilter] = useState("");
 
   // Deal detail
-  const [dealsList, setDealsList] = useState<Deal[]>([]);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
-  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("resumo");
-  const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [nextActions, setNextActions] = useState<NextAction[]>([]);
 
   // Create deal
   const [createMsg, setCreateMsg] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
-  const [properties, setProperties] = useState<{ id: string; label: string }[]>([]);
 
   // Advance
   const [advanceLoading, setAdvanceLoading] = useState(false);
@@ -136,84 +127,58 @@ export default function PipelinePage() {
   // Proposal creation
   const [proposalMsg, setProposalMsg] = useState("");
 
-  // Mediation
-  const [medKanban, setMedKanban] = useState<KanbanData | null>(null);
-  const [medStats, setMedStats] = useState<Record<string, any> | null>(null);
+  // SWR keys
+  const kanbanKey = `/api/v1/deals/kanban${strategyFilter ? `?strategy=${strategyFilter}` : ""}`;
+  const STATS_KEY = "/api/v1/deals/stats";
+  const DEALS_KEY = "/api/v1/deals/?limit=100";
+  const STRATEGIES_KEY = "/api/v1/deals/strategies";
+  const PROPERTIES_KEY = "/api/v1/properties/?limit=100";
+  const MED_KANBAN_KEY = "/api/v1/deals/kanban?strategy=mediacao_venda";
+  const MED_STATS_KEY = "/api/v1/deals/stats/mediation";
 
-  /* ------------------------------------------------------------------ */
-  /*  PRIMARY: Load deals from Supabase, group into kanban columns       */
-  /* ------------------------------------------------------------------ */
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = strategyFilter ? `?strategy=${strategyFilter}` : "";
-      const [kanbanRes, statsRes, dealsRes, strats] = await Promise.all([
-        apiGet<KanbanData>(`/api/v1/deals/kanban${params}`),
-        apiGet<DealStats>("/api/v1/deals/stats"),
-        apiGet<{ items: Deal[] }>("/api/v1/deals/?limit=100"),
-        apiGet<Strategy[]>("/api/v1/deals/strategies"),
-      ]);
-      if (kanbanRes) setKanban(kanbanRes);
-      if (statsRes) setStats(statsRes);
-      if (dealsRes) setDealsList(dealsRes.items ?? []);
-      if (strats) setStrategies(strats);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [strategyFilter]);
+  const { data: kanban, isLoading: kanbanLoading } = useSWR<KanbanData | null>(kanbanKey);
+  const { data: stats } = useSWR<DealStats | null>(STATS_KEY);
+  const { data: dealsResp } = useSWR<{ items: Deal[] } | null>(DEALS_KEY);
+  const { data: strategiesData } = useSWR<Strategy[] | null>(STRATEGIES_KEY);
+  const dealsList = dealsResp?.items ?? [];
+  const strategies = strategiesData ?? [];
+  const loading = kanbanLoading;
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const { data: propsResp } = useSWR<{ items: any[] } | null>(
+    activeTab === "create" ? PROPERTIES_KEY : null
+  );
+  const properties = (propsResp?.items ?? []).map((p: any) => ({
+    id: p.id,
+    label: `${p.municipality ?? "?"} — ${p.typology ?? "?"} (${formatEUR(p.asking_price)})`,
+  }));
 
-  // Fetch properties for create form
-  useEffect(() => {
-    if (activeTab === "create") {
-      apiGet<{ items: any[] }>("/api/v1/properties/?limit=100")
-        .then((data) => {
-          if (data?.items) {
-            setProperties(
-              data.items.map((p: any) => ({
-                id: p.id,
-                label: `${p.municipality ?? "?"} — ${p.typology ?? "?"} (${formatEUR(p.asking_price)})`,
-              }))
-            );
-          }
-        });
-    }
-  }, [activeTab]);
+  const { data: medKanban } = useSWR<KanbanData | null>(
+    activeTab === "mediation" ? MED_KANBAN_KEY : null
+  );
+  const { data: medStats } = useSWR<Record<string, any> | null>(
+    activeTab === "mediation" ? MED_STATS_KEY : null
+  );
 
-  // Fetch mediation data
-  useEffect(() => {
-    if (activeTab === "mediation") {
-      apiGet<KanbanData>("/api/v1/deals/kanban?strategy=mediacao_venda")
-        .then((data) => { if (data) setMedKanban(data); });
+  const dealDetailKey = selectedDealId ? `/api/v1/deals/${selectedDealId}` : null;
+  const proposalsKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/proposals` : null;
+  const historyKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/history` : null;
+  const nextActionsKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/next-actions` : null;
 
-      apiGet<Record<string, any>>("/api/v1/deals/stats/mediation")
-        .then((data) => { if (data) setMedStats(data); });
-    }
-  }, [activeTab]);
+  const { data: selectedDeal } = useSWR<Deal | null>(dealDetailKey);
+  const { data: proposalsData } = useSWR<Proposal[] | null>(proposalsKey);
+  const { data: historyData } = useSWR<HistoryEntry[] | null>(historyKey);
+  const { data: nextActionsData } = useSWR<{ next_statuses: NextAction[] } | null>(nextActionsKey);
+  const proposals = proposalsData ?? [];
+  const history = historyData ?? [];
+  const nextActions = nextActionsData?.next_statuses ?? [];
 
-  // Fetch deal detail
-  useEffect(() => {
-    if (!selectedDealId) {
-      setSelectedDeal(null);
-      return;
-    }
-    Promise.all([
-      apiGet<Deal>(`/api/v1/deals/${selectedDealId}`),
-      apiGet<Proposal[]>(`/api/v1/deals/${selectedDealId}/proposals`),
-      apiGet<HistoryEntry[]>(`/api/v1/deals/${selectedDealId}/history`),
-      apiGet<{ next_statuses: NextAction[] }>(`/api/v1/deals/${selectedDealId}/next-actions`),
-    ]).then(([dealRes, propRes, histRes, actRes]) => {
-      if (dealRes) setSelectedDeal(dealRes);
-      setProposals(propRes ?? []);
-      setHistory(histRes ?? []);
-      setNextActions(actRes?.next_statuses ?? []);
-    }).catch(() => {});
-  }, [selectedDealId]);
+  const refreshPipeline = async () => {
+    await Promise.all([
+      globalMutate(kanbanKey),
+      globalMutate(STATS_KEY),
+      globalMutate(DEALS_KEY),
+    ]);
+  };
 
   // Write operations: always via FastAPI (needs business logic)
   async function handleCreateDeal(e: React.FormEvent<HTMLFormElement>) {
@@ -236,7 +201,7 @@ export default function PipelinePage() {
       if (data) {
         setCreateMsg(`Deal criado: ${data.title ?? data.id}`);
         (e.target as HTMLFormElement).reset();
-        fetchData();
+        await refreshPipeline();
       } else {
         setCreateMsg("Erro ao criar deal.");
       }
@@ -257,8 +222,10 @@ export default function PipelinePage() {
         setAdvanceMsg(`Avançado para ${targetStatus}`);
         setPendingAction(null);
         setAdvanceReason("");
-        fetchData();
-        setSelectedDealId((prev) => prev);
+        await refreshPipeline();
+        if (dealDetailKey) globalMutate(dealDetailKey);
+        if (historyKey) globalMutate(historyKey);
+        if (nextActionsKey) globalMutate(nextActionsKey);
       } else {
         setAdvanceMsg("Erro ao avançar deal.");
       }
@@ -285,8 +252,7 @@ export default function PipelinePage() {
       if (result) {
         setProposalMsg("Proposta criada!");
         (e.target as HTMLFormElement).reset();
-        const updated = await apiGet<Proposal[]>(`/api/v1/deals/${selectedDealId}/proposals`);
-        setProposals(updated ?? []);
+        if (proposalsKey) globalMutate(proposalsKey);
       } else {
         setProposalMsg("Erro ao criar proposta.");
       }
@@ -438,7 +404,7 @@ export default function PipelinePage() {
                   {(selectedDeal as any).strategy_icon ?? ""} {selectedDeal.title}
                 </h2>
                 <button
-                  onClick={() => { setSelectedDealId(null); setSelectedDeal(null); setPendingAction(null); setAdvanceMsg(""); }}
+                  onClick={() => { setSelectedDealId(null); setPendingAction(null); setAdvanceMsg(""); }}
                   className="text-sm text-slate-400 hover:text-slate-600"
                 >
                   Fechar
