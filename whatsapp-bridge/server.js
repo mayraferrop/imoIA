@@ -342,6 +342,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function chatModifyWithRetry(payload, groupId, maxAttempts = 4) {
   let lastErr;
+  let rateLimited = false;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       await sock.chatModify(payload, groupId);
@@ -349,15 +350,18 @@ async function chatModifyWithRetry(payload, groupId, maxAttempts = 4) {
     } catch (err) {
       lastErr = err;
       const msg = err.message || "";
-      if (msg.includes("rate-overlimit") && attempt < maxAttempts - 1) {
-        const backoff = 1500 * Math.pow(2, attempt) + Math.random() * 500;
-        await sleep(backoff);
-        continue;
+      if (msg.includes("rate-overlimit")) {
+        rateLimited = true;
+        if (attempt < maxAttempts - 1) {
+          const backoff = 1500 * Math.pow(2, attempt) + Math.random() * 500;
+          await sleep(backoff);
+          continue;
+        }
       }
       break;
     }
   }
-  return { ok: false, error: lastErr?.message?.slice(0, 80), attempts: maxAttempts };
+  return { ok: false, error: lastErr?.message?.slice(0, 80), attempts: maxAttempts, rateLimited };
 }
 
 async function markGroupRead(groupId) {
@@ -408,6 +412,7 @@ async function markGroupRead(groupId) {
       } else {
         console.log(`[markRead chatModify fail] ${groupId}: ${r.error}`);
       }
+      return { markedRead: readCount > 0, count: readCount, path: "buffer", rateLimited: !r.ok && r.rateLimited };
     }
 
     return { markedRead: readCount > 0, count: readCount, path: "buffer" };
@@ -419,7 +424,7 @@ async function markGroupRead(groupId) {
     return { markedRead: true, count: 0, path: "fallback" };
   }
   console.log(`[markRead fallback fail] ${groupId}: ${r.error}`);
-  return { markedRead: false, count: 0, path: "fallback_failed", reason: r.error };
+  return { markedRead: false, count: 0, path: "fallback_failed", reason: r.error, rateLimited: r.rateLimited };
 }
 
 app.patch("/groups/:groupId", requireAuth, requireConnected, async (req, res) => {
@@ -434,47 +439,67 @@ app.patch("/groups/:groupId", requireAuth, requireConnected, async (req, res) =>
   }
 });
 
-app.post("/mark-all-read", requireAuth, requireConnected, async (req, res) => {
-  const summary = {
+let markAllReadJob = null;
+
+async function runMarkAllReadJob() {
+  const job = {
+    status: "running",
+    started_at: new Date().toISOString(),
+    finished_at: null,
     total_groups: 0,
     marked_buffer: 0,
     marked_fallback: 0,
     failed: 0,
     errors: 0,
-    details: [],
+    global_pauses: 0,
   };
+  markAllReadJob = job;
   try {
     const groups = await sock.groupFetchAllParticipating();
     const groupIds = Object.keys(groups);
-    summary.total_groups = groupIds.length;
+    job.total_groups = groupIds.length;
 
     for (const gid of groupIds) {
       try {
         const r = await markGroupRead(gid);
-        if (r.path === "buffer" && r.markedRead) {
-          summary.marked_buffer++;
-          summary.details.push({ id: gid, name: groups[gid].subject, count: r.count, path: "buffer" });
-        } else if (r.path === "fallback" && r.markedRead) {
-          summary.marked_fallback++;
-          summary.details.push({ id: gid, name: groups[gid].subject, path: "fallback" });
-        } else {
-          summary.failed++;
+        if (r.path === "buffer" && r.markedRead) job.marked_buffer++;
+        else if (r.path === "fallback" && r.markedRead) job.marked_fallback++;
+        else job.failed++;
+
+        if (r.rateLimited) {
+          job.global_pauses++;
+          console.log(`[mark-all-read] rate-limit global — pausar 30s (pause #${job.global_pauses})`);
+          await sleep(30000);
         }
       } catch (err) {
-        summary.errors++;
+        job.errors++;
         console.error(`[mark-all-read] ${gid}: ${err.message}`);
       }
       await sleep(500);
     }
 
     console.log(
-      `[mark-all-read] buffer=${summary.marked_buffer} fallback=${summary.marked_fallback} failed=${summary.failed}/${summary.total_groups}`
+      `[mark-all-read] buffer=${job.marked_buffer} fallback=${job.marked_fallback} failed=${job.failed}/${job.total_groups} pauses=${job.global_pauses}`
     );
-    res.json({ success: true, ...summary });
   } catch (err) {
     console.error("[mark-all-read]", err.message);
-    res.status(500).json({ error: err.message, partial: summary });
+    job.error = err.message;
   }
+  job.status = "done";
+  job.finished_at = new Date().toISOString();
+}
+
+app.post("/mark-all-read", requireAuth, requireConnected, async (req, res) => {
+  if (markAllReadJob && markAllReadJob.status === "running") {
+    return res.status(409).json({ error: "job already running", job: markAllReadJob });
+  }
+  runMarkAllReadJob(); // fire-and-forget
+  res.status(202).json({ status: "started", message: "use GET /mark-all-read/status" });
+});
+
+app.get("/mark-all-read/status", requireAuth, (req, res) => {
+  if (!markAllReadJob) return res.json({ status: "idle" });
+  res.json(markAllReadJob);
 });
 
 app.post("/resync", requireAuth, requireConnected, async (req, res) => {
