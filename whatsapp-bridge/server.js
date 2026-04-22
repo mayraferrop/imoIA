@@ -340,6 +340,26 @@ app.get("/messages/:groupId", requireAuth, requireConnected, (req, res) => {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+async function chatModifyWithRetry(payload, groupId, maxAttempts = 4) {
+  let lastErr;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      await sock.chatModify(payload, groupId);
+      return { ok: true, attempt: attempt + 1 };
+    } catch (err) {
+      lastErr = err;
+      const msg = err.message || "";
+      if (msg.includes("rate-overlimit") && attempt < maxAttempts - 1) {
+        const backoff = 1500 * Math.pow(2, attempt) + Math.random() * 500;
+        await sleep(backoff);
+        continue;
+      }
+      break;
+    }
+  }
+  return { ok: false, error: lastErr?.message?.slice(0, 80), attempts: maxAttempts };
+}
+
 async function markGroupRead(groupId) {
   const stored = messageStore[groupId] || [];
   const unreadMsgs = stored.filter(
@@ -371,36 +391,35 @@ async function markGroupRead(groupId) {
 
     const lastMsgWithParticipant = [...unreadMsgs].reverse().find((m) => m.messageTimestamp);
     if (lastMsgWithParticipant) {
-      try {
-        await sock.chatModify(
-          {
-            markRead: true,
-            lastMessages: [
-              {
-                key: lastMsgWithParticipant.key,
-                messageTimestamp: lastMsgWithParticipant.messageTimestamp,
-              },
-            ],
-          },
-          groupId
-        );
-        console.log(`[markRead chatModify] ${groupId} OK (buffer)`);
-      } catch (err) {
-        console.log(`[markRead chatModify fail] ${groupId}: ${err.message?.slice(0, 80)}`);
+      const r = await chatModifyWithRetry(
+        {
+          markRead: true,
+          lastMessages: [
+            {
+              key: lastMsgWithParticipant.key,
+              messageTimestamp: lastMsgWithParticipant.messageTimestamp,
+            },
+          ],
+        },
+        groupId
+      );
+      if (r.ok) {
+        console.log(`[markRead chatModify] ${groupId} OK (buffer, tries=${r.attempt})`);
+      } else {
+        console.log(`[markRead chatModify fail] ${groupId}: ${r.error}`);
       }
     }
 
     return { markedRead: readCount > 0, count: readCount, path: "buffer" };
   }
 
-  try {
-    await sock.chatModify({ markRead: true }, groupId);
-    console.log(`[markRead fallback] ${groupId} OK (no buffer)`);
+  const r = await chatModifyWithRetry({ markRead: true }, groupId);
+  if (r.ok) {
+    console.log(`[markRead fallback] ${groupId} OK (no buffer, tries=${r.attempt})`);
     return { markedRead: true, count: 0, path: "fallback" };
-  } catch (err) {
-    console.log(`[markRead fallback fail] ${groupId}: ${err.message?.slice(0, 80)}`);
-    return { markedRead: false, count: 0, path: "fallback_failed", reason: err.message?.slice(0, 80) };
   }
+  console.log(`[markRead fallback fail] ${groupId}: ${r.error}`);
+  return { markedRead: false, count: 0, path: "fallback_failed", reason: r.error };
 }
 
 app.patch("/groups/:groupId", requireAuth, requireConnected, async (req, res) => {
@@ -445,7 +464,7 @@ app.post("/mark-all-read", requireAuth, requireConnected, async (req, res) => {
         summary.errors++;
         console.error(`[mark-all-read] ${gid}: ${err.message}`);
       }
-      await sleep(200);
+      await sleep(500);
     }
 
     console.log(

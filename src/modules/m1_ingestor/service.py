@@ -1121,6 +1121,7 @@ def run_pipeline() -> PipelineResult:
                 if gl.get("grupo_id") == gid:
                     gl["arquivado"] = ok
                     break
+            time.sleep(0.5)  # rate-limit: evita rate-overlimit no WhatsApp (chatModify)
 
     phase_archive_elapsed = time.monotonic() - phase_archive_start
     if archive_count < len(groups_to_archive):
