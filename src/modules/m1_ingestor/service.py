@@ -24,6 +24,7 @@ from sqlalchemy import select
 from src.config import get_settings
 from src.database.db import get_default_organization_id, get_session, init_db
 from src.database.models import Group, MarketData, Message, Opportunity
+from src.database.models_v2 import Property as PropertyV2
 from src.modules.m1_ingestor.classifier import InsufficientCreditsError
 from src.modules.m1_ingestor.whatsapp_client import WhatsAppClient
 
@@ -505,6 +506,30 @@ def _estimate_monthly_rent(
     return round(purchase_price * 0.05 / 12, 2)
 
 
+_TENANT_ID_CACHE: str | None = None
+
+
+def _get_or_create_default_tenant_id(session: Any) -> str:
+    """Devolve o id do tenant default, criando-o se nao existir. Cache em processo."""
+    global _TENANT_ID_CACHE
+    if _TENANT_ID_CACHE:
+        return _TENANT_ID_CACHE
+    from sqlalchemy import text as _text
+    from uuid import uuid4 as _uuid4
+    row = session.execute(_text("SELECT id FROM tenants WHERE slug='default' LIMIT 1")).scalar_one_or_none()
+    if row:
+        _TENANT_ID_CACHE = row
+        return row
+    new_tid = str(_uuid4())
+    session.execute(
+        _text("INSERT INTO tenants (id, name, slug, country) VALUES (:i, 'ImoIA', 'default', 'PT')"),
+        {"i": new_tid},
+    )
+    session.flush()
+    _TENANT_ID_CACHE = new_tid
+    return new_tid
+
+
 def _save_results(
     session: Any,
     group_info: Dict[str, Any],
@@ -600,6 +625,28 @@ def _save_results(
 
         if classification.is_opportunity:
             opportunities_saved += 1
+
+            tenant_id = _get_or_create_default_tenant_id(session)
+            is_off_market = "off_market" in (classification.opportunity_type or "").lower()
+            db_property = PropertyV2(
+                tenant_id=tenant_id,
+                organization_id=org_id,
+                source="whatsapp",
+                source_opportunity_id=db_opportunity.id,
+                country="PT",
+                district=classification.district,
+                municipality=classification.municipality,
+                parish=classification.parish,
+                property_type=classification.property_type,
+                asking_price=classification.price,
+                currency="EUR",
+                gross_area_m2=classification.area_m2,
+                bedrooms=classification.bedrooms,
+                is_off_market=is_off_market,
+                status="oportunidade",
+                notes=classification.reasoning,
+            )
+            session.add(db_property)
 
         # Guardar dados de mercado se disponíveis
         if idx < len(market_enrichments) and market_enrichments[idx] is not None:
