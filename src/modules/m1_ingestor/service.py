@@ -918,13 +918,28 @@ def run_pipeline(trigger_source: str = "unknown") -> PipelineResult:
     logger.info(f"{len(active_groups)} grupos ativos para processar")
 
     # --- OPT 1: Separar grupos com unread > 0 dos ja lidos ---
-    active_with_unread = [g for g in active_groups if g.get("unread", 0) and g["unread"] > 0]
-    active_already_read = [g for g in active_groups if not g.get("unread", 0) or g["unread"] == 0]
+    # Em companion mode, o bridge Baileys devolve unread=None quando nao recebeu
+    # a contagem do device primario. Tratar None como "indeterminado -> processar"
+    # (fail-safe): o fetch por last_processed_at filtra msgs novas na mesma.
+    def _unread_state(g):
+        u = g.get("unread")
+        if u is None: return "unknown"
+        if u > 0: return "has_unread"
+        return "already_read"
+
+    active_with_unread = [g for g in active_groups if _unread_state(g) == "has_unread"]
+    active_unknown_unread = [g for g in active_groups if _unread_state(g) == "unknown"]
+    active_already_read = [g for g in active_groups if _unread_state(g) == "already_read"]
+    # Juntar: tudo que nao sabemos ser "ja lido" vai ser processado
+    active_with_unread = active_with_unread + active_unknown_unread
+
     inactive_in_api = [g for g in all_whatsapp_groups if g.get("id") in disabled_ids]
     inactive_with_unread = [g for g in inactive_in_api if g.get("unread", 0) and g["unread"] > 0]
 
     logger.info(
-        f"OPT: {len(active_with_unread)} activos com unread, "
+        f"OPT: {len(active_with_unread)} activos a processar "
+        f"(confirmado={len(active_with_unread) - len(active_unknown_unread)}, "
+        f"indeterminado={len(active_unknown_unread)}), "
         f"{len(active_already_read)} activos ja lidos (skip), "
         f"{len(inactive_with_unread)} inativos com unread"
     )
