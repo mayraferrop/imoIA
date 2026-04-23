@@ -275,11 +275,18 @@ class WhatsAppClient:
         """Busca mensagens via Baileys Bridge local."""
         since_ts = int(since.timestamp()) if since.tzinfo else int(since.replace(tzinfo=timezone.utc).timestamp())
 
+        FETCH_COUNT = 5000  # Fase 4: aumentado de 500 p/ cobrir grupos muito activos
         data = self._request(
             "GET",
             f"/messages/{group_id}",
-            params={"count": 500, "since": since_ts},
+            params={"count": FETCH_COUNT, "since": since_ts},
         )
+
+        if data.get("truncated") or len(data.get("messages", [])) >= FETCH_COUNT:
+            logger.warning(
+                f"Grupo {group_id}: bridge retornou >={FETCH_COUNT} mensagens — "
+                f"possivel perda de mensagens antigas (aumentar FETCH_COUNT ou correr cron mais frequente)"
+            )
 
         messages: List[Dict[str, Any]] = []
         for msg in data.get("messages", []):

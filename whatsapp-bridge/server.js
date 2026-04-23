@@ -50,7 +50,7 @@ const MSG_STORE_FILE = path.join(DATA_DIR, "messages.json");
 const DB_FILE = path.join(DATA_DIR, "bridge.sqlite");
 const BRIDGE_TOKEN = process.env.BRIDGE_TOKEN || "";
 const PORT = Number(process.env.PORT || process.env.BRIDGE_PORT || 3000);
-const MAX_MESSAGES_PER_GROUP = Number(process.env.MAX_MESSAGES_PER_GROUP || 500);
+const MAX_MESSAGES_PER_GROUP = Number(process.env.MAX_MESSAGES_PER_GROUP || 5000);
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -292,10 +292,13 @@ app.get("/messages/:groupId", requireAuth, requireConnected, (req, res) => {
   const count = parseInt(req.query.count) || 100;
   const sinceTs = parseInt(req.query.since) || 0;
   try {
-    const messages = store
-      .getMessages(groupId, sinceTs, count)
-      .map(normalizeMessage);
-    res.json({ messages, count: messages.length, group_id: groupId });
+    const raw = store.getMessages(groupId, sinceTs, count);
+    const messages = raw.map(normalizeMessage);
+    const truncated = raw.length >= count;
+    if (truncated) {
+      console.warn(`[/messages] TRUNCATED ${groupId} count=${count} returned=${raw.length} — podem existir mensagens perdidas`);
+    }
+    res.json({ messages, count: messages.length, group_id: groupId, truncated });
   } catch (err) {
     console.error("[/messages]", err.message);
     res.status(500).json({ error: err.message });
