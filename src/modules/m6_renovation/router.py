@@ -31,7 +31,7 @@ service = RenovationService()
 
 
 @router.post("/deals/{deal_id}/create", summary="Criar obra")
-async def create_renovation(
+def create_renovation(
     deal_id: str, data: RenovationCreateSchema
 ) -> Dict[str, Any]:
     """Cria obra para um deal com milestones auto-gerados."""
@@ -42,7 +42,7 @@ async def create_renovation(
 
 
 @router.get("/deals/{deal_id}", summary="Obter obra completa")
-async def get_renovation(deal_id: str) -> Dict[str, Any]:
+def get_renovation(deal_id: str) -> Dict[str, Any]:
     """Retorna obra com milestones, despesas, fotos e alertas."""
     result = service.get_renovation(deal_id)
     if not result:
@@ -51,7 +51,7 @@ async def get_renovation(deal_id: str) -> Dict[str, Any]:
 
 
 @router.patch("/{renovation_id}", summary="Actualizar obra")
-async def update_renovation(
+def update_renovation(
     renovation_id: str, data: RenovationUpdateSchema
 ) -> Dict[str, Any]:
     """Actualiza dados da obra."""
@@ -72,13 +72,13 @@ async def update_renovation(
 
 
 @router.get("/{renovation_id}/milestones", summary="Listar milestones")
-async def list_milestones(renovation_id: str) -> List[Dict[str, Any]]:
+def list_milestones(renovation_id: str) -> List[Dict[str, Any]]:
     """Lista milestones de uma obra."""
     return service.get_milestones(renovation_id)
 
 
 @router.post("/{renovation_id}/milestones", summary="Adicionar milestone")
-async def add_milestone(
+def add_milestone(
     renovation_id: str, data: MilestoneCreateSchema
 ) -> Dict[str, Any]:
     """Adiciona milestone a uma obra."""
@@ -89,7 +89,7 @@ async def add_milestone(
 
 
 @router.patch("/milestones/{milestone_id}", summary="Actualizar milestone")
-async def update_milestone(
+def update_milestone(
     milestone_id: str, data: MilestoneUpdateSchema
 ) -> Dict[str, Any]:
     """Actualiza milestone."""
@@ -104,7 +104,7 @@ async def update_milestone(
 @router.post(
     "/milestones/{milestone_id}/start", summary="Iniciar milestone"
 )
-async def start_milestone(milestone_id: str) -> Dict[str, Any]:
+def start_milestone(milestone_id: str) -> Dict[str, Any]:
     """Marca milestone como em curso."""
     try:
         return service.start_milestone(milestone_id)
@@ -115,7 +115,7 @@ async def start_milestone(milestone_id: str) -> Dict[str, Any]:
 @router.post(
     "/milestones/{milestone_id}/complete", summary="Concluir milestone"
 )
-async def complete_milestone(milestone_id: str) -> Dict[str, Any]:
+def complete_milestone(milestone_id: str) -> Dict[str, Any]:
     """Marca milestone como concluido."""
     try:
         return service.complete_milestone(milestone_id)
@@ -126,7 +126,7 @@ async def complete_milestone(milestone_id: str) -> Dict[str, Any]:
 @router.delete(
     "/milestones/{milestone_id}", summary="Remover milestone"
 )
-async def delete_milestone(milestone_id: str) -> Dict[str, Any]:
+def delete_milestone(milestone_id: str) -> Dict[str, Any]:
     """Remove milestone e despesas/fotos associadas."""
     try:
         return {"success": service.delete_milestone(milestone_id)}
@@ -140,7 +140,7 @@ async def delete_milestone(milestone_id: str) -> Dict[str, Any]:
 
 
 @router.get("/{renovation_id}/expenses", summary="Listar despesas")
-async def list_expenses(
+def list_expenses(
     renovation_id: str,
     milestone_id: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
@@ -150,7 +150,7 @@ async def list_expenses(
 
 
 @router.post("/{renovation_id}/expenses", summary="Adicionar despesa")
-async def add_expense(
+def add_expense(
     renovation_id: str, data: ExpenseCreateSchema
 ) -> Dict[str, Any]:
     """Adiciona despesa a uma obra."""
@@ -161,7 +161,7 @@ async def add_expense(
 
 
 @router.patch("/expenses/{expense_id}", summary="Actualizar despesa")
-async def update_expense(
+def update_expense(
     expense_id: str, data: ExpenseUpdateSchema
 ) -> Dict[str, Any]:
     """Actualiza despesa."""
@@ -174,7 +174,7 @@ async def update_expense(
 
 
 @router.delete("/expenses/{expense_id}", summary="Remover despesa")
-async def delete_expense(expense_id: str) -> Dict[str, Any]:
+def delete_expense(expense_id: str) -> Dict[str, Any]:
     """Remove despesa e recalcula totais."""
     try:
         return {"success": service.delete_expense(expense_id)}
@@ -183,7 +183,7 @@ async def delete_expense(expense_id: str) -> Dict[str, Any]:
 
 
 @router.post("/expenses/{expense_id}/paid", summary="Marcar como paga")
-async def mark_expense_paid(expense_id: str) -> Dict[str, Any]:
+def mark_expense_paid(expense_id: str) -> Dict[str, Any]:
     """Marca despesa como paga."""
     try:
         return service.mark_expense_paid(expense_id)
@@ -211,7 +211,7 @@ async def upload_invoice(
 @router.get(
     "/{renovation_id}/expense-summary", summary="Resumo de despesas"
 )
-async def get_expense_summary(renovation_id: str) -> Dict[str, Any]:
+def get_expense_summary(renovation_id: str) -> Dict[str, Any]:
     """Retorna resumo financeiro da obra."""
     return service.get_expense_summary(renovation_id)
 
@@ -222,7 +222,7 @@ async def get_expense_summary(renovation_id: str) -> Dict[str, Any]:
 
 
 @router.get("/{renovation_id}/photos", summary="Listar fotos")
-async def list_photos(
+def list_photos(
     renovation_id: str,
     photo_type: Optional[str] = Query(None),
     milestone_id: Optional[str] = Query(None),
@@ -264,13 +264,13 @@ async def upload_photo(
 
 
 @router.get("/{renovation_id}/alerts", summary="Alertas de orcamento")
-async def get_alerts(renovation_id: str) -> List[Dict[str, Any]]:
+def get_alerts(renovation_id: str) -> List[Dict[str, Any]]:
     """Retorna alertas de orcamento e cronograma."""
     return service.get_budget_alerts(renovation_id)
 
 
 @router.get("/stats", summary="Estatisticas globais de obras")
-async def get_stats() -> Dict[str, Any]:
+def get_stats() -> Dict[str, Any]:
     """Retorna stats de todas as obras."""
     return service.get_renovation_stats()
 
@@ -281,7 +281,7 @@ async def get_stats() -> Dict[str, Any]:
 
 
 @router.post("/{renovation_id}/complete", summary="Concluir obra")
-async def complete_renovation(renovation_id: str) -> Dict[str, Any]:
+def complete_renovation(renovation_id: str) -> Dict[str, Any]:
     """Finaliza a obra e actualiza o deal."""
     try:
         return service.complete_renovation(renovation_id)
@@ -295,7 +295,7 @@ async def complete_renovation(renovation_id: str) -> Dict[str, Any]:
 
 
 @router.get("/{renovation_id}/cashflow/projects", summary="Listar projectos CFP")
-async def list_cashflow_projects(renovation_id: str) -> List[Dict[str, Any]]:
+def list_cashflow_projects(renovation_id: str) -> List[Dict[str, Any]]:
     """Lista projectos activos do Cash Flow Pro."""
     from src.modules.m6_renovation.cashflow_sync import CashFlowSyncService
     try:
@@ -310,7 +310,7 @@ class LinkProjectSchema(BaseModel):
 
 
 @router.post("/{renovation_id}/cashflow/link", summary="Ligar projecto CFP")
-async def link_cashflow_project(
+def link_cashflow_project(
     renovation_id: str, data: LinkProjectSchema
 ) -> Dict[str, Any]:
     """Liga um projecto do Cash Flow Pro a uma renovacao."""
@@ -324,7 +324,7 @@ async def link_cashflow_project(
 
 
 @router.post("/{renovation_id}/cashflow/sync", summary="Sincronizar gastos CFP")
-async def sync_cashflow_expenses(renovation_id: str) -> Dict[str, Any]:
+def sync_cashflow_expenses(renovation_id: str) -> Dict[str, Any]:
     """Puxa despesas do Cash Flow Pro para o M6."""
     from src.modules.m6_renovation.cashflow_sync import CashFlowSyncService
     try:
@@ -334,7 +334,7 @@ async def sync_cashflow_expenses(renovation_id: str) -> Dict[str, Any]:
 
 
 @router.post("/{renovation_id}/cashflow/auto-assign", summary="Auto-assign milestones")
-async def auto_assign_milestones(renovation_id: str) -> Dict[str, Any]:
+def auto_assign_milestones(renovation_id: str) -> Dict[str, Any]:
     """Atribui despesas sem milestone a milestones por heuristica."""
     from src.modules.m6_renovation.cashflow_sync import CashFlowSyncService
     try:

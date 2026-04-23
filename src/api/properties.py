@@ -107,7 +107,7 @@ class PropertyUpdateSchema(BaseModel):
 
 
 @router.get("/", summary="Listar propriedades")
-async def list_properties(
+def list_properties(
     status: Optional[str] = None,
     municipality: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
@@ -155,7 +155,7 @@ async def list_properties(
 
 
 @router.post("/", summary="Criar propriedade manualmente")
-async def create_property(
+def create_property(
     data: PropertyCreateSchema,
     organization_id: str = Depends(get_current_organization),
 ) -> Dict[str, Any]:
@@ -181,7 +181,7 @@ async def create_property(
 
 
 @router.get("/{property_id}", summary="Detalhe de uma propriedade")
-async def get_property(property_id: str) -> Dict[str, Any]:
+def get_property(property_id: str) -> Dict[str, Any]:
     """Retorna detalhe completo de uma propriedade."""
     rows = supa._get("properties", f"id=eq.{property_id}&select=*&limit=1")
     if not rows:
@@ -190,7 +190,7 @@ async def get_property(property_id: str) -> Dict[str, Any]:
 
 
 @router.patch("/{property_id}", summary="Actualizar propriedade")
-async def update_property(
+def update_property(
     property_id: str, data: PropertyUpdateSchema
 ) -> Dict[str, Any]:
     """Actualiza campos de uma propriedade no Supabase."""
@@ -301,7 +301,7 @@ async def upload_property_photos(
 
 
 @router.get("/{property_id}/photos", summary="Listar fotos da propriedade")
-async def list_property_photos(property_id: str) -> List[Dict[str, Any]]:
+def list_property_photos(property_id: str) -> List[Dict[str, Any]]:
     prop = supa.get_by_id("properties", property_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Propriedade nao encontrada")
@@ -311,7 +311,7 @@ async def list_property_photos(property_id: str) -> List[Dict[str, Any]]:
 @router.post(
     "/{property_id}/photos/set-cover", summary="Definir foto de capa"
 )
-async def set_property_cover(
+def set_property_cover(
     property_id: str,
     document_id: str = Query(...),
 ) -> Dict[str, Any]:
@@ -337,7 +337,7 @@ async def set_property_cover(
 @router.delete(
     "/{property_id}/photos/{document_id}", summary="Remover foto"
 )
-async def delete_property_photo(
+def delete_property_photo(
     property_id: str, document_id: str
 ) -> Dict[str, Any]:
     from src.database.db import get_session

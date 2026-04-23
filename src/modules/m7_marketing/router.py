@@ -35,7 +35,7 @@ service = MarketingService()
 
 
 @router.get("/brand-kit", summary="Obter brand kit")
-async def get_brand_kit() -> Dict[str, Any]:
+def get_brand_kit() -> Dict[str, Any]:
     """Retorna brand kit do tenant default."""
     result = service.get_brand_kit()
     if not result:
@@ -44,7 +44,7 @@ async def get_brand_kit() -> Dict[str, Any]:
 
 
 @router.post("/brand-kit", summary="Criar/actualizar brand kit")
-async def create_or_update_brand_kit(data: BrandKitSchema) -> Dict[str, Any]:
+def create_or_update_brand_kit(data: BrandKitSchema) -> Dict[str, Any]:
     """Cria ou actualiza brand kit."""
     try:
         return service.create_or_update_brand_kit(data.model_dump())
@@ -58,7 +58,7 @@ async def create_or_update_brand_kit(data: BrandKitSchema) -> Dict[str, Any]:
 
 
 @router.post("/deals/{deal_id}/listing", summary="Criar listing")
-async def create_listing(
+def create_listing(
     deal_id: str, data: ListingCreateSchema
 ) -> Dict[str, Any]:
     """Cria listing para um deal."""
@@ -69,7 +69,7 @@ async def create_listing(
 
 
 @router.get("/deals/{deal_id}/listing", summary="Obter listing de um deal")
-async def get_deal_listing(deal_id: str) -> Dict[str, Any]:
+def get_deal_listing(deal_id: str) -> Dict[str, Any]:
     """Retorna listing associada a um deal."""
     result = service.get_listing_by_deal(deal_id)
     if not result:
@@ -78,7 +78,7 @@ async def get_deal_listing(deal_id: str) -> Dict[str, Any]:
 
 
 @router.get("/listings", summary="Listar listings")
-async def list_listings(
+def list_listings(
     status: Optional[str] = None,
     listing_type: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
@@ -89,7 +89,7 @@ async def list_listings(
 
 
 @router.get("/listings/{listing_id}", summary="Obter listing")
-async def get_listing(listing_id: str) -> Dict[str, Any]:
+def get_listing(listing_id: str) -> Dict[str, Any]:
     """Retorna listing completa."""
     result = service.get_listing(listing_id)
     if not result:
@@ -98,7 +98,7 @@ async def get_listing(listing_id: str) -> Dict[str, Any]:
 
 
 @router.patch("/listings/{listing_id}", summary="Actualizar listing")
-async def update_listing(
+def update_listing(
     listing_id: str, data: ListingUpdateSchema
 ) -> Dict[str, Any]:
     """Actualiza campos de uma listing."""
@@ -119,7 +119,7 @@ async def update_listing(
 
 
 @router.post("/listings/{listing_id}/generate", summary="Gerar conteudo IA")
-async def generate_content(
+def generate_content(
     listing_id: str, data: GenerateContentSchema
 ) -> Dict[str, Any]:
     """Gera conteudo multilingue com IA."""
@@ -132,7 +132,7 @@ async def generate_content(
 
 
 @router.post("/listings/{listing_id}/regenerate", summary="Regenerar campo")
-async def regenerate_field(
+def regenerate_field(
     listing_id: str, data: RegenerateFieldSchema
 ) -> Dict[str, Any]:
     """Regenera campo especifico com instrucoes opcionais."""
@@ -146,7 +146,7 @@ async def regenerate_field(
 
 
 @router.post("/listings/{listing_id}/approve", summary="Aprovar conteudo")
-async def approve_content(listing_id: str) -> Dict[str, Any]:
+def approve_content(listing_id: str) -> Dict[str, Any]:
     """Marca conteudo como aprovado."""
     try:
         return service.approve_content(listing_id)
@@ -235,7 +235,7 @@ async def upload_listing_photos(
 
 
 @router.post("/listings/{listing_id}/photos/set-cover", summary="Definir foto de capa")
-async def set_cover_photo(
+def set_cover_photo(
     listing_id: str,
     document_id: str = Query(...),
 ) -> Dict[str, Any]:
@@ -260,7 +260,7 @@ async def set_cover_photo(
 
 
 @router.get("/listings/{listing_id}/photos", summary="Listar fotos")
-async def list_listing_photos(listing_id: str) -> List[Dict[str, Any]]:
+def list_listing_photos(listing_id: str) -> List[Dict[str, Any]]:
     """Lista fotos de uma listing."""
     from src.database import supabase_rest as db
 
@@ -273,7 +273,7 @@ async def list_listing_photos(listing_id: str) -> List[Dict[str, Any]]:
 @router.delete(
     "/listings/{listing_id}/photos/{document_id}", summary="Remover foto"
 )
-async def delete_listing_photo(
+def delete_listing_photo(
     listing_id: str, document_id: str
 ) -> Dict[str, Any]:
     """Remove foto da listing: apaga bucket, Document e actualiza photos/cover."""
@@ -394,7 +394,7 @@ async def upload_brand_logo(
 
 
 @router.delete("/brand-kit/logo", summary="Remover logo")
-async def delete_brand_logo(
+def delete_brand_logo(
     logo_type: str = Query(..., description="primary, white, icon"),
 ) -> Dict[str, Any]:
     """Remove logo do brand kit (apaga do bucket e limpa BrandKit.logo_*_url)."""
@@ -429,7 +429,7 @@ async def delete_brand_logo(
 @router.post(
     "/listings/{listing_id}/publish/habta", summary="Publicar no habta.eu"
 )
-async def publish_to_habta(listing_id: str) -> Dict[str, Any]:
+def publish_to_habta(listing_id: str) -> Dict[str, Any]:
     """Publica ou actualiza no habta.eu."""
     try:
         return service.publish_to_habta(listing_id)
@@ -440,7 +440,7 @@ async def publish_to_habta(listing_id: str) -> Dict[str, Any]:
 @router.post(
     "/listings/{listing_id}/whatsapp/send", summary="Enviar por WhatsApp"
 )
-async def send_to_whatsapp(
+def send_to_whatsapp(
     listing_id: str, data: WhatsAppSendSchema
 ) -> Dict[str, Any]:
     """Envia listing para grupos WhatsApp."""
@@ -455,7 +455,7 @@ async def send_to_whatsapp(
 @router.post(
     "/listings/{listing_id}/publish-all", summary="Publicar em tudo"
 )
-async def publish_all(listing_id: str) -> Dict[str, Any]:
+def publish_all(listing_id: str) -> Dict[str, Any]:
     """Publica em todos os canais disponiveis."""
     try:
         habta = service.publish_to_habta(listing_id)
@@ -471,7 +471,7 @@ async def publish_all(listing_id: str) -> Dict[str, Any]:
 
 
 @router.post("/listings/{listing_id}/price", summary="Alterar preco")
-async def change_price(
+def change_price(
     listing_id: str, data: ChangePriceSchema
 ) -> Dict[str, Any]:
     """Altera preco e regista historico."""
@@ -486,7 +486,7 @@ async def change_price(
 @router.get(
     "/listings/{listing_id}/price-history", summary="Historico de precos"
 )
-async def get_price_history(listing_id: str) -> List[Dict[str, Any]]:
+def get_price_history(listing_id: str) -> List[Dict[str, Any]]:
     """Retorna historico de alteracoes de preco."""
     return service.get_price_history(listing_id)
 
@@ -497,7 +497,7 @@ async def get_price_history(listing_id: str) -> List[Dict[str, Any]]:
 
 
 @router.post("/listings/{listing_id}/sold", summary="Marcar como vendido")
-async def mark_as_sold(
+def mark_as_sold(
     listing_id: str,
     sale_price: Optional[float] = Query(None),
 ) -> Dict[str, Any]:
@@ -509,7 +509,7 @@ async def mark_as_sold(
 
 
 @router.post("/listings/{listing_id}/rented", summary="Marcar como arrendado")
-async def mark_as_rented(listing_id: str) -> Dict[str, Any]:
+def mark_as_rented(listing_id: str) -> Dict[str, Any]:
     """Marca listing como arrendada."""
     try:
         return service.mark_as_rented(listing_id)
@@ -526,7 +526,7 @@ async def mark_as_rented(listing_id: str) -> Dict[str, Any]:
     "/listings/{listing_id}/creatives/generate-all",
     summary="Gerar todas as pecas visuais",
 )
-async def generate_all_creatives(
+def generate_all_creatives(
     listing_id: str,
     language: str = Query("pt-PT"),
 ) -> List[Dict[str, Any]]:
@@ -540,7 +540,7 @@ async def generate_all_creatives(
     "/listings/{listing_id}/creatives/generate",
     summary="Gerar peca visual",
 )
-async def generate_creative(
+def generate_creative(
     listing_id: str,
     creative_type: str = Query(...),
     language: str = Query("pt-PT"),
@@ -564,7 +564,7 @@ async def generate_creative(
 @router.get(
     "/listings/{listing_id}/creatives", summary="Listar pecas visuais"
 )
-async def list_creatives(
+def list_creatives(
     listing_id: str,
     creative_type: Optional[str] = Query(None),
 ) -> List[Dict[str, Any]]:
@@ -575,7 +575,7 @@ async def list_creatives(
 
 
 @router.delete("/creatives/{creative_id}", summary="Remover peca visual")
-async def delete_creative(creative_id: str) -> Dict[str, Any]:
+def delete_creative(creative_id: str) -> Dict[str, Any]:
     """Remove peca visual."""
     from src.modules.m7_marketing.creative_service import CreativeService
     svc = CreativeService()
@@ -590,7 +590,7 @@ async def delete_creative(creative_id: str) -> Dict[str, Any]:
 @router.post(
     "/listings/{listing_id}/email", summary="Gerar campanha email"
 )
-async def generate_email(
+def generate_email(
     listing_id: str,
     campaign_type: str = Query("new_property"),
     language: str = Query("pt-PT"),
@@ -616,7 +616,7 @@ async def send_email_campaign(
 
 
 @router.get("/listings/{listing_id}/emails", summary="Listar campanhas")
-async def list_email_campaigns(
+def list_email_campaigns(
     listing_id: str,
 ) -> List[Dict[str, Any]]:
     """Lista campanhas de email de uma listing."""
@@ -626,7 +626,7 @@ async def list_email_campaigns(
 
 
 @router.get("/email/{campaign_id}", summary="Detalhe campanha")
-async def get_email_campaign(campaign_id: str) -> Dict[str, Any]:
+def get_email_campaign(campaign_id: str) -> Dict[str, Any]:
     """Retorna detalhe de uma campanha."""
     from src.modules.m7_marketing.email_service import EmailService
     es = EmailService()
@@ -637,7 +637,7 @@ async def get_email_campaign(campaign_id: str) -> Dict[str, Any]:
 
 
 @router.get("/email/stats", summary="Estatisticas de email")
-async def get_email_stats() -> Dict[str, Any]:
+def get_email_stats() -> Dict[str, Any]:
     """Retorna metricas de email marketing."""
     from src.modules.m7_marketing.email_service import EmailService
     return EmailService().get_email_stats()
@@ -649,7 +649,7 @@ async def get_email_stats() -> Dict[str, Any]:
 
 
 @router.post("/listings/{listing_id}/flyer", summary="Gerar flyer A4")
-async def generate_flyer(
+def generate_flyer(
     listing_id: str, language: str = Query("pt-PT")
 ) -> Dict[str, Any]:
     """Gera flyer A4 em PDF."""
@@ -663,7 +663,7 @@ async def generate_flyer(
 
 
 @router.post("/listings/{listing_id}/videos", summary="Criar video")
-async def create_video(
+def create_video(
     listing_id: str,
     video_type: str = Query(...),
     language: str = Query("pt-PT"),
@@ -677,7 +677,7 @@ async def create_video(
 
 
 @router.post("/listings/{listing_id}/videos/generate-all", summary="Gerar todos os videos")
-async def generate_all_videos(
+def generate_all_videos(
     listing_id: str, language: str = Query("pt-PT")
 ) -> List[Dict[str, Any]]:
     """Gera todos os tipos de video."""
@@ -686,14 +686,14 @@ async def generate_all_videos(
 
 
 @router.get("/listings/{listing_id}/videos", summary="Listar videos")
-async def list_videos(listing_id: str) -> List[Dict[str, Any]]:
+def list_videos(listing_id: str) -> List[Dict[str, Any]]:
     """Lista videos de uma listing."""
     from src.modules.m7_marketing.video_factory import VideoFactory
     return VideoFactory().list_video_projects(listing_id)
 
 
 @router.get("/videos/{video_id}", summary="Obter video")
-async def get_video(video_id: str) -> Dict[str, Any]:
+def get_video(video_id: str) -> Dict[str, Any]:
     """Retorna projecto de video."""
     from src.modules.m7_marketing.video_factory import VideoFactory
     result = VideoFactory().get_video_project(video_id)
@@ -703,7 +703,7 @@ async def get_video(video_id: str) -> Dict[str, Any]:
 
 
 @router.get("/videos/{video_id}/props", summary="Remotion props")
-async def get_remotion_props(video_id: str) -> Dict[str, Any]:
+def get_remotion_props(video_id: str) -> Dict[str, Any]:
     """Retorna props JSON para o Remotion."""
     from src.modules.m7_marketing.video_factory import VideoFactory
     try:
@@ -713,7 +713,7 @@ async def get_remotion_props(video_id: str) -> Dict[str, Any]:
 
 
 @router.post("/videos/{video_id}/render", summary="Renderizar video")
-async def render_video(video_id: str) -> Dict[str, Any]:
+def render_video(video_id: str) -> Dict[str, Any]:
     """Dispara renderizacao (stub)."""
     from src.modules.m7_marketing.video_factory import VideoFactory
     try:
@@ -723,14 +723,14 @@ async def render_video(video_id: str) -> Dict[str, Any]:
 
 
 @router.delete("/videos/{video_id}", summary="Remover video")
-async def delete_video(video_id: str) -> Dict[str, Any]:
+def delete_video(video_id: str) -> Dict[str, Any]:
     """Remove projecto de video."""
     from src.modules.m7_marketing.video_factory import VideoFactory
     return {"success": VideoFactory().delete_video_project(video_id)}
 
 
 @router.get("/videos/templates", summary="Templates de video")
-async def get_video_templates() -> Dict[str, Any]:
+def get_video_templates() -> Dict[str, Any]:
     """Lista templates de video disponiveis."""
     from src.modules.m7_marketing.video_factory import VIDEO_TEMPLATES
     return {k: {"label": v["label"], "width": v["width"], "height": v["height"],
@@ -744,7 +744,7 @@ async def get_video_templates() -> Dict[str, Any]:
 
 
 @router.get("/social/accounts", summary="Listar contas")
-async def list_social_accounts(
+def list_social_accounts(
     platform: Optional[str] = Query(None),
 ) -> List[Dict[str, Any]]:
     """Lista contas de redes sociais."""
@@ -753,7 +753,7 @@ async def list_social_accounts(
 
 
 @router.post("/social/accounts", summary="Adicionar conta")
-async def add_social_account(data: Dict[str, Any]) -> Dict[str, Any]:
+def add_social_account(data: Dict[str, Any]) -> Dict[str, Any]:
     """Adiciona conta de rede social."""
     from src.modules.m7_marketing.social_media import SocialMediaManager
     try:
@@ -763,14 +763,14 @@ async def add_social_account(data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @router.delete("/social/accounts/{account_id}", summary="Remover conta")
-async def remove_social_account(account_id: str) -> Dict[str, Any]:
+def remove_social_account(account_id: str) -> Dict[str, Any]:
     """Remove conta de rede social."""
     from src.modules.m7_marketing.social_media import SocialMediaManager
     return {"success": SocialMediaManager().remove_account(account_id)}
 
 
 @router.post("/listings/{listing_id}/social", summary="Criar post")
-async def create_social_post(
+def create_social_post(
     listing_id: str,
     platform: str = Query(...),
     language: str = Query("pt-PT"),
@@ -784,7 +784,7 @@ async def create_social_post(
 
 
 @router.post("/listings/{listing_id}/social/create-all", summary="Criar todos os posts")
-async def create_all_social_posts(
+def create_all_social_posts(
     listing_id: str, language: str = Query("pt-PT")
 ) -> List[Dict[str, Any]]:
     """Cria posts para todas as plataformas."""
@@ -793,14 +793,14 @@ async def create_all_social_posts(
 
 
 @router.get("/listings/{listing_id}/social", summary="Listar posts")
-async def list_social_posts(listing_id: str) -> List[Dict[str, Any]]:
+def list_social_posts(listing_id: str) -> List[Dict[str, Any]]:
     """Lista posts de uma listing."""
     from src.modules.m7_marketing.social_media import SocialMediaManager
     return SocialMediaManager().list_posts(listing_id)
 
 
 @router.post("/social/posts/{post_id}/publish", summary="Publicar post")
-async def publish_social_post(post_id: str) -> Dict[str, Any]:
+def publish_social_post(post_id: str) -> Dict[str, Any]:
     """Publica post (stub)."""
     from src.modules.m7_marketing.social_media import SocialMediaManager
     try:
@@ -810,7 +810,7 @@ async def publish_social_post(post_id: str) -> Dict[str, Any]:
 
 
 @router.post("/social/posts/{post_id}/schedule", summary="Agendar post")
-async def schedule_social_post(
+def schedule_social_post(
     post_id: str, scheduled_at: str = Query(...)
 ) -> Dict[str, Any]:
     """Agenda post para publicacao futura."""
@@ -822,7 +822,7 @@ async def schedule_social_post(
 
 
 @router.get("/social/calendar", summary="Calendario editorial")
-async def get_content_calendar(
+def get_content_calendar(
     days_ahead: int = Query(30, ge=1, le=90)
 ) -> Dict[str, Any]:
     """Retorna calendario editorial."""
@@ -831,7 +831,7 @@ async def get_content_calendar(
 
 
 @router.get("/social/stats", summary="Estatisticas redes sociais")
-async def get_social_stats() -> Dict[str, Any]:
+def get_social_stats() -> Dict[str, Any]:
     """Retorna metricas de redes sociais."""
     from src.modules.m7_marketing.social_media import SocialMediaManager
     return SocialMediaManager().get_social_stats()
@@ -843,13 +843,13 @@ async def get_social_stats() -> Dict[str, Any]:
 
 
 @router.get("/stats", summary="Estatisticas de marketing")
-async def get_stats() -> Dict[str, Any]:
+def get_stats() -> Dict[str, Any]:
     """Retorna metricas globais de marketing."""
     return service.get_marketing_stats()
 
 
 @router.get("/languages", summary="Idiomas suportados")
-async def get_languages() -> Dict[str, Any]:
+def get_languages() -> Dict[str, Any]:
     """Retorna idiomas suportados com labels e flags."""
     return {
         k: {"label": v["label"], "flag": v["flag"]}
@@ -858,7 +858,7 @@ async def get_languages() -> Dict[str, Any]:
 
 
 @router.get("/channels", summary="Canais de publicacao")
-async def get_channels() -> Dict[str, Any]:
+def get_channels() -> Dict[str, Any]:
     """Retorna canais com especificacoes."""
     return {k: {"label": v.get("label", k)} for k, v in CHANNEL_SPECS.items()}
 
@@ -869,14 +869,14 @@ async def get_channels() -> Dict[str, Any]:
 
 
 @router.get("/plugins/creative-engines", summary="Listar engines de criativos")
-async def list_creative_engines() -> List[Dict[str, Any]]:
+def list_creative_engines() -> List[Dict[str, Any]]:
     """Retorna engines disponíveis para geração de criativos."""
     from src.modules.m7_marketing.plugins.registry import get_plugin_registry
     return get_plugin_registry().list_creative_engines()
 
 
 @router.get("/plugins/video-engines", summary="Listar engines de vídeo")
-async def list_video_engines() -> List[Dict[str, Any]]:
+def list_video_engines() -> List[Dict[str, Any]]:
     """Retorna engines disponíveis para geração de vídeos."""
     from src.modules.m7_marketing.plugins.registry import get_plugin_registry
     return get_plugin_registry().list_video_engines()

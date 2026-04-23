@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.post("/trigger", summary="Disparar pipeline de ingestao")
-async def trigger_pipeline(background_tasks: BackgroundTasks) -> Dict[str, str]:
+def trigger_pipeline(background_tasks: BackgroundTasks) -> Dict[str, str]:
     """Dispara o pipeline de ingestao em background."""
     from src.modules.m1_ingestor.service import run_pipeline
 

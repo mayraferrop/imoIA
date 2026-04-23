@@ -35,7 +35,7 @@ pnl_service = PnLService()
     "/portfolio/summary",
     summary="Resumo agregado do portfolio",
 )
-async def get_portfolio_summary() -> Dict[str, Any]:
+def get_portfolio_summary() -> Dict[str, Any]:
     """Retorna resumo de todos os deals com P&L."""
     return pnl_service.get_portfolio_summary()
 
@@ -44,7 +44,7 @@ async def get_portfolio_summary() -> Dict[str, Any]:
     "/portfolio/fiscal-report",
     summary="Relatorio fiscal anual",
 )
-async def get_fiscal_report(
+def get_fiscal_report(
     year: int = Query(..., description="Ano fiscal"),
 ) -> Dict[str, Any]:
     """Gera relatorio fiscal com mais-valias, dedutiveis e imposto estimado."""
@@ -57,7 +57,7 @@ async def get_fiscal_report(
 
 
 @router.post("/closing", summary="Criar processo de fecho")
-async def create_closing(body: ClosingProcessCreate) -> Dict[str, Any]:
+def create_closing(body: ClosingProcessCreate) -> Dict[str, Any]:
     """Cria processo de fecho com checklist auto-gerada por tipo."""
     try:
         return closing_service.create_closing(body.model_dump())
@@ -66,7 +66,7 @@ async def create_closing(body: ClosingProcessCreate) -> Dict[str, Any]:
 
 
 @router.get("/closing", summary="Listar processos de fecho")
-async def list_closings(
+def list_closings(
     deal_id: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
 ) -> List[Dict[str, Any]]:
@@ -75,7 +75,7 @@ async def list_closings(
 
 
 @router.get("/closing/{closing_id}", summary="Detalhe de processo de fecho")
-async def get_closing(closing_id: str) -> Dict[str, Any]:
+def get_closing(closing_id: str) -> Dict[str, Any]:
     """Retorna detalhe de um processo de fecho."""
     result = closing_service.get_closing(closing_id)
     if not result:
@@ -84,7 +84,7 @@ async def get_closing(closing_id: str) -> Dict[str, Any]:
 
 
 @router.put("/closing/{closing_id}", summary="Actualizar processo de fecho")
-async def update_closing(
+def update_closing(
     closing_id: str, body: ClosingProcessUpdate
 ) -> Dict[str, Any]:
     """Actualiza campos do processo de fecho."""
@@ -100,7 +100,7 @@ async def update_closing(
     "/closing/{closing_id}/status",
     summary="Avancar status do closing",
 )
-async def advance_closing_status(
+def advance_closing_status(
     closing_id: str, body: ClosingStatusUpdate
 ) -> Dict[str, Any]:
     """Avanca o status do closing com validacao de transicao."""
@@ -116,7 +116,7 @@ async def advance_closing_status(
     "/closing/{closing_id}/tax-guide",
     summary="Emitir guia fiscal (IMT/IS)",
 )
-async def issue_tax_guide(
+def issue_tax_guide(
     closing_id: str, body: TaxGuideCreate
 ) -> Dict[str, Any]:
     """Emite guia fiscal com validade 48 horas."""
@@ -132,7 +132,7 @@ async def issue_tax_guide(
     "/closing/{closing_id}/preference-right",
     summary="Notificar direito de preferencia",
 )
-async def notify_preference_right(
+def notify_preference_right(
     closing_id: str, body: PreferenceRightCreate
 ) -> Dict[str, Any]:
     """Regista notificacao do direito de preferencia (prazo 10 dias)."""
@@ -148,7 +148,7 @@ async def notify_preference_right(
     "/closing/{closing_id}/checklist/{item_key}",
     summary="Marcar item da checklist",
 )
-async def update_checklist_item(
+def update_checklist_item(
     closing_id: str,
     item_key: str,
     done: bool = Query(True, description="Marcar como feito"),
@@ -164,7 +164,7 @@ async def update_checklist_item(
     "/closing/deal/{deal_id}",
     summary="Processos de fecho de um deal",
 )
-async def get_closings_for_deal(deal_id: str) -> List[Dict[str, Any]]:
+def get_closings_for_deal(deal_id: str) -> List[Dict[str, Any]]:
     """Retorna todos os processos de fecho de um deal."""
     return closing_service.get_closings_for_deal(deal_id)
 
@@ -178,7 +178,7 @@ async def get_closings_for_deal(deal_id: str) -> List[Dict[str, Any]]:
     "/pnl/{deal_id}/calculate",
     summary="Calcular P&L (auto-pull M3/M6)",
 )
-async def calculate_pnl(
+def calculate_pnl(
     deal_id: str,
     sale_price: float = Query(0, description="Preco de venda"),
     sale_commission: float = Query(0, description="Comissao de venda"),
@@ -201,7 +201,7 @@ async def calculate_pnl(
 
 
 @router.get("/pnl/{deal_id}", summary="Obter P&L de um deal")
-async def get_pnl(deal_id: str) -> Dict[str, Any]:
+def get_pnl(deal_id: str) -> Dict[str, Any]:
     """Retorna P&L de um deal."""
     result = pnl_service.get_pnl(deal_id)
     if not result:
@@ -210,7 +210,7 @@ async def get_pnl(deal_id: str) -> Dict[str, Any]:
 
 
 @router.put("/pnl/{deal_id}", summary="Actualizar P&L manualmente")
-async def update_pnl(deal_id: str, body: DealPnLUpdate) -> Dict[str, Any]:
+def update_pnl(deal_id: str, body: DealPnLUpdate) -> Dict[str, Any]:
     """Actualiza P&L manualmente e recalcula metricas."""
     try:
         return pnl_service.update_pnl(
@@ -224,7 +224,7 @@ async def update_pnl(deal_id: str, body: DealPnLUpdate) -> Dict[str, Any]:
     "/pnl/{deal_id}/finalize",
     summary="Marcar P&L como final",
 )
-async def finalize_pnl(deal_id: str) -> Dict[str, Any]:
+def finalize_pnl(deal_id: str) -> Dict[str, Any]:
     """Marca P&L como final (imutavel)."""
     try:
         return pnl_service.finalize_pnl(deal_id)

@@ -123,6 +123,11 @@ def _validate_and_set_org(item: Dict, org_id: str) -> None:
 _SUPA_URL: str = ""
 _SUPA_KEY: str = ""
 
+# Client HTTP partilhado com connection pool.
+# Reutiliza conexoes TCP+TLS entre chamadas — poupa ~100-200ms por request.
+# Critico porque ha varios endpoints que chamam _get/_count em sequencia.
+_client: Optional[httpx.Client] = None
+
 
 def _ensure_config():
     """Carrega e valida config do Supabase (uma vez).
@@ -140,6 +145,22 @@ def _ensure_config():
             "SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY nao configurados. "
             f"URL={_SUPA_URL!r}, KEY_LEN={len(_SUPA_KEY)}"
         )
+
+
+def _get_client() -> httpx.Client:
+    """Retorna client HTTP partilhado com connection pool keep-alive."""
+    global _client
+    if _client is None:
+        _client = httpx.Client(
+            timeout=httpx.Timeout(10.0, connect=5.0),
+            limits=httpx.Limits(
+                max_keepalive_connections=20,
+                max_connections=40,
+                keepalive_expiry=30.0,
+            ),
+            http2=False,
+        )
+    return _client
 
 
 def _headers(prefer: str = "return=representation") -> Dict[str, str]:
@@ -175,7 +196,7 @@ def _get(table: str, params: str = "", timeout: int = 10) -> List[Dict]:
         params = f"{params}&{org}" if params else org
     url = f"{_SUPA_URL}/rest/v1/{table}?{params}"
     try:
-        resp = httpx.get(url, headers=_headers(), timeout=timeout)
+        resp = _get_client().get(url, headers=_headers(), timeout=timeout)
         if resp.status_code >= 400:
             logger.error(f"GET {table} HTTP {resp.status_code}: {resp.text[:200]}")
             return []
@@ -191,7 +212,7 @@ def _post(table: str, data: Dict | List[Dict], timeout: int = 15) -> List[Dict]:
     data = _inject_org_id(table, data)
     url = f"{_SUPA_URL}/rest/v1/{table}"
     try:
-        resp = httpx.post(url, headers=_headers(), json=data, timeout=timeout)
+        resp = _get_client().post(url, headers=_headers(), json=data, timeout=timeout)
         if resp.status_code >= 400:
             logger.error(f"POST {table} HTTP {resp.status_code}: {resp.text[:1500]}")
             raise ValueError(f"POST {table} falhou: {resp.text[:500]}")
@@ -213,7 +234,7 @@ def _upsert(table: str, data: Dict | List[Dict], timeout: int = 15) -> List[Dict
     url = f"{_SUPA_URL}/rest/v1/{table}"
     headers = _headers("return=representation,resolution=merge-duplicates")
     try:
-        resp = httpx.post(url, headers=headers, json=data, timeout=timeout)
+        resp = _get_client().post(url, headers=headers, json=data, timeout=timeout)
         if resp.status_code >= 400:
             logger.error(f"UPSERT {table} HTTP {resp.status_code}: {resp.text[:300]}")
             raise ValueError(f"UPSERT {table} falhou: {resp.text[:200]}")
@@ -233,7 +254,7 @@ def _patch(table: str, filter_str: str, data: Dict, timeout: int = 10) -> List[D
         filter_str = f"{filter_str}&{org}" if filter_str else org
     url = f"{_SUPA_URL}/rest/v1/{table}?{filter_str}"
     try:
-        resp = httpx.patch(url, headers=_headers(), json=data, timeout=timeout)
+        resp = _get_client().patch(url, headers=_headers(), json=data, timeout=timeout)
         if resp.status_code >= 400:
             logger.error(f"PATCH {table} HTTP {resp.status_code}: {resp.text[:200]}")
             raise ValueError(f"PATCH {table} falhou: {resp.text[:200]}")
@@ -253,7 +274,7 @@ def _delete(table: str, filter_str: str, timeout: int = 10) -> bool:
         filter_str = f"{filter_str}&{org}" if filter_str else org
     url = f"{_SUPA_URL}/rest/v1/{table}?{filter_str}"
     try:
-        resp = httpx.delete(url, headers=_headers(), timeout=timeout)
+        resp = _get_client().delete(url, headers=_headers(), timeout=timeout)
         if resp.status_code >= 400:
             logger.error(f"DELETE {table} HTTP {resp.status_code}: {resp.text[:200]}")
             return False
@@ -272,7 +293,7 @@ def _count(table: str, filter_str: str = "") -> int:
     params = "select=id" + (f"&{filter_str}" if filter_str else "")
     url = f"{_SUPA_URL}/rest/v1/{table}?{params}"
     try:
-        resp = httpx.get(
+        resp = _get_client().get(
             url,
             headers={**_headers("count=exact"), "Range": "0-0"},
             timeout=10,

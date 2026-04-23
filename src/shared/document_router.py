@@ -59,7 +59,7 @@ async def upload_document(
 
 
 @public_router.get("/{document_id}/download", summary="Download de documento")
-async def download_document(document_id: str):
+def download_document(document_id: str):
     """Retorna o ficheiro para download.
 
     Endpoint PÚBLICO (sem auth) porque `<img>` não envia Authorization header.
@@ -101,7 +101,7 @@ async def download_document(document_id: str):
 
 
 @router.get("/{document_id}", summary="Metadados de documento")
-async def get_document(document_id: str) -> Dict[str, Any]:
+def get_document(document_id: str) -> Dict[str, Any]:
     """Retorna metadados de um documento."""
     with get_session() as session:
         storage = DocumentStorageService(session)
@@ -112,7 +112,7 @@ async def get_document(document_id: str) -> Dict[str, Any]:
 
 
 @router.get("/", summary="Listar documentos")
-async def list_documents(
+def list_documents(
     deal_id: Optional[str] = Query(None),
     dd_item_id: Optional[str] = Query(None),
     document_type: Optional[str] = Query(None),
@@ -141,7 +141,7 @@ async def replace_document(
 
 
 @router.delete("/{document_id}", summary="Remover documento")
-async def delete_document(
+def delete_document(
     document_id: str,
     hard: bool = Query(False, description="Hard delete (apaga ficheiro do disco)"),
 ) -> Dict[str, Any]:

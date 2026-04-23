@@ -59,7 +59,7 @@ def _get_service() -> MarketService:
     summary="Pesquisar comparaveis",
     response_model=ComparableSearchResponse,
 )
-async def search_comparables(
+def search_comparables(
     data: ComparableSearchRequest,
     organization_id: str = Depends(get_current_organization),
 ) -> Dict[str, Any]:
@@ -90,7 +90,7 @@ async def search_comparables(
     "/deals/{deal_id}/comparables",
     summary="Comparaveis para um deal",
 )
-async def get_deal_comparables(
+def get_deal_comparables(
     deal_id: str,
     radius_km: float = Query(default=1.0, ge=0.1, le=10.0),
 ) -> Dict[str, Any]:
@@ -111,7 +111,7 @@ async def get_deal_comparables(
     "/valuate",
     summary="Avaliar imovel",
 )
-async def valuate_property(
+def valuate_property(
     data: ValuationRequest,
     organization_id: str = Depends(get_current_organization),
 ) -> Dict[str, Any]:
@@ -140,7 +140,7 @@ async def valuate_property(
     "/deals/{deal_id}/valuate",
     summary="Avaliar deal",
 )
-async def valuate_deal(deal_id: str) -> Dict[str, Any]:
+def valuate_deal(deal_id: str) -> Dict[str, Any]:
     """Avaliacao automatica de um deal existente."""
     svc = _get_service()
     try:
@@ -153,7 +153,7 @@ async def valuate_deal(deal_id: str) -> Dict[str, Any]:
     "/deals/{deal_id}/arv",
     summary="Estimar ARV (After Repair Value)",
 )
-async def estimate_arv(deal_id: str) -> Dict[str, Any]:
+def estimate_arv(deal_id: str) -> Dict[str, Any]:
     """Estima ARV para um deal fix and flip.
 
     Compara valor actual vs comparaveis renovados na mesma zona.
@@ -174,7 +174,7 @@ async def estimate_arv(deal_id: str) -> Dict[str, Any]:
     "/zones/stats",
     summary="Estatisticas de zona",
 )
-async def get_zone_stats(
+def get_zone_stats(
     district: str = Query(..., description="Distrito"),
     municipality: Optional[str] = Query(None, description="Concelho"),
     parish: Optional[str] = Query(None, description="Freguesia"),
@@ -201,7 +201,7 @@ async def get_zone_stats(
     "/alerts",
     summary="Criar alerta de mercado",
 )
-async def create_alert(
+def create_alert(
     data: AlertCreateRequest,
     organization_id: str = Depends(get_current_organization),
 ) -> Dict[str, Any]:
@@ -214,7 +214,7 @@ async def create_alert(
     "/alerts",
     summary="Listar alertas",
 )
-async def list_alerts(
+def list_alerts(
     is_active: Optional[bool] = Query(True),
 ) -> List[Dict[str, Any]]:
     """Lista alertas de mercado."""
@@ -226,7 +226,7 @@ async def list_alerts(
     "/alerts/{alert_id}",
     summary="Remover alerta",
 )
-async def delete_alert(alert_id: str) -> Dict[str, Any]:
+def delete_alert(alert_id: str) -> Dict[str, Any]:
     """Remove um alerta de mercado."""
     svc = _get_service()
     deleted = svc.delete_alert(alert_id)
@@ -239,7 +239,7 @@ async def delete_alert(alert_id: str) -> Dict[str, Any]:
     "/alerts/check",
     summary="Verificar alertas (manual)",
 )
-async def check_alerts() -> Dict[str, Any]:
+def check_alerts() -> Dict[str, Any]:
     """Verifica todos os alertas activos e retorna novos resultados."""
     svc = _get_service()
     results = svc.check_alerts()
@@ -255,7 +255,7 @@ async def check_alerts() -> Dict[str, Any]:
     "/opportunities/{opportunity_id}/enrich",
     summary="Enriquecer oportunidade M1",
 )
-async def enrich_opportunity(opportunity_id: int) -> Dict[str, Any]:
+def enrich_opportunity(opportunity_id: int) -> Dict[str, Any]:
     """Enriquece uma oportunidade do M1 com dados de mercado.
 
     Busca comparaveis, calcula desconto vs mercado, estima ARV.
@@ -276,7 +276,7 @@ async def enrich_opportunity(opportunity_id: int) -> Dict[str, Any]:
     "/ine/housing-prices",
     summary="Precos medianos INE",
 )
-async def get_ine_housing_prices(
+def get_ine_housing_prices(
     municipality: str = Query(..., description="Municipio"),
 ) -> Dict[str, Any]:
     """Precos medianos de habitacao do INE (gratuito, sem API key)."""
@@ -303,7 +303,7 @@ async def get_ine_housing_prices(
     "/sir/search",
     summary="Pesquisa SIR por morada ou CEP",
 )
-async def sir_search_by_address(
+def sir_search_by_address(
     q: str = Query(..., description="Morada, CEP ou concelho (ex: '1050-001', 'Rua Augusta Lisboa', 'Porto')"),
     operation: str = Query("sale", description="'sale' (venda) ou 'rent' (arrendamento)"),
 ) -> Dict[str, Any]:
@@ -383,7 +383,7 @@ async def sir_search_by_address(
     "/sir/prices",
     summary="Preços de transação SIR",
 )
-async def get_sir_prices(
+def get_sir_prices(
     municipality: str = Query(..., description="Município"),
 ) -> Dict[str, Any]:
     """Preço médio de transação por m2 (SIR / Confidencial Imobiliário)."""
@@ -410,7 +410,7 @@ async def get_sir_prices(
     "/sir/prices/bulk",
     summary="Preços SIR para múltiplos concelhos",
 )
-async def get_sir_prices_bulk(
+def get_sir_prices_bulk(
     municipalities: List[str],
 ) -> Dict[str, Any]:
     """Preços de transação para vários concelhos de uma vez."""
@@ -437,7 +437,7 @@ async def get_sir_prices_bulk(
     "/bpstat/index",
     summary="Índice de preços habitação (BPstat)",
 )
-async def get_bpstat_index() -> Dict[str, Any]:
+def get_bpstat_index() -> Dict[str, Any]:
     """Índice de preços de habitação nacional (base 2015=100)."""
     try:
         from src.modules.m2_market.bpstat_client import BPstatClient
@@ -458,7 +458,7 @@ async def get_bpstat_index() -> Dict[str, Any]:
     "/bpstat/estimate",
     summary="Estimativa de preço actual (INE + BPstat)",
 )
-async def get_bpstat_estimate(
+def get_bpstat_estimate(
     municipality: str = Query(..., description="Município"),
 ) -> Dict[str, Any]:
     """Estima preço actual: preço base INE × variação índice BPstat."""
@@ -497,7 +497,7 @@ async def get_bpstat_estimate(
     "/valuate/casafari",
     summary="Avaliacao nativa CASAFARI (comparables-prices)",
 )
-async def valuate_casafari_native(data: CasafariValuationRequest) -> Dict[str, Any]:
+def valuate_casafari_native(data: CasafariValuationRequest) -> Dict[str, Any]:
     """AVM nativo da CASAFARI usando comparaveis vendidos na zona.
 
     Requer coordenadas (latitude/longitude). Retorna estimativa de preco
@@ -551,7 +551,7 @@ async def valuate_casafari_native(data: CasafariValuationRequest) -> Dict[str, A
     summary="AVM local imoIA (ponderado por comparaveis)",
     response_model=LocalAVMResponse,
 )
-async def valuate_local(data: LocalAVMRequest) -> Dict[str, Any]:
+def valuate_local(data: LocalAVMRequest) -> Dict[str, Any]:
     """Avaliacao automatica usando comparaveis CASAFARI com ponderacao local.
 
     Calcula preco estimado com media ponderada por distancia, area,
@@ -589,7 +589,7 @@ async def valuate_local(data: LocalAVMRequest) -> Dict[str, Any]:
     "/references/locations",
     summary="Pesquisar localizacoes CASAFARI",
 )
-async def search_locations(data: LocationSearchRequest) -> Dict[str, Any]:
+def search_locations(data: LocationSearchRequest) -> Dict[str, Any]:
     """Pesquisa localizacoes por nome ou codigo postal."""
     client = CasafariClient()
     if not client.is_configured:
@@ -617,7 +617,7 @@ async def search_locations(data: LocationSearchRequest) -> Dict[str, Any]:
     "/references/agencies",
     summary="Pesquisar agencias imobiliarias",
 )
-async def search_agencies(
+def search_agencies(
     name: str = Query(..., description="Nome da agencia"),
 ) -> Dict[str, Any]:
     """Pesquisa agencias imobiliarias por nome."""
@@ -631,7 +631,7 @@ async def search_agencies(
     "/references/agents",
     summary="Pesquisar agentes imobiliarios",
 )
-async def search_agents(
+def search_agents(
     name: str = Query(..., description="Nome do agente"),
 ) -> Dict[str, Any]:
     """Pesquisa agentes imobiliarios por nome."""
@@ -645,7 +645,7 @@ async def search_agents(
     "/references/sources",
     summary="Fontes de listagens por localizacao",
 )
-async def get_sources(
+def get_sources(
     location_id: int = Query(..., description="ID da localizacao CASAFARI"),
 ) -> Dict[str, Any]:
     """Retorna fontes/dominios disponiveis para uma localizacao."""
@@ -659,7 +659,7 @@ async def get_sources(
     "/references/types",
     summary="Tipos de imoveis CASAFARI",
 )
-async def get_property_types() -> Dict[str, Any]:
+def get_property_types() -> Dict[str, Any]:
     """Retorna todos os tipos de imoveis disponiveis na CASAFARI."""
     client = CasafariClient()
     if not client.is_configured:
@@ -671,7 +671,7 @@ async def get_property_types() -> Dict[str, Any]:
     "/references/features",
     summary="Features de imoveis CASAFARI",
 )
-async def get_features() -> Dict[str, Any]:
+def get_features() -> Dict[str, Any]:
     """Retorna todas as features disponiveis (floor, views, etc.)."""
     client = CasafariClient()
     if not client.is_configured:
@@ -683,7 +683,7 @@ async def get_features() -> Dict[str, Any]:
     "/references/conditions",
     summary="Condicoes de imoveis CASAFARI",
 )
-async def get_conditions() -> Dict[str, Any]:
+def get_conditions() -> Dict[str, Any]:
     """Retorna todas as condicoes disponiveis."""
     client = CasafariClient()
     if not client.is_configured:
@@ -703,7 +703,7 @@ async def get_conditions() -> Dict[str, Any]:
     "/overview",
     summary="Overview de mercado",
 )
-async def market_overview() -> Dict[str, Any]:
+def market_overview() -> Dict[str, Any]:
     """Overview de mercado para dashboard."""
     svc = _get_service()
     return svc.get_market_overview()

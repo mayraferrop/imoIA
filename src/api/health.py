@@ -8,6 +8,6 @@ router = APIRouter()
 
 
 @router.get("/health", summary="Health check")
-async def health_check() -> dict:
+def health_check() -> dict:
     """Verifica se a API esta operacional."""
     return {"status": "ok", "service": "imoia"}

@@ -43,13 +43,13 @@ service = DealPipelineService()
 
 
 @router.get("/strategies", summary="Listar estrategias de investimento")
-async def list_strategies() -> List[Dict[str, Any]]:
+def list_strategies() -> List[Dict[str, Any]]:
     """Retorna todas as estrategias suportadas com rotas."""
     return get_all_strategies()
 
 
 @router.get("/statuses", summary="Listar estados do pipeline")
-async def list_statuses() -> List[Dict[str, Any]]:
+def list_statuses() -> List[Dict[str, Any]]:
     """Retorna todos os estados com labels e cores."""
     return get_all_statuses()
 
@@ -60,7 +60,7 @@ async def list_statuses() -> List[Dict[str, Any]]:
 
 
 @router.get("/kanban", summary="Dados para vista kanban")
-async def get_kanban(
+def get_kanban(
     strategy: Optional[str] = Query(None, description="Filtrar por estrategia"),
 ) -> Dict[str, Any]:
     """Retorna deals agrupados por estado para vista kanban."""
@@ -68,7 +68,7 @@ async def get_kanban(
 
 
 @router.get("/stats", summary="Estatisticas do pipeline")
-async def get_stats(
+def get_stats(
     strategy: Optional[str] = Query(None, description="Filtrar por estrategia"),
 ) -> Dict[str, Any]:
     """Retorna metricas agregadas do pipeline."""
@@ -81,7 +81,7 @@ async def get_stats(
 
 
 @router.get("/tasks/upcoming", summary="Tarefas pendentes")
-async def get_upcoming_tasks(
+def get_upcoming_tasks(
     limit: int = Query(20, ge=1, le=100),
 ) -> List[Dict[str, Any]]:
     """Retorna tarefas pendentes ordenadas por data."""
@@ -94,7 +94,7 @@ async def get_upcoming_tasks(
 
 
 @router.get("/", summary="Listar deals")
-async def list_deals(
+def list_deals(
     status: Optional[str] = None,
     strategy: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
@@ -105,7 +105,7 @@ async def list_deals(
 
 
 @router.post("/", summary="Criar deal")
-async def create_deal(data: DealCreateSchema) -> Dict[str, Any]:
+def create_deal(data: DealCreateSchema) -> Dict[str, Any]:
     """Cria um novo deal."""
     try:
         return service.create_deal(data.model_dump())
@@ -117,7 +117,7 @@ async def create_deal(data: DealCreateSchema) -> Dict[str, Any]:
     "/from-opportunity/{opportunity_id}",
     summary="Criar deal a partir de oportunidade M1",
 )
-async def create_from_opportunity(
+def create_from_opportunity(
     opportunity_id: int, data: DealFromOpportunitySchema
 ) -> Dict[str, Any]:
     """Cria deal a partir de uma Opportunity legacy."""
@@ -130,7 +130,7 @@ async def create_from_opportunity(
 
 
 @router.get("/{deal_id}", summary="Detalhe de um deal")
-async def get_deal(deal_id: str) -> Dict[str, Any]:
+def get_deal(deal_id: str) -> Dict[str, Any]:
     """Retorna detalhe completo de um deal."""
     result = service.get_deal(deal_id)
     if not result:
@@ -139,7 +139,7 @@ async def get_deal(deal_id: str) -> Dict[str, Any]:
 
 
 @router.patch("/{deal_id}", summary="Actualizar deal")
-async def update_deal(deal_id: str, data: DealUpdateSchema) -> Dict[str, Any]:
+def update_deal(deal_id: str, data: DealUpdateSchema) -> Dict[str, Any]:
     """Actualiza campos de um deal."""
     try:
         result = service.update_deal(deal_id, data.model_dump(exclude_unset=True))
@@ -156,7 +156,7 @@ async def update_deal(deal_id: str, data: DealUpdateSchema) -> Dict[str, Any]:
 
 
 @router.get("/{deal_id}/next-actions", summary="Proximas accoes")
-async def get_next_actions(deal_id: str) -> Dict[str, Any]:
+def get_next_actions(deal_id: str) -> Dict[str, Any]:
     """Retorna estados para os quais o deal pode avancar."""
     try:
         return service.get_next_actions(deal_id)
@@ -165,7 +165,7 @@ async def get_next_actions(deal_id: str) -> Dict[str, Any]:
 
 
 @router.post("/{deal_id}/advance", summary="Avancar estado do deal")
-async def advance_deal(deal_id: str, data: AdvanceDealSchema) -> Dict[str, Any]:
+def advance_deal(deal_id: str, data: AdvanceDealSchema) -> Dict[str, Any]:
     """Avanca o estado de um deal (com validacao de transicao)."""
     try:
         return service.advance_deal(
@@ -176,7 +176,7 @@ async def advance_deal(deal_id: str, data: AdvanceDealSchema) -> Dict[str, Any]:
 
 
 @router.get("/{deal_id}/history", summary="Historico de estados")
-async def get_history(deal_id: str) -> List[Dict[str, Any]]:
+def get_history(deal_id: str) -> List[Dict[str, Any]]:
     """Retorna historico de transicoes de estado."""
     return service.get_deal_history(deal_id)
 
@@ -187,13 +187,13 @@ async def get_history(deal_id: str) -> List[Dict[str, Any]]:
 
 
 @router.get("/{deal_id}/proposals", summary="Listar propostas")
-async def list_proposals(deal_id: str) -> List[Dict[str, Any]]:
+def list_proposals(deal_id: str) -> List[Dict[str, Any]]:
     """Lista propostas de um deal."""
     return service.list_proposals(deal_id)
 
 
 @router.post("/{deal_id}/proposals", summary="Criar proposta")
-async def create_proposal(
+def create_proposal(
     deal_id: str, data: ProposalCreateSchema
 ) -> Dict[str, Any]:
     """Cria uma proposta para um deal."""
@@ -204,7 +204,7 @@ async def create_proposal(
 
 
 @router.patch("/proposals/{proposal_id}", summary="Responder a proposta")
-async def respond_to_proposal(
+def respond_to_proposal(
     proposal_id: str, data: ProposalResponseSchema
 ) -> Dict[str, Any]:
     """Responde a uma proposta (accepted/rejected/counter)."""
@@ -222,7 +222,7 @@ async def respond_to_proposal(
 
 
 @router.post("/{deal_id}/tasks", summary="Criar tarefa")
-async def create_task(deal_id: str, data: TaskCreateSchema) -> Dict[str, Any]:
+def create_task(deal_id: str, data: TaskCreateSchema) -> Dict[str, Any]:
     """Cria uma tarefa para um deal."""
     try:
         return service.create_task(deal_id, data.model_dump())
@@ -231,7 +231,7 @@ async def create_task(deal_id: str, data: TaskCreateSchema) -> Dict[str, Any]:
 
 
 @router.patch("/tasks/{task_id}/complete", summary="Completar tarefa")
-async def complete_task(task_id: str) -> Dict[str, Any]:
+def complete_task(task_id: str) -> Dict[str, Any]:
     """Marca uma tarefa como concluida."""
     try:
         return service.complete_task(task_id)
@@ -245,7 +245,7 @@ async def complete_task(task_id: str) -> Dict[str, Any]:
 
 
 @router.post("/{deal_id}/rental", summary="Adicionar arrendamento")
-async def add_rental(deal_id: str, data: RentalCreateSchema) -> Dict[str, Any]:
+def add_rental(deal_id: str, data: RentalCreateSchema) -> Dict[str, Any]:
     """Adiciona dados de arrendamento a um deal."""
     try:
         return service.add_rental(deal_id, data.model_dump())
@@ -254,7 +254,7 @@ async def add_rental(deal_id: str, data: RentalCreateSchema) -> Dict[str, Any]:
 
 
 @router.patch("/rentals/{rental_id}", summary="Actualizar arrendamento")
-async def update_rental(
+def update_rental(
     rental_id: str, data: RentalUpdateSchema
 ) -> Dict[str, Any]:
     """Actualiza dados de arrendamento."""
@@ -272,7 +272,7 @@ async def update_rental(
 
 
 @router.post("/mediation", summary="Criar deal de mediacao")
-async def create_mediation_deal(data: MediationDealCreateSchema) -> Dict[str, Any]:
+def create_mediation_deal(data: MediationDealCreateSchema) -> Dict[str, Any]:
     """Cria deal de mediacao (role=mediador)."""
     try:
         return service.create_mediation_deal(data.model_dump())
@@ -281,7 +281,7 @@ async def create_mediation_deal(data: MediationDealCreateSchema) -> Dict[str, An
 
 
 @router.post("/{deal_id}/cma", summary="Gerar CMA")
-async def generate_cma(deal_id: str, data: CMAInputSchema) -> Dict[str, Any]:
+def generate_cma(deal_id: str, data: CMAInputSchema) -> Dict[str, Any]:
     """Gera CMA (Comparative Market Analysis) a partir de comparaveis."""
     try:
         return service.generate_cma(
@@ -292,7 +292,7 @@ async def generate_cma(deal_id: str, data: CMAInputSchema) -> Dict[str, Any]:
 
 
 @router.get("/{deal_id}/cma", summary="Obter CMA")
-async def get_cma(deal_id: str) -> Dict[str, Any]:
+def get_cma(deal_id: str) -> Dict[str, Any]:
     """Retorna dados do CMA de um deal."""
     deal = service.get_deal(deal_id)
     if not deal:
@@ -307,7 +307,7 @@ async def get_cma(deal_id: str) -> Dict[str, Any]:
 
 
 @router.get("/stats/mediation", summary="Estatisticas de mediacao")
-async def get_mediation_stats() -> Dict[str, Any]:
+def get_mediation_stats() -> Dict[str, Any]:
     """Retorna metricas especificas de mediacao."""
     return service.get_mediation_stats()
 
@@ -318,13 +318,13 @@ async def get_mediation_stats() -> Dict[str, Any]:
 
 
 @router.get("/{deal_id}/visits", summary="Listar visitas")
-async def list_visits(deal_id: str) -> List[Dict[str, Any]]:
+def list_visits(deal_id: str) -> List[Dict[str, Any]]:
     """Lista visitas de um deal."""
     return service.list_visits(deal_id)
 
 
 @router.post("/{deal_id}/visits", summary="Registar visita")
-async def register_visit(
+def register_visit(
     deal_id: str, data: VisitCreateSchema
 ) -> Dict[str, Any]:
     """Regista uma visita ao imovel."""
@@ -335,7 +335,7 @@ async def register_visit(
 
 
 @router.patch("/visits/{visit_id}", summary="Actualizar visita")
-async def update_visit(
+def update_visit(
     visit_id: str, data: VisitUpdateSchema
 ) -> Dict[str, Any]:
     """Actualiza feedback de uma visita."""
@@ -351,7 +351,7 @@ async def update_visit(
 
 
 @router.get("/{deal_id}/commission", summary="Calcular comissao")
-async def calculate_commission(
+def calculate_commission(
     deal_id: str,
     sale_price: Optional[float] = Query(None, description="Preco de venda (override)"),
 ) -> Dict[str, Any]:
@@ -363,7 +363,7 @@ async def calculate_commission(
 
 
 @router.post("/{deal_id}/commission", summary="Registar comissao")
-async def create_commission(
+def create_commission(
     deal_id: str,
     sale_price: float = Query(..., description="Preco de venda"),
 ) -> Dict[str, Any]:
@@ -375,7 +375,7 @@ async def create_commission(
 
 
 @router.patch("/commissions/{commission_id}/invoice", summary="Registar factura")
-async def invoice_commission(
+def invoice_commission(
     commission_id: str, data: CommissionInvoiceSchema
 ) -> Dict[str, Any]:
     """Regista factura numa comissao."""

@@ -27,37 +27,37 @@ service = LeadService()
 
 
 @router.get("/stats", summary="Estatisticas globais de leads")
-async def get_stats() -> Dict[str, Any]:
+def get_stats() -> Dict[str, Any]:
     """Retorna estatisticas globais de leads."""
     return service.get_stats()
 
 
 @router.get("/pipeline-summary", summary="Resumo do pipeline")
-async def get_pipeline_summary() -> List[Dict[str, Any]]:
+def get_pipeline_summary() -> List[Dict[str, Any]]:
     """Retorna contagens por estagio do pipeline."""
     return service.get_pipeline_summary()
 
 
 @router.get("/conversion-funnel", summary="Funil de conversao")
-async def get_conversion_funnel() -> List[Dict[str, Any]]:
+def get_conversion_funnel() -> List[Dict[str, Any]]:
     """Retorna funil de conversao com percentagens."""
     return service.get_conversion_funnel()
 
 
 @router.get("/source-breakdown", summary="Distribuicao por fonte")
-async def get_source_breakdown() -> List[Dict[str, Any]]:
+def get_source_breakdown() -> List[Dict[str, Any]]:
     """Retorna distribuicao de leads por fonte de captacao."""
     return service.get_source_breakdown()
 
 
 @router.get("/grades-summary", summary="Resumo por grade")
-async def get_grades_summary() -> Dict[str, int]:
+def get_grades_summary() -> Dict[str, int]:
     """Retorna contagem de leads por grade (A/B/C/D)."""
     return service.get_grades_summary()
 
 
 @router.post("/sync-habta", summary="Sincronizar contactos Habta")
-async def sync_habta(contacts: List[Dict[str, Any]]) -> Dict[str, Any]:
+def sync_habta(contacts: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Importa ou actualiza leads a partir de contactos Habta."""
     try:
         return service.sync_from_habta(contacts)
@@ -90,7 +90,7 @@ async def rescore_batch(
 
 
 @router.post("/", summary="Criar lead")
-async def create_lead(data: LeadCreate) -> Dict[str, Any]:
+def create_lead(data: LeadCreate) -> Dict[str, Any]:
     """Cria um novo lead no CRM."""
     try:
         return service.create_lead(data.model_dump())
@@ -99,7 +99,7 @@ async def create_lead(data: LeadCreate) -> Dict[str, Any]:
 
 
 @router.get("/", summary="Listar leads")
-async def list_leads(
+def list_leads(
     stage: Optional[str] = Query(None, description="Filtrar por estagio"),
     grade: Optional[str] = Query(None, description="Filtrar por grade (A/B/C/D)"),
     source: Optional[str] = Query(None, description="Filtrar por fonte"),
@@ -126,7 +126,7 @@ async def list_leads(
 
 
 @router.get("/{lead_id}", summary="Obter lead")
-async def get_lead(lead_id: str) -> Dict[str, Any]:
+def get_lead(lead_id: str) -> Dict[str, Any]:
     """Retorna detalhes de um lead incluindo contagem de interaccoes."""
     result = service.get_lead(lead_id)
     if result is None:
@@ -135,7 +135,7 @@ async def get_lead(lead_id: str) -> Dict[str, Any]:
 
 
 @router.put("/{lead_id}", summary="Actualizar lead")
-async def update_lead(lead_id: str, data: LeadUpdate) -> Dict[str, Any]:
+def update_lead(lead_id: str, data: LeadUpdate) -> Dict[str, Any]:
     """Actualiza dados de um lead."""
     result = service.update_lead(lead_id, data.model_dump(exclude_unset=True))
     if result is None:
@@ -144,7 +144,7 @@ async def update_lead(lead_id: str, data: LeadUpdate) -> Dict[str, Any]:
 
 
 @router.delete("/{lead_id}", summary="Remover lead")
-async def delete_lead(lead_id: str) -> Dict[str, str]:
+def delete_lead(lead_id: str) -> Dict[str, str]:
     """Remove um lead e todos os dados associados."""
     success = service.delete_lead(lead_id)
     if not success:
@@ -158,7 +158,7 @@ async def delete_lead(lead_id: str) -> Dict[str, str]:
 
 
 @router.patch("/{lead_id}/stage", summary="Avancar estagio")
-async def advance_stage(lead_id: str, new_stage: str) -> Dict[str, Any]:
+def advance_stage(lead_id: str, new_stage: str) -> Dict[str, Any]:
     """Avanca o estagio do lead no pipeline."""
     try:
         return service.advance_stage(lead_id, new_stage)
@@ -172,7 +172,7 @@ async def advance_stage(lead_id: str, new_stage: str) -> Dict[str, Any]:
 
 
 @router.post("/{lead_id}/interactions", summary="Adicionar interaccao")
-async def add_interaction(
+def add_interaction(
     lead_id: str, data: InteractionCreate
 ) -> Dict[str, Any]:
     """Regista uma interaccao com o lead."""
@@ -183,7 +183,7 @@ async def add_interaction(
 
 
 @router.get("/{lead_id}/interactions", summary="Listar interaccoes")
-async def list_interactions(
+def list_interactions(
     lead_id: str,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
@@ -196,7 +196,7 @@ async def list_interactions(
 
 
 @router.get("/{lead_id}/timeline", summary="Timeline do lead")
-async def get_timeline(lead_id: str) -> List[Dict[str, Any]]:
+def get_timeline(lead_id: str) -> List[Dict[str, Any]]:
     """Retorna timeline cronologica completa do lead."""
     try:
         return service.get_timeline(lead_id)
@@ -210,7 +210,7 @@ async def get_timeline(lead_id: str) -> List[Dict[str, Any]]:
 
 
 @router.post("/{lead_id}/recalculate-score", summary="Recalcular score")
-async def recalculate_score(
+def recalculate_score(
     lead_id: str,
     with_ai: bool = Query(False, description="Enriquecer com AI scoring"),
     force_ai: bool = Query(False, description="Forcar re-analise AI (ignora cache)"),
@@ -228,7 +228,7 @@ async def recalculate_score(
 
 
 @router.get("/{lead_id}/matches", summary="Encontrar matches")
-async def find_matches(lead_id: str) -> List[Dict[str, Any]]:
+def find_matches(lead_id: str) -> List[Dict[str, Any]]:
     """Encontra listings compativeis com as preferencias do lead."""
     try:
         return service.find_matches(lead_id)
@@ -240,7 +240,7 @@ async def find_matches(lead_id: str) -> List[Dict[str, Any]]:
     "/{lead_id}/matches/{listing_id}/send",
     summary="Enviar listing ao lead",
 )
-async def send_listing_to_lead(
+def send_listing_to_lead(
     lead_id: str, listing_id: str
 ) -> Dict[str, Any]:
     """Envia uma listing ao lead e regista a interaccao."""
@@ -256,7 +256,7 @@ async def send_listing_to_lead(
 
 
 @router.post("/{lead_id}/nurture/start", summary="Iniciar nurturing")
-async def start_nurture(
+def start_nurture(
     lead_id: str,
     sequence_type: str = Query("standard"),
     listing_id: Optional[str] = Query(None),
@@ -269,7 +269,7 @@ async def start_nurture(
 
 
 @router.get("/{lead_id}/nurture/status", summary="Estado do nurturing")
-async def get_nurture_status(lead_id: str) -> Dict[str, Any]:
+def get_nurture_status(lead_id: str) -> Dict[str, Any]:
     """Retorna estado actual da sequencia de nurturing."""
     result = service.get_nurture_status(lead_id)
     if result is None:
@@ -280,7 +280,7 @@ async def get_nurture_status(lead_id: str) -> Dict[str, Any]:
 
 
 @router.post("/{lead_id}/nurture/pause", summary="Pausar nurturing")
-async def pause_nurture(lead_id: str) -> Dict[str, Any]:
+def pause_nurture(lead_id: str) -> Dict[str, Any]:
     """Pausa a sequencia de nurturing activa."""
     try:
         return service.pause_nurture(lead_id)
@@ -289,7 +289,7 @@ async def pause_nurture(lead_id: str) -> Dict[str, Any]:
 
 
 @router.post("/{lead_id}/nurture/resume", summary="Retomar nurturing")
-async def resume_nurture(lead_id: str) -> Dict[str, Any]:
+def resume_nurture(lead_id: str) -> Dict[str, Any]:
     """Retoma a sequencia de nurturing pausada."""
     try:
         return service.resume_nurture(lead_id)

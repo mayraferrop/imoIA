@@ -82,7 +82,7 @@ def _run_pipeline_background() -> None:
 
 
 @router.post("/trigger", summary="Disparar pipeline de ingestao")
-async def trigger_pipeline() -> Dict[str, Any]:
+def trigger_pipeline() -> Dict[str, Any]:
     """Dispara o pipeline M1 em background. Usar GET /status para acompanhar."""
     global _pipeline_state
 
@@ -125,7 +125,7 @@ _reprocess_state: Dict[str, Any] = {
 
 
 @router.post("/reprocess", summary="Iniciar reprocessamento dos ultimos N dias")
-async def start_reprocess(days: int = Query(10, ge=1, le=30)) -> Dict[str, Any]:
+def start_reprocess(days: int = Query(10, ge=1, le=30)) -> Dict[str, Any]:
     """Prepara a lista de grupos para reprocessar. Chamar /reprocess/batch para processar."""
     global _reprocess_state
     from src.modules.m1_ingestor.service import get_reprocess_groups
@@ -155,7 +155,7 @@ async def start_reprocess(days: int = Query(10, ge=1, le=30)) -> Dict[str, Any]:
 
 
 @router.post("/reprocess/batch", summary="Processar proximo batch de grupos")
-async def reprocess_batch(batch_size: int = Query(10, ge=1, le=20)) -> Dict[str, Any]:
+def reprocess_batch(batch_size: int = Query(10, ge=1, le=20)) -> Dict[str, Any]:
     """Processa os proximos N grupos. Chamar repetidamente ate done=true."""
     global _reprocess_state
     from src.modules.m1_ingestor.service import reprocess_group_batch
@@ -209,14 +209,14 @@ async def reprocess_batch(batch_size: int = Query(10, ge=1, le=20)) -> Dict[str,
 
 
 @router.get("/status", summary="Estado do pipeline")
-async def get_pipeline_status() -> Dict[str, Any]:
+def get_pipeline_status() -> Dict[str, Any]:
     """Retorna estado atual do pipeline (polling endpoint)."""
     with _pipeline_lock:
         return dict(_pipeline_state)
 
 
 @router.get("/runs", summary="Historico de execucoes do pipeline")
-async def list_pipeline_runs(
+def list_pipeline_runs(
     organization_id: str = Depends(get_current_organization),
     limit: int = Query(50, ge=1, le=200),
     include_details: bool = Query(False, description="Incluir group_logs e errors"),
@@ -245,7 +245,7 @@ async def list_pipeline_runs(
 
 
 @router.get("/runs/{run_id}", summary="Detalhe de uma execucao do pipeline")
-async def get_pipeline_run(
+def get_pipeline_run(
     run_id: int,
     organization_id: str = Depends(get_current_organization),
 ) -> Dict[str, Any]:
@@ -262,7 +262,7 @@ async def get_pipeline_run(
 
 
 @router.get("/dlq", summary="Dead-letter queue do pipeline M1")
-async def list_dlq(
+def list_dlq(
     organization_id: str = Depends(get_current_organization),
     limit: int = Query(100, ge=1, le=500),
     only_pending: bool = Query(True, description="Apenas retry_count<5"),
@@ -308,7 +308,7 @@ async def list_dlq(
 
 
 @router.delete("/dlq/{entry_id}", summary="Remover entrada da DLQ")
-async def delete_dlq_entry(
+def delete_dlq_entry(
     entry_id: int,
     organization_id: str = Depends(get_current_organization),
 ) -> Dict[str, Any]:
@@ -327,7 +327,7 @@ async def delete_dlq_entry(
 
 
 @router.get("/debug", summary="Diagnostico do pipeline")
-async def pipeline_debug() -> Dict[str, Any]:
+def pipeline_debug() -> Dict[str, Any]:
     """Verifica dependencias e configuracao do pipeline."""
     info: Dict[str, Any] = {}
     try:
@@ -388,7 +388,7 @@ async def pipeline_debug() -> Dict[str, Any]:
 
 
 @router.get("/groups", summary="Listar grupos monitorizados")
-async def list_groups() -> List[Dict[str, Any]]:
+def list_groups() -> List[Dict[str, Any]]:
     """Lista todos os grupos com estatisticas (dados historicos)."""
     rows = db.list_rows("groups", order="name.asc", limit=200)
     return [
@@ -406,7 +406,7 @@ async def list_groups() -> List[Dict[str, Any]]:
 
 
 @router.patch("/groups/{group_id}", summary="Actualizar grupo (toggle is_active)")
-async def update_group(group_id: int, body: Dict[str, Any]) -> Dict[str, Any]:
+def update_group(group_id: int, body: Dict[str, Any]) -> Dict[str, Any]:
     """Actualiza campos editáveis de um grupo. Apenas `is_active` é aceite por agora."""
     if "is_active" not in body:
         raise HTTPException(status_code=400, detail="campo 'is_active' obrigatório")
@@ -425,7 +425,7 @@ async def update_group(group_id: int, body: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @router.get("/opportunities", summary="Listar oportunidades")
-async def list_opportunities(
+def list_opportunities(
     min_confidence: float = Query(0.6, ge=0.0, le=1.0),
     grade: Optional[str] = Query(None, pattern="^[A-F]$"),
     district: Optional[str] = None,
@@ -472,7 +472,7 @@ async def list_opportunities(
 
 
 @router.get("/opportunities/{opp_id}", summary="Detalhe de uma oportunidade")
-async def get_opportunity(opp_id: int) -> Dict[str, Any]:
+def get_opportunity(opp_id: int) -> Dict[str, Any]:
     """Retorna detalhe completo de uma oportunidade + market data."""
     rows = db._get("opportunities", f"id=eq.{opp_id}&select=*&limit=1")
     if not rows:
@@ -508,7 +508,7 @@ async def get_opportunity(opp_id: int) -> Dict[str, Any]:
 
 
 @router.get("/stats", summary="Estatisticas gerais")
-async def get_stats() -> Dict[str, Any]:
+def get_stats() -> Dict[str, Any]:
     """Resumo: totais, top grupos, distribuicao geografica e por tipo."""
     total_groups = db._count("groups")
     active_groups = db._count("groups", "is_active=eq.true")

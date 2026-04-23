@@ -46,7 +46,7 @@ calculator = FinancialCalculator()
 
 
 @router.post("/", summary="Criar modelo financeiro")
-async def create_financial_model(
+def create_financial_model(
     property_id: str, request: FinancialModelCreateRequest
 ) -> Dict[str, Any]:
     """Cria um modelo financeiro completo para uma propriedade."""
@@ -60,7 +60,7 @@ async def create_financial_model(
 @router.post(
     "/scenarios/{property_id}", summary="Criar 3 cenarios automaticos"
 )
-async def create_scenarios(
+def create_scenarios(
     property_id: str, request: FinancialModelCreateRequest
 ) -> Dict[str, Any]:
     """Cria cenarios base, optimista e pessimista automaticamente."""
@@ -71,7 +71,7 @@ async def create_scenarios(
 
 
 @router.post("/create-property", summary="Criar propriedade via Supabase REST")
-async def create_property_supa(data: Dict[str, Any]) -> Dict[str, Any]:
+def create_property_supa(data: Dict[str, Any]) -> Dict[str, Any]:
     """Cria propriedade directamente no Supabase (sem SQLAlchemy)."""
     from src.database.supabase_rest import create_property
     try:
@@ -81,14 +81,14 @@ async def create_property_supa(data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @router.get("/scenarios", summary="Listar cenarios salvos")
-async def list_scenarios() -> list:
+def list_scenarios() -> list:
     """Lista todos os cenarios financeiros salvos via Supabase REST."""
     from src.database.supabase_rest import list_scenarios as supa_list
     return supa_list()
 
 
 @router.get("/cashflow-pro/projects", summary="Listar projectos CashFlow Pro")
-async def list_cashflow_pro_projects() -> List[Dict[str, str]]:
+def list_cashflow_pro_projects() -> List[Dict[str, str]]:
     """Lista projectos do CashFlow Pro para o dropdown de exportacao."""
     try:
         from src.modules.m3_financial.cashflow_export import list_cfp_projects
@@ -98,7 +98,7 @@ async def list_cashflow_pro_projects() -> List[Dict[str, str]]:
 
 
 @router.get("/{model_id}", summary="Obter modelo financeiro")
-async def get_financial_model(model_id: str) -> Dict[str, Any]:
+def get_financial_model(model_id: str) -> Dict[str, Any]:
     """Retorna detalhe de um modelo financeiro."""
     result = service.get_model(model_id)
     if result is None:
@@ -110,13 +110,13 @@ async def get_financial_model(model_id: str) -> Dict[str, Any]:
     "/property/{property_id}",
     summary="Listar modelos de uma propriedade",
 )
-async def list_by_property(property_id: str) -> list:
+def list_by_property(property_id: str) -> list:
     """Lista todos os modelos financeiros de uma propriedade."""
     return service.list_by_property(property_id)
 
 
 @router.delete("/{model_id}", summary="Excluir modelo financeiro")
-async def delete_financial_model(model_id: str) -> Dict[str, Any]:
+def delete_financial_model(model_id: str) -> Dict[str, Any]:
     """Exclui modelo financeiro e dados associados (condições, projecções)."""
     try:
         from src.database.supabase_rest import delete_model as supa_delete
@@ -131,7 +131,7 @@ async def delete_financial_model(model_id: str) -> Dict[str, Any]:
 
 
 @router.post("/simulate", summary="Simular modelo financeiro sem persistir")
-async def simulate_financial_model(
+def simulate_financial_model(
     request: FinancialModelCreateRequest,
 ) -> Dict[str, Any]:
     """Calcula modelo financeiro completo sem criar Property nem persistir.
@@ -165,13 +165,13 @@ async def simulate_financial_model(
 
 
 @router.post("/mao", summary="Calcular MAO — Maximum Allowable Offer")
-async def calculate_mao(request: MAORequest) -> Dict[str, Any]:
+def calculate_mao(request: MAORequest) -> Dict[str, Any]:
     """Regra dos 70%: MAO = ARV x 0.70 - Custo de Obra."""
     return service.calculate_mao(request.arv, request.renovation_total)
 
 
 @router.post("/floor-price", summary="Calcular preco minimo de venda")
-async def calculate_floor_price(
+def calculate_floor_price(
     request: FloorPriceRequest,
 ) -> Dict[str, Any]:
     """Preco minimo para atingir o ROI target."""
@@ -183,7 +183,7 @@ async def calculate_floor_price(
 
 
 @router.post("/quick-imt", summary="Calculo rapido de IMT")
-async def quick_imt(request: QuickIMTRequest) -> Dict[str, Any]:
+def quick_imt(request: QuickIMTRequest) -> Dict[str, Any]:
     """Calcula IMT sem criar modelo completo. Util para triagem rapida."""
     if request.country == "PT":
         table = IMT_TABLE_PT_HPP if request.is_hpp else IMT_TABLE_PT_INVESTMENT
@@ -211,7 +211,7 @@ async def quick_imt(request: QuickIMTRequest) -> Dict[str, Any]:
 @router.get(
     "/{model_id}/cash-flow", summary="Fluxo de caixa mensal"
 )
-async def get_cash_flow(model_id: str) -> Dict[str, Any]:
+def get_cash_flow(model_id: str) -> Dict[str, Any]:
     """Retorna o fluxo de caixa mes a mes.
 
     Mostra quanto sai do bolso em cada periodo,
@@ -271,7 +271,7 @@ async def get_cash_flow(model_id: str) -> Dict[str, Any]:
 
 
 @router.post("/{model_id}/export-cashflow", summary="Exportar para CashFlow Pro")
-async def export_to_cashflow_pro(
+def export_to_cashflow_pro(
     model_id: str,
     project_id: Optional[str] = Body(None, embed=True),
 ) -> Dict[str, Any]:
@@ -352,7 +352,7 @@ async def export_to_cashflow_pro(
 
 
 @router.post("/save-scenario", summary="Salvar cenario com condicoes de pagamento")
-async def save_scenario(request: ScenarioSaveRequest) -> Dict[str, Any]:
+def save_scenario(request: ScenarioSaveRequest) -> Dict[str, Any]:
     """Salva cenario financeiro completo via Supabase REST.
 
     Cria FinancialModel + PaymentCondition + CashflowProjection.
@@ -499,7 +499,7 @@ async def save_scenario(request: ScenarioSaveRequest) -> Dict[str, Any]:
 
 
 @router.get("/{model_id}/projections", summary="Buscar projecao financeira")
-async def get_projections(model_id: str) -> Dict[str, Any]:
+def get_projections(model_id: str) -> Dict[str, Any]:
     """Retorna projecao financeira mensal (projetado vs real) via Supabase REST."""
     from src.database.supabase_rest import get_projections as supa_proj
     result = supa_proj(model_id)

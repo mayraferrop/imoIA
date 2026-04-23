@@ -37,7 +37,7 @@ class RunResponse(BaseModel):
 
 
 @router.post("/run", response_model=RunResponse)
-async def run(
+def run(
     req: RunRequest,
     organization_id: str = Depends(get_current_organization),
 ) -> Dict[str, Any]:
@@ -53,7 +53,7 @@ async def run(
 
 
 @router.get("/stats")
-async def stats(
+def stats(
     days: int = 7,
     organization_id: str = Depends(get_current_organization),
 ) -> Dict[str, Any]:
@@ -100,6 +100,6 @@ async def stats(
 
 
 @router.get("/defaults")
-async def defaults() -> Dict[str, Any]:
+def defaults() -> Dict[str, Any]:
     """Expõe a lista de URLs default para o UI mostrar/editar."""
     return {"search_urls": DEFAULT_SEARCH_URLS}
