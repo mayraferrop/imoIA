@@ -58,7 +58,7 @@ export default function PropertyDetailPage() {
   const propertyId = params?.id as string | undefined;
   const propertyKey = propertyId ? `/api/v1/properties/${propertyId}` : null;
 
-  const { data: property, isLoading } = useSWR<Property | null>(propertyKey);
+  const { data: property, isLoading, error } = useSWR<Property | null>(propertyKey);
   const [uploading, setUploading] = useState(false);
 
   const photos: PropertyPhoto[] = Array.isArray(property?.photos)
@@ -111,6 +111,29 @@ export default function PropertyDetailPage() {
     } finally {
       setUploading(false);
     }
+  }
+
+  if (error) {
+    const status = (error as Error & { status?: number }).status;
+    return (
+      <div className="space-y-6">
+        <Link href="/properties" className="text-sm text-teal-700 hover:underline">
+          ← Voltar a propriedades
+        </Link>
+        <div className="text-center py-16 space-y-3">
+          <p className="text-red-600 font-medium">Erro a carregar propriedade</p>
+          <p className="text-slate-500 text-sm">
+            HTTP {status ?? "?"} — {error.message}
+          </p>
+          <button
+            onClick={() => reload()}
+            className="text-sm text-teal-700 hover:underline"
+          >
+            Tentar de novo
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (isLoading || !property) {
