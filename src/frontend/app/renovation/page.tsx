@@ -119,6 +119,8 @@ export default function RenovationPage() {
   const [selectedRenoId, setSelectedRenoId] = useState<string | null>(null);
   const [renovLoading, setRenovLoading] = useState(false);
   const [expenseFormOpen, setExpenseFormOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createMsg, setCreateMsg] = useState("");
 
   const { data: dealsData, isLoading: dealsLoading } = useSWR<{ items: Deal[] } | null>(DEALS_KEY);
   const deals = dealsData?.items ?? [];
@@ -171,6 +173,44 @@ export default function RenovationPage() {
     if (detailKey) globalMutate(detailKey);
     if (expensesKey) globalMutate(expensesKey);
   };
+
+  /* --- Create renovation --- */
+  async function handleCreateRenovation(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setCreateMsg("");
+    const fd = new FormData(e.currentTarget);
+    const dealId = fd.get("r_deal_id") as string;
+    if (!dealId) {
+      setCreateMsg("Erro: seleccione um deal.");
+      return;
+    }
+    const body = {
+      initial_budget: Number(fd.get("r_budget") || 0),
+      contractor_name: (fd.get("r_contractor") as string) || null,
+      scope_description: (fd.get("r_scope") as string) || null,
+      license_type: (fd.get("r_license") as string) || "isento",
+      contingency_pct: Number(fd.get("r_contingency") || 15),
+      is_aru: fd.get("r_aru") === "on",
+      auto_milestones: true,
+    };
+    if (!body.initial_budget || body.initial_budget <= 0) {
+      setCreateMsg("Erro: orçamento inicial deve ser maior que 0.");
+      return;
+    }
+    try {
+      const result = await apiPost(`/api/v1/renovations/deals/${dealId}/create`, body);
+      if (result) {
+        setCreateMsg("Obra criada!");
+        (e.target as HTMLFormElement).reset();
+        setCreateOpen(false);
+        globalMutate(DEALS_KEY);
+      } else {
+        setCreateMsg("Erro ao criar obra.");
+      }
+    } catch {
+      setCreateMsg("Erro de comunicação.");
+    }
+  }
 
   /* --- Milestone actions --- */
   async function handleStartMilestone(milestoneId: string) {
@@ -228,12 +268,76 @@ export default function RenovationPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">M6 — Gestão de Obra</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Orçamento, milestones, despesas e progresso
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">M6 — Gestão de Obra</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Orçamento, milestones, despesas e progresso
+          </p>
+        </div>
+        <button
+          onClick={() => setCreateOpen((v) => !v)}
+          className="px-4 py-2 bg-teal-700 text-white rounded-lg text-sm font-medium hover:bg-teal-800 transition-colors"
+        >
+          {createOpen ? "Fechar" : "Criar obra"}
+        </button>
       </div>
+
+      {/* Create renovation form */}
+      {createOpen && (
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <p className="text-sm font-semibold text-slate-700 mb-3">Nova obra</p>
+          {createMsg && (
+            <div className={`mb-3 px-3 py-2 rounded-lg text-sm ${createMsg.includes("Erro") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+              {createMsg}
+            </div>
+          )}
+          <form onSubmit={handleCreateRenovation} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Deal *</label>
+                <select name="r_deal_id" required className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
+                  <option value="">Seleccionar deal...</option>
+                  {deals.map((d) => (
+                    <option key={d.id} value={d.id}>{d.title ?? d.id} ({d.status ?? "?"})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Orçamento inicial (EUR) *</label>
+                <input name="r_budget" type="number" step="any" required placeholder="60000" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Contingência (%)</label>
+                <input name="r_contingency" type="number" step="any" defaultValue="15" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Empreiteiro</label>
+                <input name="r_contractor" type="text" placeholder="Nome do empreiteiro" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Tipo de licença</label>
+                <select name="r_license" defaultValue="isento" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
+                  <option value="isento">Isento</option>
+                  <option value="comunicacao_previa">Comunicação prévia</option>
+                  <option value="licenciamento">Licenciamento</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Âmbito da obra</label>
+                <textarea name="r_scope" rows={2} placeholder="Descrição do que vai ser feito..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div className="col-span-2 flex items-center gap-2">
+                <input name="r_aru" type="checkbox" id="r_aru" className="w-4 h-4" />
+                <label htmlFor="r_aru" className="text-xs text-slate-600">Imóvel em zona ARU (reabilitação urbana)</label>
+              </div>
+            </div>
+            <button type="submit" className="px-4 py-2 bg-teal-700 text-white rounded-lg text-sm font-medium hover:bg-teal-800 transition-colors">
+              Criar obra
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* Loading */}
       {loading && (
