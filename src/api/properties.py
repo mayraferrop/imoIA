@@ -11,11 +11,12 @@ from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 import httpx
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from loguru import logger
 from pydantic import BaseModel, Field
 
 # FIXME(jwt-refactor): migrar para JWT do utilizador quando tabelas tiverem policies 'authenticated'
+from src.api.dependencies.auth import get_current_organization
 from src.database import supabase_rest as supa
 
 router = APIRouter()
@@ -154,12 +155,16 @@ async def list_properties(
 
 
 @router.post("/", summary="Criar propriedade manualmente")
-async def create_property(data: PropertyCreateSchema) -> Dict[str, Any]:
+async def create_property(
+    data: PropertyCreateSchema,
+    organization_id: str = Depends(get_current_organization),
+) -> Dict[str, Any]:
     """Cria uma nova propriedade no Supabase."""
     tenant_id = supa.ensure_tenant()
     row = {
         "id": str(uuid4()),
         "tenant_id": tenant_id,
+        "organization_id": organization_id,
         "source": "manual",
         "country": "PT",
         "status": "lead",
@@ -225,6 +230,7 @@ _MIME_MAP = {
 async def upload_property_photos(
     property_id: str,
     files: List[UploadFile] = File(...),
+    organization_id: str = Depends(get_current_organization),
 ) -> Dict[str, Any]:
     """Upload de fotos para uma propriedade. Grava em Supabase Storage e cria
     Documents. Actualiza properties.photos + cover_photo_url."""
@@ -254,6 +260,7 @@ async def upload_property_photos(
             doc = Document(
                 id=doc_id,
                 tenant_id=tid,
+                organization_id=organization_id,
                 entity_type="property",
                 entity_id=property_id,
                 filename=file.filename or f"photo_{i}{ext}",
