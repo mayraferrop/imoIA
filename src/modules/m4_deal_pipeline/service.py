@@ -263,6 +263,11 @@ class DealPipelineService:
         now = datetime.now(timezone.utc).isoformat()
         deal_id = db.new_id()
 
+        # role: investidor por defeito, mas pode ser mediador/comprador conforme strategy
+        role = data.get("role") or (
+            "mediador" if strategy.startswith("mediacao_") else "investidor"
+        )
+
         deal_row = {
             "id": deal_id,
             "tenant_id": tenant_id,
@@ -270,6 +275,7 @@ class DealPipelineService:
             "property_id": data["property_id"],
             "investment_strategy": strategy,
             "status": "lead",
+            "role": role,
             "title": data.get("title", ""),
             "purchase_price": data.get("purchase_price"),
             "target_sale_price": data.get("target_sale_price"),
