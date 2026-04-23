@@ -27,6 +27,7 @@ from src.modules.m8_leads.router import router as leads_router
 from src.modules.m9_closing.router import router as closing_router
 from src.shared.document_router import router as document_router
 from src.modules.m1_ingestor.strategy_router import router as strategy_router
+from src.modules.m1_scraper.router import router as scraper_router
 from src.database.db import init_db
 
 
@@ -422,6 +423,10 @@ def create_app() -> FastAPI:
     app.include_router(
         strategy_router, prefix="/api/v1/strategies",
         tags=["Estratégias de Investimento"], dependencies=auth_deps,
+    )
+    app.include_router(
+        scraper_router, prefix="/api/v1/scraper",
+        tags=["M1 - Scraper Portais"], dependencies=auth_deps,
     )
     # Invites: sem auth_deps globais (validate/{token} e publico;
     # os outros endpoints definem Depends() individualmente)

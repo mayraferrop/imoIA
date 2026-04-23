@@ -109,6 +109,15 @@ class Property(Base):
     source_opportunity_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("opportunities.id"), nullable=True
     )
+    source_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    source_external_id: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True
+    )
+    source_confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    source_reasoning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    source_last_seen_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
 
     # Localizacao
     country: Mapped[str] = mapped_column(String(2), default="PT")
@@ -198,6 +207,33 @@ class Property(Base):
 
     # Relationships
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="properties")
+
+
+class PropertyPriceHistory(Base):
+    """M1: Histórico de alterações de preço de propriedades.
+
+    Popula-se quando o scraper detecta alteração de preço entre runs
+    (para properties com source != NULL). Para listings M7 nossos,
+    existe a tabela paralela listing_price_history.
+    """
+
+    __tablename__ = "property_price_history"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid4())
+    )
+    property_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("properties.id"), nullable=False, index=True
+    )
+    organization_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, index=True
+    )
+    old_price: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    new_price: Mapped[float] = mapped_column(Float, nullable=False)
+    source: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
 
 
 # ---------------------------------------------------------------------------

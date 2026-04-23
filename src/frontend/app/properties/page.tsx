@@ -25,6 +25,11 @@ interface Property {
   id: string;
   source: string;
   source_opportunity_id?: number;
+  source_url?: string;
+  source_external_id?: string;
+  source_confidence?: number;
+  source_reasoning?: string;
+  source_last_seen_at?: string;
   district?: string;
   municipality: string;
   parish?: string;
@@ -45,6 +50,13 @@ interface Property {
   confidence?: number;
   opportunity_type?: string;
 }
+
+const SOURCE_LABELS: Record<string, string> = {
+  idealista_pt: "Idealista",
+  imovirtual_pt: "Imovirtual",
+  manual: "Manual",
+  whatsapp: "WhatsApp",
+};
 
 interface Opportunity {
   id: number;
@@ -1145,6 +1157,16 @@ export default function PropertiesPage() {
                         Conf. {(p.confidence * 100).toFixed(0)}%
                       </span>
                     )}
+                    {p.source && p.source !== "manual" && (
+                      <span className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded" title={p.source_url}>
+                        {SOURCE_LABELS[p.source] || p.source}
+                      </span>
+                    )}
+                    {p.source_confidence != null && (
+                      <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded" title={p.source_reasoning}>
+                        IA {(p.source_confidence * 100).toFixed(0)}%
+                      </span>
+                    )}
                     {pricePerM2 != null && (
                       <span className="bg-teal-50 text-teal-700 px-2 py-0.5 rounded">
                         {formatEUR(pricePerM2)}/m2
@@ -1235,6 +1257,27 @@ export default function PropertiesPage() {
                       <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
                         <p className="text-xs font-semibold text-blue-700 uppercase mb-1">Análise IA</p>
                         <p className="text-sm text-blue-900 whitespace-pre-wrap">{opp.ai_reasoning}</p>
+                      </div>
+                    )}
+
+                    {/* AI reasoning from scraper (portais PT) */}
+                    {p.source_reasoning && p.source && p.source !== "manual" && p.source !== "whatsapp" && (
+                      <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-200">
+                        <p className="text-xs font-semibold text-indigo-700 uppercase mb-1">
+                          Análise IA — {SOURCE_LABELS[p.source] || p.source}
+                        </p>
+                        <p className="text-sm text-indigo-900 whitespace-pre-wrap">{p.source_reasoning}</p>
+                        {p.source_url && (
+                          <a
+                            href={p.source_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-block mt-2 text-xs text-indigo-700 hover:text-indigo-900 underline font-medium"
+                          >
+                            Ver anúncio original ↗
+                          </a>
+                        )}
                       </div>
                     )}
 
