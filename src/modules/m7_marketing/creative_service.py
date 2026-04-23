@@ -1197,21 +1197,100 @@ class CreativeService:
         return img.convert("RGB")
 
     @staticmethod
-    def _load_font(size: int) -> "ImageFont.FreeTypeFont":
-        """Carrega fonte com fallback chain."""
+    def _load_font(size: int, weight: str = "regular") -> "ImageFont.FreeTypeFont":
+        """Carrega fonte com peso (regular, bold, light, display).
+
+        Fallback chain cobre macOS, Linux (Docker Render) e último recurso Pillow default.
+        """
         from PIL import ImageFont
 
-        for name in [
-            "/System/Library/Fonts/Helvetica.ttc",
-            "/System/Library/Fonts/SFNSDisplay.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        ]:
+        chains = {
+            "display": [
+                "/System/Library/Fonts/Supplemental/Futura.ttc",
+                "/System/Library/Fonts/Avenir Next.ttc",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                "/System/Library/Fonts/HelveticaNeue.ttc",
+                "/System/Library/Fonts/Helvetica.ttc",
+            ],
+            "bold": [
+                "/System/Library/Fonts/HelveticaNeue.ttc",
+                "/System/Library/Fonts/Helvetica.ttc",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+            ],
+            "regular": [
+                "/System/Library/Fonts/HelveticaNeue.ttc",
+                "/System/Library/Fonts/Helvetica.ttc",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            ],
+            "light": [
+                "/System/Library/Fonts/HelveticaNeue.ttc",
+                "/System/Library/Fonts/Helvetica.ttc",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            ],
+        }
+        chain = chains.get(weight, chains["regular"])
+        for name in chain:
             try:
+                # Para .ttc (collections macOS) passar índice de face
+                if name.endswith(".ttc"):
+                    idx = {"display": 0, "bold": 1, "regular": 0, "light": 3}.get(weight, 0)
+                    try:
+                        return ImageFont.truetype(name, size, index=idx)
+                    except (OSError, IOError):
+                        return ImageFont.truetype(name, size, index=0)
                 return ImageFont.truetype(name, size)
             except (OSError, IOError):
                 continue
         return ImageFont.load_default()
+
+    @staticmethod
+    def _wrap_text(
+        text: str, font: "ImageFont.FreeTypeFont",
+        max_width: int, max_lines: int = 2,
+        draw: Optional["ImageDraw.Draw"] = None,
+    ) -> List[str]:
+        """Quebra texto em linhas respeitando max_width. Trunca com … se exceder max_lines."""
+        if not text:
+            return []
+        words = text.split()
+        if not words:
+            return []
+
+        def text_w(s: str) -> float:
+            if draw is not None:
+                return draw.textlength(s, font=font)
+            # Fallback via bbox
+            bbox = font.getbbox(s)
+            return bbox[2] - bbox[0]
+
+        lines: List[str] = []
+        current = words[0]
+        for word in words[1:]:
+            candidate = current + " " + word
+            if text_w(candidate) <= max_width:
+                current = candidate
+            else:
+                lines.append(current)
+                current = word
+                if len(lines) >= max_lines:
+                    break
+        if len(lines) < max_lines:
+            lines.append(current)
+
+        # Truncar ultima linha com … se ainda sobra texto ou se linha excede
+        joined = " ".join(lines)
+        if len(joined) < len(text) or text_w(lines[-1]) > max_width:
+            last = lines[-1]
+            while text_w(last + "…") > max_width and len(last) > 1:
+                last = last[:-1]
+            # Garantir que adiciona "…" se houve overflow
+            if not last.endswith("…"):
+                last = last.rstrip() + "…"
+            lines[-1] = last
+        return lines
 
     @staticmethod
     def _hex_to_rgb(hex_color: str) -> tuple:
@@ -1225,7 +1304,7 @@ class CreativeService:
     def _extract_template_fields(template_data: Dict[str, Any]) -> Dict[str, Any]:
         """Extrai campos comuns do template_data."""
         return {
-            "title": template_data.get("title", "HABTA")[:50],
+            "title": template_data.get("title", "HABTA"),
             "price": template_data.get("price_formatted", ""),
             "brand": template_data.get("brand_name", "HABTA"),
             "location": template_data.get("location", ""),
@@ -1241,6 +1320,8 @@ class CreativeService:
             "short_description": template_data.get("short_description", ""),
             "website_url": template_data.get("website_url", ""),
             "contact_phone": template_data.get("contact_phone", ""),
+            "highlights": template_data.get("highlights", []) or [],
+            "tagline": template_data.get("tagline", ""),
         }
 
     @staticmethod
@@ -1269,63 +1350,89 @@ class CreativeService:
     def _render_ig_post(
         width: int, height: int, template_data: Dict[str, Any],
     ) -> bytes:
-        """Layout feed quadrado: foto full, gradiente inferior, info em baixo."""
-        from PIL import ImageDraw
+        """Layout IG Post quadrado: foto full com overlay escuro inferior elegante."""
+        from PIL import Image, ImageDraw
 
         f = CreativeService._extract_template_fields(template_data)
+        primary = CreativeService._hex_to_rgb(f["color_primary"])
         accent = CreativeService._hex_to_rgb(f["color_accent"])
 
         img = CreativeService._load_photo(f["cover_photo"], width, height)
-        img = CreativeService._apply_gradient(img, 10, 220, 0.35)
+        # Gradiente suave na metade inferior
+        img = CreativeService._apply_gradient(img, 0, 230, 0.30)
         draw = ImageDraw.Draw(img)
 
         scale = min(width, height) / 1080
-        m = int(48 * scale)
+        m = int(64 * scale)  # margem maior para respiracao
 
-        # Badge / tipologia no topo
-        badge_text = f["badge"] or f["typology"] or f["listing_type"]
+        # --- HEADER: badge esq + brand dir ---
+        badge_text = (f["badge"] or f["typology"] or f["listing_type"]).upper()
         if badge_text:
-            fb = CreativeService._load_font(int(22 * scale))
-            bw = draw.textlength(badge_text.upper(), font=fb)
-            pad = int(12 * scale)
+            fb = CreativeService._load_font(int(20 * scale), "bold")
+            bw = draw.textlength(badge_text, font=fb)
+            pad_x = int(16 * scale)
+            pad_y = int(10 * scale)
+            box_h = int(40 * scale)
             draw.rounded_rectangle(
-                [m, m, m + bw + pad * 2, m + int(34 * scale)],
-                radius=int(6 * scale), fill=accent,
+                [m, m, m + bw + pad_x * 2, m + box_h],
+                radius=int(4 * scale), fill=accent,
             )
+            # Centrar verticalmente o texto no badge
+            text_y = m + (box_h - int(20 * scale)) // 2 - int(2 * scale)
             draw.text(
-                (m + pad, m + int(6 * scale)),
-                badge_text.upper(), fill=(255, 255, 255), font=fb,
+                (m + pad_x, text_y),
+                badge_text, fill=(255, 255, 255), font=fb,
             )
 
-        # Brand no topo direito
-        fb_brand = CreativeService._load_font(int(24 * scale))
-        brand_w = draw.textlength(f["brand"].upper(), font=fb_brand)
+        fb_brand = CreativeService._load_font(int(26 * scale), "bold")
+        brand_txt = f["brand"].upper()
+        brand_w = draw.textlength(brand_txt, font=fb_brand)
         draw.text(
-            (width - m - brand_w, m + int(4 * scale)),
-            f["brand"].upper(), fill=(255, 255, 255, 200), font=fb_brand,
+            (width - m - brand_w, m + int(6 * scale)),
+            brand_txt, fill=(255, 255, 255), font=fb_brand,
         )
 
-        # Bloco inferior: titulo, preco, features, localizacao
-        ty = height - int(280 * scale)
-        ft = CreativeService._load_font(int(42 * scale))
-        draw.text((m, ty), f["title"], fill=(255, 255, 255), font=ft)
+        # --- FOOTER BLOCK: titulo wrap, preco XL, separator, features ---
+        # Alinhar a partir de baixo com espaco generoso
+        block_h = int(380 * scale)
+        ty_base = height - block_h
 
-        fp = CreativeService._load_font(int(52 * scale))
-        draw.text((m, ty + int(56 * scale)), f["price"], fill=accent, font=fp)
+        # Titulo 2 linhas wrap
+        title_font = CreativeService._load_font(int(44 * scale), "bold")
+        max_tw = width - m * 2
+        title_lines = CreativeService._wrap_text(f["title"], title_font, max_tw, 2, draw)
+        line_h = int(54 * scale)
+        for i, line in enumerate(title_lines):
+            draw.text((m, ty_base + i * line_h), line, fill=(255, 255, 255), font=title_font)
 
+        # Preco grande, accent
+        price_font = CreativeService._load_font(int(72 * scale), "display")
+        price_y = ty_base + len(title_lines) * line_h + int(24 * scale)
+        draw.text((m, price_y), f["price"], fill=accent, font=price_font)
+
+        # Separador fino accent
+        sep_y = price_y + int(88 * scale)
+        draw.rectangle(
+            [(m, sep_y), (m + int(72 * scale), sep_y + int(3 * scale))],
+            fill=accent,
+        )
+
+        # Features + location em linha
         feat = CreativeService._build_features_line(f)
+        feat_y = sep_y + int(24 * scale)
         if feat:
-            ff = CreativeService._load_font(int(22 * scale))
-            draw.text((m, ty + int(124 * scale)), feat, fill=(255, 255, 255), font=ff)
+            ff = CreativeService._load_font(int(24 * scale), "regular")
+            draw.text((m, feat_y), feat, fill=(255, 255, 255), font=ff)
 
         if f["location"]:
-            fl = CreativeService._load_font(int(20 * scale))
+            fl = CreativeService._load_font(int(22 * scale), "light")
             draw.text(
-                (m, ty + int(160 * scale)),
-                f["location"], fill=(255, 255, 255, 200), font=fl,
+                (m, feat_y + int(42 * scale)),
+                f["location"], fill=(230, 230, 230), font=fl,
             )
 
-        CreativeService._draw_accent_bar(draw, width, height, accent, int(6 * scale))
+        # Barra accent fina no fundo
+        CreativeService._draw_accent_bar(draw, width, height, accent, int(4 * scale))
 
         buf = io.BytesIO()
         img.save(buf, format="PNG", quality=95)
@@ -1337,82 +1444,116 @@ class CreativeService:
     def _render_ig_story(
         width: int, height: int, template_data: Dict[str, Any],
     ) -> bytes:
-        """Layout vertical story: foto 60% superior, bloco info inferior escuro."""
+        """Layout story: foto 65% superior + bloco escuro inferior com hierarquia clara."""
         from PIL import Image, ImageDraw
 
         f = CreativeService._extract_template_fields(template_data)
         primary = CreativeService._hex_to_rgb(f["color_primary"])
         accent = CreativeService._hex_to_rgb(f["color_accent"])
 
-        # Foto ocupa 60% superior
-        photo_h = int(height * 0.6)
+        photo_h = int(height * 0.65)
         photo = CreativeService._load_photo(f["cover_photo"], width, photo_h)
 
-        # Canvas completo
         img = Image.new("RGB", (width, height), color=primary)
         img.paste(photo, (0, 0))
-
-        # Gradiente suave na transicao foto → bloco
-        img = CreativeService._apply_gradient(img, 0, 180, 0.45)
-        draw = ImageDraw.Draw(img)
-
-        # Painel inferior semi-opaco
-        panel_y = photo_h - int(height * 0.05)
-        panel = Image.new("RGBA", (width, height - panel_y), (*primary, 200))
-        img_rgba = img.convert("RGBA")
-        img_rgba.paste(panel, (0, panel_y), panel)
-        img = img_rgba.convert("RGB")
+        # Gradiente escuro na foto (terço inferior)
+        img = CreativeService._apply_gradient(img, 0, 180, 0.6)
         draw = ImageDraw.Draw(img)
 
         scale = width / 1080
-        m = int(56 * scale)
-        cy = photo_h + int(40 * scale)
+        m = int(72 * scale)
 
-        # Brand
-        fb = CreativeService._load_font(int(26 * scale))
-        draw.text((m, cy), f["brand"].upper(), fill=(255, 255, 255, 180), font=fb)
+        # --- TOPO: Badge sobre foto esquerda + brand dir ---
+        badge_text = (f["badge"] or f["typology"] or f["listing_type"]).upper()
+        if badge_text:
+            fb = CreativeService._load_font(int(22 * scale), "bold")
+            bw = draw.textlength(badge_text, font=fb)
+            pad_x = int(16 * scale)
+            box_h = int(44 * scale)
+            draw.rounded_rectangle(
+                [m, m + int(40 * scale), m + bw + pad_x * 2, m + int(40 * scale) + box_h],
+                radius=int(4 * scale), fill=accent,
+            )
+            draw.text(
+                (m + pad_x, m + int(40 * scale) + (box_h - int(22 * scale)) // 2 - int(2 * scale)),
+                badge_text, fill=(255, 255, 255), font=fb,
+            )
 
-        # Titulo
-        ft = CreativeService._load_font(int(48 * scale))
-        draw.text((m, cy + int(50 * scale)), f["title"], fill=(255, 255, 255), font=ft)
+        # Brand canto sup direito
+        fb_brand = CreativeService._load_font(int(28 * scale), "bold")
+        brand_txt = f["brand"].upper()
+        brand_w = draw.textlength(brand_txt, font=fb_brand)
+        draw.text(
+            (width - m - brand_w, m + int(46 * scale)),
+            brand_txt, fill=(255, 255, 255), font=fb_brand,
+        )
 
-        # Preco
-        fp = CreativeService._load_font(int(60 * scale))
-        draw.text((m, cy + int(115 * scale)), f["price"], fill=accent, font=fp)
+        # --- BLOCO INFERIOR: fundo escuro solido ---
+        block_y = photo_h
+        block_rgba = Image.new("RGBA", (width, height - block_y), (*primary, 255))
+        img_rgba = img.convert("RGBA")
+        img_rgba.paste(block_rgba, (0, block_y), block_rgba)
+        img = img_rgba.convert("RGB")
+        draw = ImageDraw.Draw(img)
 
-        # Linha separadora accent
-        sep_y = cy + int(195 * scale)
+        # Barra accent horizontal no topo do bloco
         draw.rectangle(
-            [(m, sep_y), (m + int(80 * scale), sep_y + int(4 * scale))],
+            [(0, block_y), (width, block_y + int(6 * scale))],
             fill=accent,
         )
 
-        # Features
+        cy = block_y + int(70 * scale)
+
+        # Titulo (wrap 3 linhas, display font)
+        title_font = CreativeService._load_font(int(46 * scale), "bold")
+        title_lines = CreativeService._wrap_text(f["title"], title_font, width - m * 2, 3, draw)
+        line_h = int(56 * scale)
+        for i, line in enumerate(title_lines):
+            draw.text((m, cy + i * line_h), line, fill=(255, 255, 255), font=title_font)
+
+        cy += len(title_lines) * line_h + int(32 * scale)
+
+        # Preco XL, accent
+        price_font = CreativeService._load_font(int(82 * scale), "display")
+        draw.text((m, cy), f["price"], fill=accent, font=price_font)
+        cy += int(104 * scale)
+
+        # Separador accent
+        draw.rectangle(
+            [(m, cy), (m + int(100 * scale), cy + int(4 * scale))],
+            fill=accent,
+        )
+        cy += int(30 * scale)
+
+        # Features + location
         feat = CreativeService._build_features_line(f)
         if feat:
-            ff = CreativeService._load_font(int(26 * scale))
-            draw.text((m, sep_y + int(24 * scale)), feat, fill=(255, 255, 255), font=ff)
+            ff = CreativeService._load_font(int(28 * scale), "regular")
+            draw.text((m, cy), feat, fill=(255, 255, 255), font=ff)
+            cy += int(44 * scale)
 
-        # Localizacao
         if f["location"]:
-            fl = CreativeService._load_font(int(24 * scale))
-            draw.text(
-                (m, sep_y + int(68 * scale)),
-                f["location"], fill=(255, 255, 255, 200), font=fl,
-            )
+            fl = CreativeService._load_font(int(26 * scale), "light")
+            draw.text((m, cy), f["location"], fill=(220, 220, 220), font=fl)
 
-        # CTA / website no fundo
-        if f["website_url"] or f["contact_phone"]:
-            cta = f["website_url"] or f["contact_phone"]
-            fc = CreativeService._load_font(int(22 * scale))
-            cta_w = draw.textlength(cta, font=fc)
-            draw.text(
-                ((width - cta_w) / 2, height - int(80 * scale)),
-                cta, fill=(255, 255, 255, 160), font=fc,
+        # CTA centrado no fundo
+        cta = f["website_url"] or f["contact_phone"]
+        if cta:
+            cta_font = CreativeService._load_font(int(24 * scale), "bold")
+            cta_label = cta.upper()
+            cta_w = draw.textlength(cta_label, font=cta_font)
+            cta_y = height - int(90 * scale)
+            # Linha accent acima
+            line_w = int(60 * scale)
+            draw.rectangle(
+                [((width - line_w) / 2, cta_y - int(20 * scale)),
+                 ((width + line_w) / 2, cta_y - int(20 * scale) + int(2 * scale))],
+                fill=accent,
             )
-
-        # Barra accent no topo (diferencia do post)
-        draw.rectangle([(0, 0), (width, int(6 * scale))], fill=accent)
+            draw.text(
+                ((width - cta_w) / 2, cta_y),
+                cta_label, fill=(255, 255, 255), font=cta_font,
+            )
 
         buf = io.BytesIO()
         img.save(buf, format="PNG", quality=95)
@@ -1424,83 +1565,102 @@ class CreativeService:
     def _render_fb_post(
         width: int, height: int, template_data: Dict[str, Any],
     ) -> bytes:
-        """Layout horizontal FB: foto full + overlay + info lateral esquerda."""
+        """Layout FB landscape: painel escuro à esquerda (45%) + foto direita (55%)."""
         from PIL import Image, ImageDraw
 
         f = CreativeService._extract_template_fields(template_data)
         primary = CreativeService._hex_to_rgb(f["color_primary"])
         accent = CreativeService._hex_to_rgb(f["color_accent"])
 
-        img = CreativeService._load_photo(f["cover_photo"], width, height)
-        img = CreativeService._apply_gradient(img, 20, 200, 0.0)
-        draw = ImageDraw.Draw(img)
-
         scale = min(width, height) / 630
-        m = int(40 * scale)
+        m = int(56 * scale)
 
-        # Painel lateral esquerdo semi-opaco
-        panel_w = int(width * 0.48)
-        panel = Image.new("RGBA", (panel_w, height), (*primary, 180))
-        img_rgba = img.convert("RGBA")
-        img_rgba.paste(panel, (0, 0), panel)
-        img = img_rgba.convert("RGB")
+        # Foto à direita — só carrega a porção direita
+        panel_w = int(width * 0.45)
+        photo_w = width - panel_w
+        photo = CreativeService._load_photo(f["cover_photo"], photo_w, height)
+
+        # Canvas: painel sólido esquerda + foto direita
+        img = Image.new("RGB", (width, height), color=primary)
+        img.paste(photo, (panel_w, 0))
+        # Pequeno gradiente vertical na foto
+        img = CreativeService._apply_gradient(img, 0, 100, 0.0)
         draw = ImageDraw.Draw(img)
 
-        # Brand
-        fb = CreativeService._load_font(int(20 * scale))
-        draw.text((m, m), f["brand"].upper(), fill=(255, 255, 255, 180), font=fb)
-
-        # Titulo
-        cy = int(height * 0.22)
-        ft = CreativeService._load_font(int(34 * scale))
-        # Quebrar titulo se muito longo
-        title = f["title"]
-        max_chars = 28
-        if len(title) > max_chars:
-            split = title[:max_chars].rfind(" ")
-            if split > 10:
-                line1 = title[:split]
-                line2 = title[split + 1:]
-            else:
-                line1 = title[:max_chars]
-                line2 = title[max_chars:]
-            draw.text((m, cy), line1, fill=(255, 255, 255), font=ft)
-            draw.text((m, cy + int(42 * scale)), line2[:max_chars], fill=(255, 255, 255), font=ft)
-            cy += int(42 * scale)
-        else:
-            draw.text((m, cy), title, fill=(255, 255, 255), font=ft)
-
-        # Preco
-        fp = CreativeService._load_font(int(44 * scale))
-        draw.text((m, cy + int(52 * scale)), f["price"], fill=accent, font=fp)
-
-        # Features
-        feat = CreativeService._build_features_line(f)
-        if feat:
-            ff = CreativeService._load_font(int(18 * scale))
-            draw.text((m, cy + int(110 * scale)), feat, fill=(255, 255, 255), font=ff)
-
-        # Localizacao
-        if f["location"]:
-            fl = CreativeService._load_font(int(18 * scale))
-            draw.text(
-                (m, cy + int(142 * scale)),
-                f["location"], fill=(255, 255, 255, 200), font=fl,
-            )
-
-        # Barra accent lateral direita
-        bar_w = int(6 * scale)
+        # Barra accent vertical divisora
+        bar_w = int(4 * scale)
         draw.rectangle(
             [(panel_w - bar_w, 0), (panel_w, height)],
             fill=accent,
         )
 
-        # Website em baixo
-        if f["website_url"]:
-            fw = CreativeService._load_font(int(16 * scale))
+        # --- PAINEL ESQUERDO (info) ---
+        # Topo: brand
+        fb_brand = CreativeService._load_font(int(22 * scale), "bold")
+        draw.text(
+            (m, m), f["brand"].upper(),
+            fill=(255, 255, 255), font=fb_brand,
+        )
+
+        # Badge abaixo do brand
+        cy = m + int(44 * scale)
+        badge_text = (f["badge"] or f["typology"] or f["listing_type"]).upper()
+        if badge_text:
+            fb = CreativeService._load_font(int(16 * scale), "bold")
+            bw = draw.textlength(badge_text, font=fb)
+            pad_x = int(12 * scale)
+            box_h = int(32 * scale)
+            draw.rounded_rectangle(
+                [m, cy, m + bw + pad_x * 2, cy + box_h],
+                radius=int(3 * scale), fill=accent,
+            )
             draw.text(
-                (m, height - m - int(16 * scale)),
-                f["website_url"], fill=(255, 255, 255, 140), font=fw,
+                (m + pad_x, cy + (box_h - int(16 * scale)) // 2 - int(2 * scale)),
+                badge_text, fill=(255, 255, 255), font=fb,
+            )
+            cy += int(56 * scale)
+        else:
+            cy += int(16 * scale)
+
+        # Titulo wrap 3 linhas (fb landscape tem pouco width)
+        title_font = CreativeService._load_font(int(30 * scale), "bold")
+        max_tw = panel_w - m * 2
+        title_lines = CreativeService._wrap_text(f["title"], title_font, max_tw, 3, draw)
+        line_h = int(38 * scale)
+        for i, line in enumerate(title_lines):
+            draw.text((m, cy + i * line_h), line, fill=(255, 255, 255), font=title_font)
+        cy += len(title_lines) * line_h + int(20 * scale)
+
+        # Preco
+        price_font = CreativeService._load_font(int(48 * scale), "display")
+        draw.text((m, cy), f["price"], fill=accent, font=price_font)
+        cy += int(64 * scale)
+
+        # Separador
+        draw.rectangle(
+            [(m, cy), (m + int(56 * scale), cy + int(3 * scale))],
+            fill=accent,
+        )
+        cy += int(20 * scale)
+
+        # Features
+        feat = CreativeService._build_features_line(f)
+        if feat:
+            ff = CreativeService._load_font(int(20 * scale), "regular")
+            draw.text((m, cy), feat, fill=(255, 255, 255), font=ff)
+            cy += int(32 * scale)
+
+        # Location
+        if f["location"]:
+            fl = CreativeService._load_font(int(18 * scale), "light")
+            draw.text((m, cy), f["location"], fill=(220, 220, 220), font=fl)
+
+        # Website rodapé
+        if f["website_url"]:
+            fw = CreativeService._load_font(int(16 * scale), "regular")
+            draw.text(
+                (m, height - m - int(18 * scale)),
+                f["website_url"], fill=(200, 200, 200), font=fw,
             )
 
         buf = io.BytesIO()
@@ -1513,97 +1673,125 @@ class CreativeService:
     def _render_property_card(
         width: int, height: int, template_data: Dict[str, Any],
     ) -> bytes:
-        """Layout vertical elegante: foto 55% + ficha tecnica inferior."""
+        """Layout vertical premium: foto 55% + ficha branca elegante + highlights."""
         from PIL import Image, ImageDraw
 
         f = CreativeService._extract_template_fields(template_data)
         primary = CreativeService._hex_to_rgb(f["color_primary"])
         accent = CreativeService._hex_to_rgb(f["color_accent"])
 
-        # Foto 55% superior
         photo_h = int(height * 0.55)
         photo = CreativeService._load_photo(f["cover_photo"], width, photo_h)
 
         img = Image.new("RGB", (width, height), color=(255, 255, 255))
         img.paste(photo, (0, 0))
-
-        # Gradiente suave na foto
-        img = CreativeService._apply_gradient(img, 0, 120, 0.3)
+        # Gradiente subtil só no terço inferior da foto
+        img = CreativeService._apply_gradient(img, 0, 130, 0.65)
         draw = ImageDraw.Draw(img)
 
         scale = width / 1080
-        m = int(48 * scale)
+        m = int(64 * scale)
 
-        # Badge sobre a foto
-        badge_text = f["badge"] or f["typology"] or f["listing_type"]
+        # --- BADGE + BRAND sobre a foto ---
+        badge_text = (f["badge"] or f["typology"] or f["listing_type"]).upper()
         if badge_text:
-            fba = CreativeService._load_font(int(20 * scale))
-            bw = draw.textlength(badge_text.upper(), font=fba)
-            pad = int(10 * scale)
+            fba = CreativeService._load_font(int(20 * scale), "bold")
+            bw = draw.textlength(badge_text, font=fba)
+            pad_x = int(14 * scale)
+            box_h = int(38 * scale)
+            by = m
             draw.rounded_rectangle(
-                [m, photo_h - int(50 * scale), m + bw + pad * 2, photo_h - int(16 * scale)],
-                radius=int(5 * scale), fill=accent,
+                [m, by, m + bw + pad_x * 2, by + box_h],
+                radius=int(4 * scale), fill=accent,
             )
             draw.text(
-                (m + pad, photo_h - int(46 * scale)),
-                badge_text.upper(), fill=(255, 255, 255), font=fba,
+                (m + pad_x, by + (box_h - int(20 * scale)) // 2 - int(2 * scale)),
+                badge_text, fill=(255, 255, 255), font=fba,
             )
 
-        # Ficha inferior sobre fundo branco
-        card_y = photo_h + int(24 * scale)
+        fb_brand = CreativeService._load_font(int(24 * scale), "bold")
+        brand_txt = f["brand"].upper()
+        brand_w = draw.textlength(brand_txt, font=fb_brand)
+        draw.text(
+            (width - m - brand_w, m + int(8 * scale)),
+            brand_txt, fill=(255, 255, 255), font=fb_brand,
+        )
 
-        # Barra accent fina
+        # --- FICHA INFERIOR (fundo branco) ---
+        card_y = photo_h + int(48 * scale)
+
+        # Barra accent
         draw.rectangle(
-            [(m, card_y), (m + int(60 * scale), card_y + int(4 * scale))],
+            [(m, card_y), (m + int(72 * scale), card_y + int(4 * scale))],
             fill=accent,
         )
+        card_y += int(28 * scale)
 
-        # Titulo
-        ft = CreativeService._load_font(int(38 * scale))
-        draw.text((m, card_y + int(20 * scale)), f["title"], fill=primary, font=ft)
+        # Titulo wrap 2 linhas
+        title_font = CreativeService._load_font(int(40 * scale), "bold")
+        title_lines = CreativeService._wrap_text(f["title"], title_font, width - m * 2, 2, draw)
+        line_h = int(48 * scale)
+        for i, line in enumerate(title_lines):
+            draw.text((m, card_y + i * line_h), line, fill=primary, font=title_font)
+        card_y += len(title_lines) * line_h + int(16 * scale)
 
-        # Preco
-        fp = CreativeService._load_font(int(48 * scale))
-        draw.text((m, card_y + int(72 * scale)), f["price"], fill=accent, font=fp)
+        # Preço XL
+        price_font = CreativeService._load_font(int(60 * scale), "display")
+        draw.text((m, card_y), f["price"], fill=accent, font=price_font)
+        card_y += int(80 * scale)
 
-        # Features em "pills"
+        # Features + location lado a lado
         feat = CreativeService._build_features_line(f)
         if feat:
-            ff = CreativeService._load_font(int(22 * scale))
-            draw.text(
-                (m, card_y + int(138 * scale)), feat,
-                fill=(100, 100, 100), font=ff,
-            )
+            ff = CreativeService._load_font(int(22 * scale), "regular")
+            draw.text((m, card_y), feat, fill=(80, 80, 80), font=ff)
+            card_y += int(36 * scale)
 
-        # Localizacao
         if f["location"]:
-            fl = CreativeService._load_font(int(20 * scale))
-            draw.text(
-                (m, card_y + int(176 * scale)),
-                f["location"], fill=(120, 120, 120), font=fl,
-            )
+            fl = CreativeService._load_font(int(20 * scale), "light")
+            draw.text((m, card_y), f["location"], fill=(120, 120, 120), font=fl)
+            card_y += int(36 * scale)
 
-        # Descricao curta
-        desc = f["short_description"][:100] if f["short_description"] else ""
-        if desc:
-            fd = CreativeService._load_font(int(18 * scale))
-            draw.text(
-                (m, card_y + int(216 * scale)),
-                desc, fill=(140, 140, 140), font=fd,
-            )
+        # Highlights como bullets (máx 3)
+        highlights = f["highlights"][:3] if f["highlights"] else []
+        if highlights:
+            card_y += int(16 * scale)
+            fh = CreativeService._load_font(int(18 * scale), "regular")
+            bullet_r = int(4 * scale)
+            for h in highlights:
+                # Bullet
+                bx = m + bullet_r
+                by = card_y + int(10 * scale)
+                draw.ellipse(
+                    [(bx - bullet_r, by - bullet_r), (bx + bullet_r, by + bullet_r)],
+                    fill=accent,
+                )
+                draw.text(
+                    (m + int(20 * scale), card_y),
+                    h, fill=(70, 70, 70), font=fh,
+                )
+                card_y += int(32 * scale)
 
-        # Brand + contacto no fundo
-        fb = CreativeService._load_font(int(20 * scale))
-        brand_line = f["brand"].upper()
-        if f["contact_phone"]:
-            brand_line += f"  |  {f['contact_phone']}"
-        draw.text(
-            (m, height - m - int(24 * scale)),
-            brand_line, fill=primary, font=fb,
+        # --- Rodapé: brand + contacto ---
+        footer_y = height - int(80 * scale)
+        # Linha separadora cinza
+        draw.rectangle(
+            [(m, footer_y - int(20 * scale)), (width - m, footer_y - int(19 * scale))],
+            fill=(220, 220, 220),
         )
+        fb_footer = CreativeService._load_font(int(20 * scale), "bold")
+        brand_line = f["brand"].upper()
+        draw.text((m, footer_y), brand_line, fill=primary, font=fb_footer)
+        if f["contact_phone"]:
+            contact_font = CreativeService._load_font(int(18 * scale), "regular")
+            cw = draw.textlength(f["contact_phone"], font=contact_font)
+            draw.text(
+                (width - m - cw, footer_y + int(2 * scale)),
+                f["contact_phone"], fill=(80, 80, 80), font=contact_font,
+            )
 
-        # Barra accent inferior
-        CreativeService._draw_accent_bar(draw, width, height, accent, int(6 * scale))
+        # Barra accent base
+        CreativeService._draw_accent_bar(draw, width, height, accent, int(4 * scale))
 
         buf = io.BytesIO()
         img.save(buf, format="PNG", quality=95)
