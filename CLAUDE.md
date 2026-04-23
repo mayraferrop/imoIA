@@ -2,6 +2,8 @@
 > Este arquivo define o comportamento padrão do Claude Code neste projeto.
 > Leia este arquivo integralmente antes de qualquer ação.
 
+> **LEITURA OBRIGATÓRIA no início de cada sessão:** `STATUS.md` na raiz do projeto. Define o estado atual por módulo, o target da apresentação (`src/frontend/public/apresentacao-imoia.html`) e o roadmap até lançamento. Usa-o para alinhar qualquer sugestão/tarefa com as prioridades P0/P1/P2 definidas. Atualiza-o quando concluíres trabalho que afete o estado de um módulo.
+
 ---
 
 ## 🧠 Contexto do Projeto
