@@ -29,7 +29,8 @@ def _discover_orgs() -> list[str]:
     da org não tem estratégia activa).
     """
     from src.database.db import get_session
-    from src.database.models_v2 import Group, Property
+    from src.database.models import Group
+    from src.database.models_v2 import Property
     from sqlalchemy import select, distinct, union
 
     with get_session() as s:
