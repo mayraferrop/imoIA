@@ -464,8 +464,19 @@ class MarketingService:
             )
             return {}
 
+        # Herdar fotos da property associada ao deal (M1 -> M7)
+        # Se o utilizador cadastrou fotos em M1, o listing nasce com elas.
+        inherited_photos: List[Dict[str, Any]] = []
+        inherited_cover: Optional[str] = None
+        property_id = deal.get("property_id")
+        if property_id:
+            prop = db.get_by_id("properties", property_id)
+            if prop:
+                inherited_photos = _as_list(prop.get("photos"))
+                inherited_cover = prop.get("cover_photo_url")
+
         listing_id = db.new_id()
-        listing = db.insert("listings", {
+        listing_row: Dict[str, Any] = {
             "id": listing_id,
             "tenant_id": deal.get("tenant_id"),
             "deal_id": deal_id,
@@ -474,11 +485,17 @@ class MarketingService:
             "currency": "EUR",
             "price_negotiable": True,
             "status": "draft",
-        })
+            "photos": inherited_photos,
+        }
+        if inherited_cover:
+            listing_row["cover_photo_url"] = inherited_cover
+
+        listing = db.insert("listings", listing_row)
 
         logger.info(
             f"Listing {listing_id} criado para deal {deal_id} "
-            f"({listing_type}, {listing_price} EUR, trigger: {target_status})"
+            f"({listing_type}, {listing_price} EUR, trigger: {target_status}, "
+            f"{len(inherited_photos)} fotos herdadas da property {property_id or 'n/a'})"
         )
         return _listing_to_dict(listing)
 

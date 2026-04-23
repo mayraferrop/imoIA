@@ -166,6 +166,12 @@ class Property(Base):
     asking_price: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
 
+    # Fotos (migrada de Listing em 005_property_photos.sql) — array JSON
+    # com {document_id, url, filename, order, is_cover}. cover_photo_url é
+    # espelho da foto com is_cover=true para render rápido.
+    photos: Mapped[Optional[list]] = mapped_column(JSON, default=list)
+    cover_photo_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     # Meta
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     tags: Mapped[Optional[list]] = mapped_column(JSON, default=list)

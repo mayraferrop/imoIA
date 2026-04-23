@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
+import Link from "next/link";
 import { formatEUR, GRADE_COLORS } from "@/lib/utils";
 import {
   BarChart,
@@ -1225,6 +1226,13 @@ export default function PropertiesPage() {
 
                     {/* Action buttons */}
                     <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200">
+                      <Link
+                        href={`/properties/${p.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition-colors"
+                      >
+                        Detalhe + fotos
+                      </Link>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleStatusChange(p.id, "analise"); }}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
