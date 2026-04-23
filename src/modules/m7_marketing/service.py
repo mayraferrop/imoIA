@@ -385,6 +385,10 @@ class MarketingService:
             "price_on_request": data.get("price_on_request", False),
             "habta_published": False,
             "whatsapp_sent": False,
+            "days_on_market": 0,
+            "total_views": 0,
+            "total_contacts": 0,
+            "total_proposals": 0,
             "highlights": data.get("highlights", []),
             "notes": data.get("notes"),
             "status": "draft",
@@ -486,8 +490,15 @@ class MarketingService:
             "listing_price": float(listing_price),
             "currency": "EUR",
             "price_negotiable": True,
+            "price_on_request": False,
             "status": "draft",
             "photos": inherited_photos,
+            "habta_published": False,
+            "whatsapp_sent": False,
+            "days_on_market": 0,
+            "total_views": 0,
+            "total_contacts": 0,
+            "total_proposals": 0,
         }
         if inherited_cover:
             listing_row["cover_photo_url"] = inherited_cover
