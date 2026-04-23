@@ -29,9 +29,26 @@ def _discover_orgs() -> list[str]:
         return [r[0] for r in rows if r[0]]
 
 
+def _check_bridge_status() -> tuple[bool, str]:
+    """Pre-check do bridge Baileys. Devolve (ok, detalhe)."""
+    try:
+        from src.modules.m1_ingestor.whatsapp_client import _get_whatsapp_client
+        st = _get_whatsapp_client().get_status()
+        connected = bool(st.get("connected"))
+        return connected, f"status={st.get('status')} user={(st.get('user') or {}).get('name')}"
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}"
+
+
 def main() -> int:
     from src.database.supabase_rest import current_org_id
     from src.modules.m1_ingestor.service import run_pipeline
+
+    ok, detail = _check_bridge_status()
+    if not ok:
+        logger.error(f"[cron] bridge OFFLINE ({detail}) — abortar antes de correr pipeline")
+        return 2
+    logger.info(f"[cron] bridge OK ({detail})")
 
     override = os.getenv("IMOIA_CRON_ORG_IDS", "").strip()
     if override:
