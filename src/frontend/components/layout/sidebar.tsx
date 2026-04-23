@@ -25,6 +25,7 @@ const ADMIN_ITEMS = [
   { href: "/admin/invites", label: "Convites", icon: "✉️" },
   { href: "/admin/members", label: "Membros", icon: "🔑" },
   { href: "/admin/runs", label: "Execucoes Pipeline", icon: "📜" },
+  { href: "/admin/dlq", label: "Dead-letter Queue", icon: "🪣" },
 ];
 
 export function Sidebar() {

@@ -261,6 +261,71 @@ async def get_pipeline_run(
     return rows[0]
 
 
+@router.get("/dlq", summary="Dead-letter queue do pipeline M1")
+async def list_dlq(
+    organization_id: str = Depends(get_current_organization),
+    limit: int = Query(100, ge=1, le=500),
+    only_pending: bool = Query(True, description="Apenas retry_count<5"),
+) -> Dict[str, Any]:
+    """Lista mensagens na dead-letter queue da organizacao activa.
+
+    A DLQ captura mensagens que excederam o MAX_CLASSIFY numa corrida
+    (ou falharam save/classify). Pipeline retenta com backoff exponencial
+    15m->240m ate retry_count=5.
+    """
+    filters = f"organization_id=eq.{organization_id}"
+    if only_pending:
+        filters += "&retry_count=lt.5"
+    rows = db.list_rows(
+        "m1_failed_messages",
+        select=(
+            "id,group_id,group_name,whatsapp_message_id,content,sender_name,"
+            "message_timestamp,reason,retry_count,next_retry_at,last_error,created_at"
+        ),
+        filters=filters,
+        order="next_retry_at.asc",
+        limit=limit,
+    )
+    total_pending = db.list_rows(
+        "m1_failed_messages",
+        select="id",
+        filters=f"organization_id=eq.{organization_id}&retry_count=lt.5",
+        limit=1000,
+    )
+    total_exhausted = db.list_rows(
+        "m1_failed_messages",
+        select="id",
+        filters=f"organization_id=eq.{organization_id}&retry_count=gte.5",
+        limit=1000,
+    )
+    return {
+        "rows": rows,
+        "counts": {
+            "pending": len(total_pending),
+            "exhausted": len(total_exhausted),
+        },
+    }
+
+
+@router.delete("/dlq/{entry_id}", summary="Remover entrada da DLQ")
+async def delete_dlq_entry(
+    entry_id: int,
+    organization_id: str = Depends(get_current_organization),
+) -> Dict[str, Any]:
+    """Remove manualmente uma entrada da DLQ (p.ex. para descartar msg
+    que ja nao interessa retentar)."""
+    existing = db.list_rows(
+        "m1_failed_messages",
+        select="id",
+        filters=f"organization_id=eq.{organization_id}&id=eq.{entry_id}",
+        limit=1,
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Entrada nao encontrada")
+    db.delete_by_filter("m1_failed_messages", f"id=eq.{entry_id}")
+    return {"deleted": entry_id}
+
+
 @router.get("/debug", summary="Diagnostico do pipeline")
 async def pipeline_debug() -> Dict[str, Any]:
     """Verifica dependencias e configuracao do pipeline."""
