@@ -278,7 +278,7 @@ class WhatsAppClient:
         data = self._request(
             "GET",
             f"/messages/{group_id}",
-            params={"count": 100, "since": since_ts},
+            params={"count": 500, "since": since_ts},
         )
 
         messages: List[Dict[str, Any]] = []

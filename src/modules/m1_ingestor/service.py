@@ -937,11 +937,11 @@ def run_pipeline(trigger_source: str = "unknown") -> PipelineResult:
     inactive_with_unread = [g for g in inactive_in_api if g.get("unread", 0) and g["unread"] > 0]
 
     logger.info(
-        f"OPT: {len(active_with_unread)} activos a processar "
-        f"(confirmado={len(active_with_unread) - len(active_unknown_unread)}, "
-        f"indeterminado={len(active_unknown_unread)}), "
-        f"{len(active_already_read)} activos ja lidos (skip), "
-        f"{len(inactive_with_unread)} inativos com unread"
+        f"Fetch: processa {len(active_groups)} grupos activos "
+        f"(unread>0={len(active_with_unread) - len(active_unknown_unread)}, "
+        f"unread=?={len(active_unknown_unread)}, "
+        f"unread=0={len(active_already_read)} — tambem processados para evitar "
+        f"perda por leitura no telemovel); {len(inactive_with_unread)} inactivos com unread"
     )
 
     # Obter tenant_id para estratégia personalizada
@@ -1140,7 +1140,7 @@ def run_pipeline(trigger_source: str = "unknown") -> PipelineResult:
                             break
 
         for gid in group_filtered_map:
-            gi = next((g for g in active_with_unread if g.get("id") == gid), None)
+            gi = group_info_map.get(gid) or next((g for g in active_groups if g.get("id") == gid), None)
             if gi and any(gl.get("grupo_id") == gid and gl.get("oportunidades", 0) > 0 for gl in group_logs):
                 try:
                     _score_group_opportunities(gi)
@@ -1207,8 +1207,8 @@ def run_pipeline(trigger_source: str = "unknown") -> PipelineResult:
     logger.info(f"  FASE 2 dedup: {phase2_elapsed:.1f}s")
     logger.info(f"  FASE 3 classificacao: {phase3_elapsed:.1f}s")
     logger.info(f"  FASE 4 mark-as-read: {phase_archive_elapsed:.1f}s ({archive_count}/{len(groups_to_archive)})")
-    logger.info(f"  Grupos com unread: {len(active_with_unread)} activos + {len(inactive_with_unread)} inativos")
-    logger.info(f"  Grupos skip (ja lidos): {len(active_already_read)}")
+    logger.info(f"  Grupos processados: {len(active_groups)} activos (de todos, ignorando unread)")
+    logger.info(f"  Grupos com unread detectado: {len(active_with_unread)} + {len(inactive_with_unread)} inactivos")
     logger.info(f"  Mensagens buscadas: {total_messages}")
     logger.info(f"  Mensagens apos filtro: {total_filtered}")
     logger.info(f"  Oportunidades: {total_opportunities}")
@@ -1224,8 +1224,8 @@ def run_pipeline(trigger_source: str = "unknown") -> PipelineResult:
             "mensagens": result.messages_fetched,
             "mensagens_filtradas": total_filtered,
             "oportunidades": result.opportunities_found,
+            "grupos_processados": len(active_groups),
             "grupos_com_unread": len(active_with_unread),
-            "grupos_skip": len(active_already_read),
             "inativos_lidos": inactive_read,
             "archive": archive_count,
             "erros": len(result.errors),
@@ -1280,6 +1280,7 @@ def run_pipeline(trigger_source: str = "unknown") -> PipelineResult:
         "mensagens": result.messages_fetched,
         "mensagens_filtradas": total_filtered,
         "oportunidades": result.opportunities_found,
+        "grupos_processados": len(active_groups),
         "grupos_com_unread": len(active_with_unread),
         "inativos_lidos": inactive_read,
         "erros": len(result.errors),
