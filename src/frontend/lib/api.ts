@@ -111,9 +111,18 @@ export async function apiDelete<T = unknown>(path: string): Promise<T | null> {
   }
 }
 
-// SWR fetcher com auth
+// SWR fetcher com auth — LANCA em erro para SWR poder fazer retry.
+// Retornar null silenciosamente faz SWR cachear o null e nunca recuperar
+// de race conditions (ex.: fetch antes da sessao auth estar hidratada).
 export const fetcher = async (path: string) => {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}${path}`, { headers });
-  return res.ok ? res.json() : null;
+  if (!res.ok) {
+    const err = new Error(`HTTP ${res.status} em ${path}`) as Error & {
+      status?: number;
+    };
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
 };
