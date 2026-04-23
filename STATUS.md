@@ -54,7 +54,7 @@
 - Scoring via `deal_scorer.py` (regra 70%, yield, MAO)
 - Cron Render 5×/dia (08/11/14/17/20 UTC)
 - Admin UI: `/admin/runs`, `/admin/dlq`
-- **Portais PT (scraper M1)** — Imovirtual ✅ funcional (parser via `__NEXT_DATA__`, 4 buscas default: apartamento+moradia × Lisboa+Porto). Idealista dormant (DataDome bloqueia — reactivar com API paga). Filtro obrigatório por estratégia activa no `OpportunityClassifier`. Cron `imoia-scraper-cron` 1x/dia às 07 UTC. Migration 007 aplicada (Sprint 1 #2, 2026-04-23)
+- **Portais PT (scraper M1)** — Imovirtual ✅ funcional (parser via `__NEXT_DATA__`, 4 buscas default: apartamento+moradia × Lisboa+Porto). Idealista dormant (DataDome bloqueia — reactivar com API paga). Filtro obrigatório por estratégia activa no `OpportunityClassifier`. Cron `imoia-scraper-cron` 1x/dia às 07 UTC. Migration 007 aplicada. **Validado E2E 2026-04-23**: run manual → 220 listings fetched, 220 classificados, 9 oportunidades criadas (Fix and Flip PT, confiança 0.65–0.75) em 146s (Sprint 1 #2)
 
 **Gap:**
 1. **Facebook**: prometido mas não existe scraper/integração
