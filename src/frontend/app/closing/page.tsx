@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
-import { apiPost, apiPatch } from "@/lib/api";
+import { apiPost, apiPatch, apiPut } from "@/lib/api";
 import { formatEUR, cn } from "@/lib/utils";
 
 const CLOSINGS_KEY = "/api/v1/closing";
@@ -158,7 +158,10 @@ export default function ClosingPage() {
     }
   }
 
-  async function advanceStatus(closingId: string, targetStatus: string) {
+  async function advanceStatus(closingId: string, targetStatus: string, extra?: { deed_scheduled_date?: string }) {
+    if (extra?.deed_scheduled_date) {
+      await apiPut(`/api/v1/closing/${closingId}`, { deed_scheduled_date: extra.deed_scheduled_date });
+    }
     await apiPatch(`/api/v1/closing/${closingId}/status`, { target_status: targetStatus });
     refreshClosings();
   }
@@ -751,12 +754,19 @@ export default function ClosingPage() {
 
 function ClosingAction({ title, closingId, status, onAdvance }: {
   title: string; closingId: string; status: string;
-  onAdvance: (id: string, target: string) => void;
+  onAdvance: (id: string, target: string, extra?: { deed_scheduled_date?: string }) => void;
 }) {
   const nextOpts = TRANSITIONS[status] ?? [];
   const [target, setTarget] = useState(nextOpts[0] ?? "");
+  const [deedDate, setDeedDate] = useState("");
+
+  useEffect(() => {
+    setTarget(nextOpts[0] ?? "");
+  }, [status]);
 
   if (nextOpts.length === 0) return <div />;
+
+  const requiresDeedDate = target === "deed_scheduled";
 
   return (
     <div className="space-y-2">
@@ -765,9 +775,23 @@ function ClosingAction({ title, closingId, status, onAdvance }: {
         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-teal-500">
         {nextOpts.map((o) => <option key={o} value={o}>{STATUS_LABELS[o]?.[0] ?? o}</option>)}
       </select>
+      {requiresDeedDate && (
+        <input
+          type="date"
+          value={deedDate}
+          onChange={(e) => setDeedDate(e.target.value)}
+          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+          placeholder="Data escritura"
+        />
+      )}
       <button
-        onClick={() => onAdvance(closingId, target)}
-        className="w-full px-3 py-1.5 bg-teal-700 text-white text-xs font-medium rounded-lg hover:bg-teal-800"
+        onClick={() => onAdvance(
+          closingId,
+          target,
+          requiresDeedDate && deedDate ? { deed_scheduled_date: deedDate } : undefined,
+        )}
+        disabled={requiresDeedDate && !deedDate}
+        className="w-full px-3 py-1.5 bg-teal-700 text-white text-xs font-medium rounded-lg hover:bg-teal-800 disabled:bg-slate-300 disabled:cursor-not-allowed"
       >
         Avançar
       </button>

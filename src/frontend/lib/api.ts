@@ -76,6 +76,24 @@ export async function apiPatch<T = unknown>(
   }
 }
 
+export async function apiPut<T = unknown>(
+  path: string,
+  body?: unknown
+): Promise<T | null> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "PUT",
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
 export async function apiUpload<T = unknown>(
   path: string,
   formData: FormData
