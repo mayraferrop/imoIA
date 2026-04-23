@@ -24,20 +24,25 @@ from loguru import logger
 def _discover_orgs() -> list[str]:
     """Devolve IDs de organizações-alvo.
 
-    Estratégia de descoberta: qualquer org que tenha propriedades ou grupos
-    WhatsApp activos. O filtro por estratégia é feito depois (skip se tenant
-    da org não tem estratégia activa).
+    Estratégia: qualquer org que tenha grupos WhatsApp activos OU
+    propriedades. O filtro por estratégia é aplicado depois.
     """
-    from src.database.db import get_session
-    from src.database.models import Group
-    from src.database.models_v2 import Property
-    from sqlalchemy import select, distinct, union
+    from src.database import supabase_rest as db
 
-    with get_session() as s:
-        q1 = select(distinct(Group.organization_id)).where(Group.is_active == True)
-        q2 = select(distinct(Property.organization_id))
-        rows = s.execute(union(q1, q2)).all()
-        return [r[0] for r in rows if r[0]]
+    ids: set[str] = set()
+    groups = db.list_rows("groups", filters="is_active=eq.true", select="organization_id", limit=1000)
+    for g in groups:
+        oid = g.get("organization_id")
+        if oid:
+            ids.add(oid)
+
+    props = db.list_rows("properties", select="organization_id", limit=1000)
+    for p in props:
+        oid = p.get("organization_id")
+        if oid:
+            ids.add(oid)
+
+    return sorted(ids)
 
 
 def _active_strategy_exists(tenant_id: str) -> bool:
