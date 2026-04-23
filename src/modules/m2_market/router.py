@@ -111,7 +111,10 @@ async def get_deal_comparables(
     "/valuate",
     summary="Avaliar imovel",
 )
-async def valuate_property(data: ValuationRequest) -> Dict[str, Any]:
+async def valuate_property(
+    data: ValuationRequest,
+    organization_id: str = Depends(get_current_organization),
+) -> Dict[str, Any]:
     """Avaliacao automatica (AVM) de um imovel."""
     svc = _get_service()
     return svc.valuate_property(
@@ -129,6 +132,7 @@ async def valuate_property(data: ValuationRequest) -> Dict[str, Any]:
         longitude=data.longitude,
         address=data.address,
         method=data.method,
+        organization_id=organization_id,
     )
 
 
@@ -175,6 +179,7 @@ async def get_zone_stats(
     municipality: Optional[str] = Query(None, description="Concelho"),
     parish: Optional[str] = Query(None, description="Freguesia"),
     property_type: str = Query("apartamento", description="Tipo de imovel"),
+    organization_id: str = Depends(get_current_organization),
 ) -> Dict[str, Any]:
     """Estatisticas de mercado para uma zona geografica."""
     svc = _get_service()
@@ -183,6 +188,7 @@ async def get_zone_stats(
         municipality=municipality,
         parish=parish,
         property_type=property_type,
+        organization_id=organization_id,
     )
 
 
@@ -195,10 +201,13 @@ async def get_zone_stats(
     "/alerts",
     summary="Criar alerta de mercado",
 )
-async def create_alert(data: AlertCreateRequest) -> Dict[str, Any]:
+async def create_alert(
+    data: AlertCreateRequest,
+    organization_id: str = Depends(get_current_organization),
+) -> Dict[str, Any]:
     """Cria alerta para novas listagens ou mudancas de preco."""
     svc = _get_service()
-    return svc.create_alert(data.model_dump())
+    return svc.create_alert(data.model_dump(), organization_id=organization_id)
 
 
 @router.get(

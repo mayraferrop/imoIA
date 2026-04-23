@@ -193,8 +193,8 @@ def _post(table: str, data: Dict | List[Dict], timeout: int = 15) -> List[Dict]:
     try:
         resp = httpx.post(url, headers=_headers(), json=data, timeout=timeout)
         if resp.status_code >= 400:
-            logger.error(f"POST {table} HTTP {resp.status_code}: {resp.text[:300]}")
-            raise ValueError(f"POST {table} falhou: {resp.text[:200]}")
+            logger.error(f"POST {table} HTTP {resp.status_code}: {resp.text[:1500]}")
+            raise ValueError(f"POST {table} falhou: {resp.text[:500]}")
         return resp.json()
     except httpx.TimeoutException:
         logger.error(f"POST {table} timeout ({timeout}s)")

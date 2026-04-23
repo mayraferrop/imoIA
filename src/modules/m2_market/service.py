@@ -426,6 +426,7 @@ class MarketService:
         method: str = "hybrid",
         deal_id: Optional[str] = None,
         tenant_id: Optional[str] = None,
+        organization_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Avalia um imovel combinando AVM local + INE.
 
@@ -492,6 +493,7 @@ class MarketService:
                     area_m2=area,
                     deal_id=deal_id,
                     tenant_id=tenant_id,
+                    organization_id=organization_id,
                 )
 
                 stats = comp_result.get("stats", {})
@@ -541,6 +543,7 @@ class MarketService:
             valuation = PropertyValuation(
                 id=str(uuid4()),
                 tenant_id=tenant_id,
+                organization_id=organization_id,
                 deal_id=deal_id,
                 property_type=property_type,
                 typology=typology,
@@ -1019,6 +1022,7 @@ class MarketService:
         municipality: Optional[str] = None,
         parish: Optional[str] = None,
         property_type: str = "apartamento",
+        organization_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Estatisticas de mercado para uma zona.
 
@@ -1050,6 +1054,7 @@ class MarketService:
                 property_type=property_type,
                 months_back=6,
                 max_results=100,
+                organization_id=organization_id,
             )
 
             stats = comp_result.get("stats", {})
@@ -1071,6 +1076,7 @@ class MarketService:
             zone = MarketZoneStats(
                 id=str(uuid4()),
                 tenant_id=tenant_id,
+                organization_id=organization_id,
                 district=district,
                 municipality=municipality,
                 parish=parish,
@@ -1095,7 +1101,11 @@ class MarketService:
     # Alertas
     # ------------------------------------------------------------------
 
-    def create_alert(self, alert_data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_alert(
+        self,
+        alert_data: Dict[str, Any],
+        organization_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """Cria alerta de mercado.
 
         Se CASAFARI disponivel: cria feed na API para monitorizacao continua.
@@ -1106,6 +1116,7 @@ class MarketService:
             alert = MarketAlert(
                 id=str(uuid4()),
                 tenant_id=tenant_id,
+                organization_id=organization_id,
                 alert_name=alert_data["alert_name"],
                 alert_type=alert_data["alert_type"],
                 districts=alert_data.get("districts", []),
