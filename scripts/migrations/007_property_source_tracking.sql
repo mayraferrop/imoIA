@@ -57,9 +57,10 @@ COMMENT ON COLUMN public.properties.source_last_seen_at IS
 -- PARTE 2: property_price_history (histórico de alterações)
 -- ------------------------------------------------------------
 
+-- property_id e id são varchar(36) (alinhar com o schema existente de properties)
 CREATE TABLE IF NOT EXISTS public.property_price_history (
-    id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    property_id       uuid NOT NULL REFERENCES public.properties(id) ON DELETE CASCADE,
+    id                varchar(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    property_id       varchar(36) NOT NULL REFERENCES public.properties(id) ON DELETE CASCADE,
     organization_id   uuid NOT NULL REFERENCES public.organizations(id),
     old_price         numeric,
     new_price         numeric NOT NULL,
