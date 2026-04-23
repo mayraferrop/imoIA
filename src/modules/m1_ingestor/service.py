@@ -1087,6 +1087,16 @@ def run_pipeline(trigger_source: str = "unknown") -> PipelineResult:
     phase2_elapsed = time.monotonic() - phase2_start
     logger.info(f"FASE 2 (dedup): {total_filtered} unicas de {total_messages} buscadas em {phase2_elapsed:.1f}s")
 
+    # Prepend retries da dead-letter queue (msgs descartadas em runs anteriores)
+    try:
+        from src.modules.m1_ingestor.dlq import pop_retries
+        retries = pop_retries(limit=200)
+        if retries:
+            all_filtered = retries + all_filtered
+            logger.info(f"FASE 2 (dlq): {len(retries)} msgs recuperadas da queue e prepended")
+    except Exception as e:
+        logger.error(f"[dlq] pop_retries falhou: {e}")
+
     # --- FASE 3: Classificar num batch unico ---
     phase3_start = time.monotonic()
 
@@ -1094,7 +1104,13 @@ def run_pipeline(trigger_source: str = "unknown") -> PipelineResult:
     MAX_CLASSIFY = 500
     logger.info(f"FASE 3: {len(all_filtered)} mensagens para classificar (de {total_messages} buscadas, max={MAX_CLASSIFY})")
     if len(all_filtered) > MAX_CLASSIFY:
-        logger.warning(f"Limitando classificação a {MAX_CLASSIFY} mensagens (de {len(all_filtered)})")
+        overflow = all_filtered[MAX_CLASSIFY:]
+        logger.warning(f"Limitando classificação a {MAX_CLASSIFY} mensagens (de {len(all_filtered)}); a enfileirar {len(overflow)} na dlq")
+        try:
+            from src.modules.m1_ingestor.dlq import enqueue_failed
+            enqueue_failed(overflow, reason="over_classify_limit")
+        except Exception as e:
+            logger.error(f"[dlq] enqueue_failed falhou: {e}")
         all_filtered_to_classify = all_filtered[:MAX_CLASSIFY]
     else:
         all_filtered_to_classify = all_filtered
@@ -1130,14 +1146,26 @@ def run_pipeline(trigger_source: str = "unknown") -> PipelineResult:
             enrichment = _enrich_opportunity(classification, market_services)
             clean_msg = {k: v for k, v in msg.items() if not k.startswith("_")}
 
-            with get_session() as session:
-                opps = _save_results(session, group_info, [clean_msg], [classification], [enrichment])
-                if opps > 0:
-                    total_opportunities += opps
-                    for gl in group_logs:
-                        if gl.get("grupo_id") == gid:
-                            gl["oportunidades"] = gl.get("oportunidades", 0) + opps
-                            break
+            dlq_id = msg.get("_dlq_id")
+            save_ok = False
+            try:
+                with get_session() as session:
+                    opps = _save_results(session, group_info, [clean_msg], [classification], [enrichment])
+                    if opps > 0:
+                        total_opportunities += opps
+                        for gl in group_logs:
+                            if gl.get("grupo_id") == gid:
+                                gl["oportunidades"] = gl.get("oportunidades", 0) + opps
+                                break
+                save_ok = True
+            except Exception as se:
+                logger.error(f"[save] erro ao gravar msg {msg.get('whatsapp_message_id')} grupo={gid}: {se}")
+            if dlq_id:
+                try:
+                    from src.modules.m1_ingestor.dlq import mark_retried
+                    mark_retried(dlq_id, success=save_ok, error=None if save_ok else "save_failed")
+                except Exception as de:
+                    logger.error(f"[dlq] mark_retried({dlq_id}) falhou: {de}")
 
         for gid in group_filtered_map:
             gi = group_info_map.get(gid) or next((g for g in active_groups if g.get("id") == gid), None)
