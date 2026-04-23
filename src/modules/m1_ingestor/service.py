@@ -1148,6 +1148,10 @@ def run_pipeline(trigger_source: str = "unknown") -> PipelineResult:
 
             dlq_id = msg.get("_dlq_id")
             save_ok = False
+            # _save_results indexa via classification.message_index; como passamos listas
+            # de 1 elemento, o índice local é sempre 0 — sem reset, todas as msgs com
+            # message_index > 0 eram silenciosamente descartadas.
+            classification.message_index = 0
             try:
                 with get_session() as session:
                     opps = _save_results(session, group_info, [clean_msg], [classification], [enrichment])
@@ -1405,6 +1409,7 @@ def reprocess_group_batch(
                     continue
 
                 enrichment = _enrich_opportunity(classification, market_services)
+                classification.message_index = 0
                 with get_session() as session:
                     opps = _save_results(session, group_info, [filtered[i]], [classification], [enrichment])
                     total_opportunities += opps
@@ -1524,6 +1529,7 @@ def reprocess_pipeline(
                     continue
 
                 enrichment = _enrich_opportunity(classification, market_services)
+                classification.message_index = 0
                 with get_session() as session:
                     opps = _save_results(session, group, [filtered[i]], [classification], [enrichment])
                     total_opportunities += opps
