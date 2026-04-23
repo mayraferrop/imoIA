@@ -322,7 +322,7 @@ export default function PropertyDetailPage() {
                       CAPA
                     </span>
                   )}
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center gap-2 p-2">
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-end justify-center gap-2 p-2">
                     {!isCover && photo.document_id && (
                       <button
                         onClick={() => setCover(photo.document_id!)}
