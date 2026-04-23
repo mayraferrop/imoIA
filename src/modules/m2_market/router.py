@@ -14,9 +14,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
 
+from src.api.dependencies.auth import get_current_organization
 from src.modules.m2_market.schemas import (
     AgencySearchResponse,
     AgentSearchResponse,
@@ -58,7 +59,10 @@ def _get_service() -> MarketService:
     summary="Pesquisar comparaveis",
     response_model=ComparableSearchResponse,
 )
-async def search_comparables(data: ComparableSearchRequest) -> Dict[str, Any]:
+async def search_comparables(
+    data: ComparableSearchRequest,
+    organization_id: str = Depends(get_current_organization),
+) -> Dict[str, Any]:
     """Pesquisa comparaveis por localizacao e caracteristicas.
 
     Usa CASAFARI API (se configurada) + cache local.
@@ -78,6 +82,7 @@ async def search_comparables(data: ComparableSearchRequest) -> Dict[str, Any]:
         max_results=data.max_results,
         include_sold=data.include_sold,
         include_active=data.include_active,
+        organization_id=organization_id,
     )
 
 

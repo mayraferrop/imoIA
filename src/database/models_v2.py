@@ -2220,6 +2220,9 @@ class MarketComparable(Base):
     tenant_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("tenants.id"), nullable=False, index=True
     )
+    organization_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, index=True
+    )
 
     # Referencia ao deal/oportunidade que originou a pesquisa
     deal_id: Mapped[Optional[str]] = mapped_column(
@@ -2302,6 +2305,9 @@ class PropertyValuation(Base):
     tenant_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("tenants.id"), nullable=False, index=True
     )
+    organization_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, index=True
+    )
     deal_id: Mapped[Optional[str]] = mapped_column(
         String(36), ForeignKey("deals.id"), nullable=True, index=True
     )
@@ -2373,6 +2379,9 @@ class MarketZoneStats(Base):
     tenant_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("tenants.id"), nullable=False, index=True
     )
+    organization_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, index=True
+    )
 
     # Zona
     district: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -2429,6 +2438,9 @@ class MarketAlert(Base):
     )
     tenant_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("tenants.id"), nullable=False, index=True
+    )
+    organization_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, index=True
     )
 
     # Criterios do alerta

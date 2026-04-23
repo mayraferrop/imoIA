@@ -114,6 +114,7 @@ class MarketService:
         deal_id: Optional[str] = None,
         opportunity_id: Optional[int] = None,
         tenant_id: Optional[str] = None,
+        organization_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Encontra comparaveis para um imovel.
 
@@ -211,6 +212,7 @@ class MarketService:
                 comp = MarketComparable(
                     id=str(uuid4()),
                     tenant_id=tenant_id,
+                    organization_id=organization_id,
                     deal_id=deal_id,
                     opportunity_id=opportunity_id,
                     source=parsed["source"],
