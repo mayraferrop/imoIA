@@ -676,6 +676,7 @@ class DealPipelineService:
             "priority": data.get("priority", "medium"),
             "due_date": data.get("due_date"),
             "assigned_to": data.get("assigned_to"),
+            "is_completed": False,
         })
 
         logger.info(f"Task criada: {data['title']} (deal {deal_id})")
@@ -721,6 +722,7 @@ class DealPipelineService:
                 "title": tmpl["title"],
                 "task_type": "auto",
                 "priority": tmpl.get("priority", "medium"),
+                "is_completed": False,
             })
 
     # --- Rentals ---
@@ -1023,6 +1025,8 @@ class DealPipelineService:
             "visit_type": data.get("visit_type", "presencial"),
             "duration_minutes": data.get("duration_minutes"),
             "accompanied_by": data.get("accompanied_by"),
+            "wants_second_visit": data.get("wants_second_visit", False),
+            "made_proposal": data.get("made_proposal", False),
         })
 
         logger.info(f"Visita registada: {data['visitor_name']} ao deal {deal_id}")

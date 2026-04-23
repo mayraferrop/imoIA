@@ -383,6 +383,8 @@ class MarketingService:
             "currency": data.get("currency", "EUR"),
             "price_negotiable": data.get("price_negotiable", True),
             "price_on_request": data.get("price_on_request", False),
+            "habta_published": False,
+            "whatsapp_sent": False,
             "highlights": data.get("highlights", []),
             "notes": data.get("notes"),
             "status": "draft",
