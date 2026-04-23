@@ -1122,17 +1122,43 @@ class CreativeService:
     def _load_photo(
         cover_photo: str, width: int, height: int,
     ) -> "Image.Image":
-        """Carrega foto de capa, crop central e resize. Fallback: fundo solido."""
-        from PIL import Image
+        """Carrega foto de capa, crop central e resize. Fallback: fundo solido.
 
-        photo_path = None
+        Suporta:
+        - file:// e paths locais (filesystem)
+        - http(s):// (Supabase signed URLs, URLs externas) via requests
+        - data: URIs base64
+        """
+        from PIL import Image
+        from io import BytesIO
+
+        photo = None
+
         if cover_photo.startswith("file://"):
             photo_path = _Path(cover_photo.replace("file://", ""))
-        elif cover_photo and not cover_photo.startswith(("http", "data:")):
+            if photo_path.exists():
+                photo = Image.open(photo_path).convert("RGB")
+        elif cover_photo.startswith(("http://", "https://")):
+            try:
+                import requests
+                resp = requests.get(cover_photo, timeout=15)
+                resp.raise_for_status()
+                photo = Image.open(BytesIO(resp.content)).convert("RGB")
+            except Exception as exc:
+                logger.warning(f"_load_photo HTTP falhou: {exc}")
+        elif cover_photo.startswith("data:"):
+            try:
+                import base64
+                header, b64data = cover_photo.split(",", 1)
+                photo = Image.open(BytesIO(base64.b64decode(b64data))).convert("RGB")
+            except Exception as exc:
+                logger.warning(f"_load_photo data URI falhou: {exc}")
+        elif cover_photo:
             photo_path = _Path(cover_photo)
+            if photo_path.exists():
+                photo = Image.open(photo_path).convert("RGB")
 
-        if photo_path and photo_path.exists():
-            photo = Image.open(photo_path).convert("RGB")
+        if photo is not None:
             pw, ph = photo.size
             target_ratio = width / height
             photo_ratio = pw / ph
