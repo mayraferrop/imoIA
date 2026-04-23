@@ -32,8 +32,8 @@ def _discover_orgs() -> list[str]:
 def _check_bridge_status() -> tuple[bool, str]:
     """Pre-check do bridge Baileys. Devolve (ok, detalhe)."""
     try:
-        from src.modules.m1_ingestor.whatsapp_client import _get_whatsapp_client
-        st = _get_whatsapp_client().get_status()
+        from src.modules.m1_ingestor.whatsapp_client import WhatsAppClient
+        st = WhatsAppClient().get_status()
         connected = bool(st.get("connected"))
         return connected, f"status={st.get('status')} user={(st.get('user') or {}).get('name')}"
     except Exception as e:
