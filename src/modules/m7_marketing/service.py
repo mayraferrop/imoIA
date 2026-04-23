@@ -943,6 +943,18 @@ class MarketingService:
                 f"status {new_status}): {exc}"
             )
 
+    def handle_deal_advance_rest(
+        self,
+        deal_id: str,
+        new_status: str,
+    ) -> None:
+        """Variante REST chamada pelo M4: busca o deal e delega em handle_deal_advance."""
+        deal = db.get_by_id("deals", deal_id)
+        if not deal:
+            logger.warning(f"M7: deal {deal_id} nao encontrado para hook {new_status}")
+            return
+        self.handle_deal_advance(deal, new_status)
+
     # --- Helpers privados ---
 
     def _resolve_tenant_id(self, tenant_id: str) -> Optional[str]:
