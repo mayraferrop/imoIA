@@ -287,6 +287,7 @@ class DealPipelineService:
             "contact_role": data.get("contact_role"),
             "is_financed": data.get("is_financed", False),
             "is_off_market": data.get("is_off_market", False),
+            "commission_vat_included": data.get("commission_vat_included", False),
             "notes": data.get("notes"),
             "tags": data.get("tags", []),
             "status_changed_at": now,
