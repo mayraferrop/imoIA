@@ -4,10 +4,10 @@ RUN apk add --no-cache git python3 make g++
 
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json package-lock.json* ./
 RUN npm install --omit=dev --no-audit --no-fund
 
-COPY server.js ./
+COPY server.js store.js ./
 
 ENV DATA_DIR=/data
 VOLUME ["/data"]
