@@ -291,7 +291,12 @@ Ordenado por bloqueio de piloto comercial Santos/BR (prioridade do user) e depoi
 
 ### Sprint 1 — "Piloto PT pronto" (P0 PT)
 
-1. **Validar credenciais Casafari/SIR em produção** — confirmar que endpoints `/api/v1/market/*` funcionam com dados reais
+1. ✅ **Validar credenciais Casafari/SIR em produção** (concluído 2026-04-23) — todos os 4 endpoints testados no UI com dados reais:
+   - `/comparables/search` → 20 imóveis Lisboa, mediana 5430 €/m², min 3567, max 7983
+   - `/valuate` (AVM híbrido) → 434 400 € estimado, 85% confiança, 20 comparáveis usados, intervalo 369k–499k
+   - `/sir/search` → 5436 €/m², 8761 fogos vendidos (2026-03, Confidencial Imobiliário)
+   - `/bpstat/index` → índice 280.2 (base 2015=100), +180%, novos 221.2, existentes 303.2 (Banco de Portugal)
+   - **Bugs encontrados e corrigidos:** 4 models M2 (MarketComparable, PropertyValuation, MarketZoneStats, MarketAlert) não tinham `organization_id` → INSERTs falhavam com 503 `IntegrityError NotNullViolation` (commits 9eba71e + 157e792)
 2. **M1 captação portais PT** — scraper básico Idealista/Imovirtual (listings novos + alterações de preço)
 3. **M8 ingestão leads via email/form PT** — webhook público para receber leads de formulários do site do mediador
 4. **M9 completar workflow de documentos** — upload + estado por documento
