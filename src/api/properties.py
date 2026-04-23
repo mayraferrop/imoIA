@@ -168,6 +168,8 @@ async def create_property(
         "source": "manual",
         "country": "PT",
         "status": "lead",
+        "currency": "EUR",
+        "is_off_market": False,
     }
     for k, v in data.model_dump(exclude_unset=True).items():
         if v is not None:
