@@ -288,11 +288,15 @@ class RenovationService:
             "deal_id": deal_id,
             "initial_budget": initial_budget,
             "current_budget": initial_budget,
+            "total_spent": 0,
+            "total_committed": 0,
+            "budget_variance_pct": 0,
             "contingency_pct": contingency_pct,
             "contingency_amount": contingency_amount,
             "planned_start": data.get("planned_start"),
             "planned_end": data.get("planned_end"),
             "planned_duration_days": data.get("planned_duration_days"),
+            "delay_days": 0,
             "contractor_name": data.get("contractor_name"),
             "contractor_phone": data.get("contractor_phone"),
             "contractor_email": data.get("contractor_email"),
@@ -301,9 +305,10 @@ class RenovationService:
             "license_status": data.get("license_status", "na"),
             "license_number": data.get("license_number"),
             "is_aru": data.get("is_aru", False),
+            "status": "planeamento",
+            "progress_pct": 0,
             "scope_description": data.get("scope_description"),
             "notes": data.get("notes"),
-            "status": "planeamento",
         }
         renovation = db.insert("renovations", row)
 
@@ -368,9 +373,15 @@ class RenovationService:
             "deal_id": deal_id,
             "initial_budget": initial_budget,
             "current_budget": initial_budget,
+            "total_spent": 0,
+            "total_committed": 0,
+            "budget_variance_pct": 0,
             "contingency_pct": contingency_pct,
             "contingency_amount": contingency_amount,
+            "delay_days": 0,
+            "is_aru": False,
             "status": "planeamento",
+            "progress_pct": 0,
         }
         renovation = db.insert("renovations", row)
 
