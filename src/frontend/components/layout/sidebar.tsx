@@ -24,6 +24,7 @@ const NAV_ITEMS = [
 const ADMIN_ITEMS = [
   { href: "/admin/invites", label: "Convites", icon: "✉️" },
   { href: "/admin/members", label: "Membros", icon: "🔑" },
+  { href: "/admin/runs", label: "Execucoes Pipeline", icon: "📜" },
 ];
 
 export function Sidebar() {

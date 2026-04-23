@@ -799,7 +799,7 @@ def _score_group_opportunities(group_info: Dict[str, Any]) -> None:
             )
 
 
-def run_pipeline() -> PipelineResult:
+def run_pipeline(trigger_source: str = "unknown") -> PipelineResult:
     """Executa o pipeline completo de processamento.
 
     Etapas:
@@ -810,11 +810,16 @@ def run_pipeline() -> PipelineResult:
     4. Enriquecer com dados de mercado
     5. Finalizar (persistir, atualizar, logar)
 
+    Args:
+        trigger_source: Origem do trigger (ex: "cron", "api", "manual").
+            Gravado em pipeline_runs para auditoria.
+
     Returns:
         PipelineResult com métricas de execução.
     """
     logger.info("=== Pipeline ImoIA iniciado ===")
     pipeline_start = time.monotonic()
+    pipeline_started_at = datetime.now(tz=timezone.utc)
 
     settings = get_settings()
     errors: List[str] = []
@@ -1216,6 +1221,41 @@ def run_pipeline() -> PipelineResult:
     log_path = Path("logs/pipeline_groups.json")
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_text(json.dumps(log_data, ensure_ascii=False, indent=2, default=str))
+
+    # Persistir em pipeline_runs (histórico auditável por organização)
+    try:
+        from src.database.models import PipelineRun
+        pipeline_finished_at = datetime.now(tz=timezone.utc)
+        org_id = get_default_organization_id()
+        with get_session() as session:
+            run_row = PipelineRun(
+                organization_id=org_id,
+                started_at=pipeline_started_at,
+                finished_at=pipeline_finished_at,
+                duration_sec=round(pipeline_elapsed, 2),
+                messages_fetched=result.messages_fetched,
+                messages_filtered=total_filtered,
+                opportunities_found=result.opportunities_found,
+                groups_processed=result.groups_processed,
+                groups_with_unread=len(active_with_unread),
+                groups_archived=result.groups_archived,
+                groups_to_archive=result.groups_to_archive,
+                errors_count=len(result.errors),
+                phases_duration={
+                    "fase1_fetch": round(phase1_elapsed, 2),
+                    "fase1b_inativos": round(phase1b_elapsed, 2),
+                    "fase2_dedup": round(phase2_elapsed, 2),
+                    "fase3_classificacao": round(phase3_elapsed, 2),
+                    "fase4_mark_read": round(phase_archive_elapsed, 2),
+                },
+                errors=result.errors if result.errors else None,
+                group_logs=group_logs if group_logs else None,
+                trigger_source=trigger_source,
+            )
+            session.add(run_row)
+            session.commit()
+    except Exception as e:
+        logger.warning(f"Falha ao persistir pipeline_run: {e}")
 
     # Atualizar status
     status_path = Path("logs/pipeline_status.json")

@@ -14,9 +14,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
 
+from src.api.dependencies.auth import get_current_organization
 # FIXME(jwt-refactor): migrar para JWT do utilizador quando tabelas tiverem policies 'authenticated'
 from src.database import supabase_rest as db
 
@@ -45,7 +46,7 @@ def _run_pipeline_background() -> None:
     from src.modules.m1_ingestor.service import run_pipeline
 
     try:
-        result = run_pipeline()
+        result = run_pipeline(trigger_source="api")
         with _pipeline_lock:
             _pipeline_state = {
                 "status": "done",
@@ -212,6 +213,52 @@ async def get_pipeline_status() -> Dict[str, Any]:
     """Retorna estado atual do pipeline (polling endpoint)."""
     with _pipeline_lock:
         return dict(_pipeline_state)
+
+
+@router.get("/runs", summary="Historico de execucoes do pipeline")
+async def list_pipeline_runs(
+    organization_id: str = Depends(get_current_organization),
+    limit: int = Query(50, ge=1, le=200),
+    include_details: bool = Query(False, description="Incluir group_logs e errors"),
+) -> List[Dict[str, Any]]:
+    """Lista execucoes do pipeline para a organizacao activa, mais recente primeiro.
+
+    Por defeito retorna metricas resumidas. Usar include_details=true para
+    trazer group_logs e errors (payload maior).
+    """
+    select_cols = (
+        "id,started_at,finished_at,duration_sec,messages_fetched,messages_filtered,"
+        "opportunities_found,groups_processed,groups_with_unread,groups_archived,"
+        "groups_to_archive,errors_count,phases_duration,trigger_source,created_at"
+    )
+    if include_details:
+        select_cols += ",errors,group_logs"
+
+    rows = db.list_rows(
+        "pipeline_runs",
+        select=select_cols,
+        filters=f"organization_id=eq.{organization_id}",
+        order="started_at.desc",
+        limit=limit,
+    )
+    return rows
+
+
+@router.get("/runs/{run_id}", summary="Detalhe de uma execucao do pipeline")
+async def get_pipeline_run(
+    run_id: int,
+    organization_id: str = Depends(get_current_organization),
+) -> Dict[str, Any]:
+    """Retorna uma execucao especifica com group_logs e errors completos."""
+    rows = db.list_rows(
+        "pipeline_runs",
+        select="*",
+        filters=f"organization_id=eq.{organization_id}&id=eq.{run_id}",
+        limit=1,
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Execucao nao encontrada")
+    return rows[0]
 
 
 @router.get("/debug", summary="Diagnostico do pipeline")

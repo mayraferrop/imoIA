@@ -50,7 +50,7 @@ def main() -> int:
         current_org_id.set(oid)
         t0 = time.time()
         try:
-            result = run_pipeline()
+            result = run_pipeline(trigger_source="cron")
             elapsed = time.time() - t0
             logger.info(
                 f"[cron] org={oid} done in {elapsed:.1f}s | "

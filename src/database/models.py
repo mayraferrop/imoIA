@@ -15,6 +15,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    JSON,
     String,
     Text,
     func,
@@ -151,3 +152,40 @@ class MarketData(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     opportunity: Mapped["Opportunity"] = relationship("Opportunity", back_populates="market_data")
+
+
+class PipelineRun(Base):
+    """Histórico de execuções do pipeline M1 (ingestão WhatsApp).
+
+    Cada execução de run_pipeline() grava uma linha no final, permitindo
+    auditoria, debugging e métricas por organização.
+    """
+
+    __tablename__ = "pipeline_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    finished_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    duration_sec: Mapped[float] = mapped_column(Float, nullable=False)
+
+    messages_fetched: Mapped[int] = mapped_column(Integer, default=0)
+    messages_filtered: Mapped[int] = mapped_column(Integer, default=0)
+    opportunities_found: Mapped[int] = mapped_column(Integer, default=0)
+    groups_processed: Mapped[int] = mapped_column(Integer, default=0)
+    groups_with_unread: Mapped[int] = mapped_column(Integer, default=0)
+    groups_archived: Mapped[int] = mapped_column(Integer, default=0)
+    groups_to_archive: Mapped[int] = mapped_column(Integer, default=0)
+    errors_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Duração por fase (em segundos) — dicionário com keys fase1/fase2/fase3/fase4
+    phases_duration: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # Lista de strings de erros (se houver)
+    errors: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    # Detalhe por grupo (group_logs do pipeline) — opcional, pode ser grande
+    group_logs: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+
+    trigger_source: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    # Ex: "cron", "api", "manual"
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
