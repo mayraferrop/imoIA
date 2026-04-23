@@ -30,28 +30,30 @@ def _discover_orgs() -> list[str]:
     from src.database import supabase_rest as db
 
     ids: set[str] = set()
-    groups = db.list_rows("groups", filters="is_active=eq.true", select="organization_id", limit=1000)
-    for g in groups:
-        oid = g.get("organization_id")
-        if oid:
-            ids.add(oid)
+    with db.admin_client():
+        groups = db.list_rows("groups", filters="is_active=eq.true", select="organization_id", limit=1000)
+        for g in groups:
+            oid = g.get("organization_id")
+            if oid:
+                ids.add(oid)
 
-    props = db.list_rows("properties", select="organization_id", limit=1000)
-    for p in props:
-        oid = p.get("organization_id")
-        if oid:
-            ids.add(oid)
+        props = db.list_rows("properties", select="organization_id", limit=1000)
+        for p in props:
+            oid = p.get("organization_id")
+            if oid:
+                ids.add(oid)
 
     return sorted(ids)
 
 
 def _active_strategy_exists(tenant_id: str) -> bool:
     from src.database import supabase_rest as db
-    rows = db.list_rows(
-        "investment_strategies",
-        filters=f"tenant_id=eq.{tenant_id}&is_active=eq.true",
-        limit=1,
-    )
+    with db.admin_client():
+        rows = db.list_rows(
+            "investment_strategies",
+            filters=f"tenant_id=eq.{tenant_id}&is_active=eq.true",
+            limit=1,
+        )
     return bool(rows)
 
 
