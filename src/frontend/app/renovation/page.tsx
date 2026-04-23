@@ -137,15 +137,18 @@ export default function RenovationPage() {
       const renos: Renovation[] = [];
       for (const deal of deals.slice(0, 20)) {
         if (cancelled) return;
-        const ren = await apiGet<Renovation | Renovation[]>(
+        const ren = await apiGet<RenovationDetail | Renovation | Renovation[]>(
           `/api/v1/renovations/deals/${deal.id}`
         );
-        if (ren && !Array.isArray(ren)) {
-          renos.push({ ...ren, deal_title: deal.title ?? "?" });
-        } else if (Array.isArray(ren)) {
+        if (!ren) continue;
+        if (Array.isArray(ren)) {
           for (const r of ren) {
             renos.push({ ...r, deal_title: deal.title ?? "?" });
           }
+        } else if ("renovation" in ren && ren.renovation) {
+          renos.push({ ...ren.renovation, deal_title: deal.title ?? "?" });
+        } else if ("id" in ren) {
+          renos.push({ ...(ren as Renovation), deal_title: deal.title ?? "?" });
         }
       }
       if (!cancelled) {
