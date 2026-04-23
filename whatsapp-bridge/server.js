@@ -40,12 +40,14 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 import QRCode from "qrcode";
+import * as store from "./store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const AUTH_DIR = path.join(DATA_DIR, "auth_state");
 const MSG_STORE_FILE = path.join(DATA_DIR, "messages.json");
+const DB_FILE = path.join(DATA_DIR, "bridge.sqlite");
 const BRIDGE_TOKEN = process.env.BRIDGE_TOKEN || "";
 const PORT = Number(process.env.PORT || process.env.BRIDGE_PORT || 3000);
 const MAX_MESSAGES_PER_GROUP = Number(process.env.MAX_MESSAGES_PER_GROUP || 500);
@@ -56,34 +58,22 @@ if (!fs.existsSync(DATA_DIR)) {
 
 const logger = pino({ level: process.env.BAILEYS_LOG || "silent" });
 
-const messageStore = {};
-if (fs.existsSync(MSG_STORE_FILE)) {
-  try {
-    const saved = JSON.parse(fs.readFileSync(MSG_STORE_FILE, "utf-8"));
-    Object.assign(messageStore, saved);
-    console.log(`[boot] Mensagens carregadas: ${Object.keys(saved).length} grupos`);
-  } catch {
-    console.log("[boot] messages.json corrompido, a começar do zero.");
-  }
-}
+store.initStore(DB_FILE);
 
-function persistMessageStore() {
-  const tmp = `${MSG_STORE_FILE}.tmp`;
-  try {
-    fs.writeFileSync(tmp, JSON.stringify(messageStore), "utf-8");
-    fs.renameSync(tmp, MSG_STORE_FILE);
-  } catch (err) {
-    console.error("[persist] Erro ao gravar mensagens:", err.message);
-    try { fs.existsSync(tmp) && fs.unlinkSync(tmp); } catch {}
-  }
+const migrated = store.migrateFromJson(MSG_STORE_FILE);
+if (migrated.migrated > 0) {
+  console.log(`[boot] Migradas ${migrated.migrated} mensagens de messages.json -> SQLite`);
+} else if (migrated.skipped && migrated.skipped !== "no_file") {
+  console.log(`[boot] Migracao JSON saltada: ${migrated.skipped}`);
 }
-
-setInterval(persistMessageStore, 60_000);
+const totalLoaded = store.totalCount();
+const perGroup = store.countByGroup();
+console.log(`[boot] SQLite: ${totalLoaded} mensagens em ${Object.keys(perGroup).length} grupos`);
 
 for (const sig of ["SIGTERM", "SIGINT"]) {
   process.on(sig, () => {
-    console.log(`[${sig}] a gravar messages.json antes de sair...`);
-    persistMessageStore();
+    console.log(`[${sig}] a fechar SQLite antes de sair...`);
+    try { store.close(); } catch {}
     process.exit(0);
   });
 }
@@ -143,37 +133,13 @@ async function startWhatsApp() {
   });
 
   sock.ev.on("messages.upsert", ({ messages: msgs, type }) => {
-    let count = 0;
-    for (const msg of msgs) {
-      const groupId = msg.key?.remoteJid;
-      if (!groupId || !groupId.endsWith("@g.us")) continue;
-      if (!messageStore[groupId]) messageStore[groupId] = [];
-      const msgId = msg.key?.id;
-      if (msgId && messageStore[groupId].some((m) => m.key?.id === msgId)) continue;
-      messageStore[groupId].push(msg);
-      count++;
-      if (messageStore[groupId].length > MAX_MESSAGES_PER_GROUP) {
-        messageStore[groupId] = messageStore[groupId].slice(-MAX_MESSAGES_PER_GROUP);
-      }
-    }
-    if (count > 0) console.log(`[upsert] +${count} (${type})`);
+    const added = store.saveMessagesBatch(msgs || []);
+    if (added > 0) console.log(`[upsert] +${added} (${type})`);
   });
 
   sock.ev.on("messaging-history.set", ({ messages: msgs, isLatest }) => {
-    let count = 0;
-    for (const msg of msgs || []) {
-      const groupId = msg.key?.remoteJid;
-      if (!groupId || !groupId.endsWith("@g.us")) continue;
-      if (!messageStore[groupId]) messageStore[groupId] = [];
-      const msgId = msg.key?.id;
-      if (msgId && messageStore[groupId].some((m) => m.key?.id === msgId)) continue;
-      messageStore[groupId].push(msg);
-      count++;
-      if (messageStore[groupId].length > MAX_MESSAGES_PER_GROUP) {
-        messageStore[groupId] = messageStore[groupId].slice(-MAX_MESSAGES_PER_GROUP);
-      }
-    }
-    if (count > 0) console.log(`[history] +${count} (latest=${isLatest})`);
+    const added = store.saveMessagesBatch(msgs || []);
+    if (added > 0) console.log(`[history] +${added} (latest=${isLatest})`);
   });
 
   sock.ev.on("chats.upsert", (chats) => {
@@ -326,10 +292,8 @@ app.get("/messages/:groupId", requireAuth, requireConnected, (req, res) => {
   const count = parseInt(req.query.count) || 100;
   const sinceTs = parseInt(req.query.since) || 0;
   try {
-    const stored = messageStore[groupId] || [];
-    const messages = stored
-      .filter((m) => getTimestamp(m) >= sinceTs)
-      .slice(-count)
+    const messages = store
+      .getMessages(groupId, sinceTs, count)
       .map(normalizeMessage);
     res.json({ messages, count: messages.length, group_id: groupId });
   } catch (err) {
@@ -370,15 +334,7 @@ async function markGroupRead(groupId) {
   // mas o device ignora. Validado em 2026-04-22: Setubal e PROCURO marcaram;
   // buffer de 499 msgs (5% Exclusivo) falhou em lote único de 50 — enviar em
   // chunks para cobrir todo o buffer.
-  const stored = messageStore[groupId] || [];
-  const keys = stored
-    .filter((m) => m.key && !m.key.fromMe && m.key.id && m.key.remoteJid)
-    .map((m) => ({
-      remoteJid: m.key.remoteJid,
-      id: m.key.id,
-      participant: m.key.participant,
-      fromMe: false,
-    }));
+  const keys = store.getKeysForMarkRead(groupId, MAX_MESSAGES_PER_GROUP);
 
   if (!keys.length) {
     // Buffer vazio: usa chatModify como fallback (sem garantia de propagar,
