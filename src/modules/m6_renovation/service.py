@@ -721,6 +721,7 @@ class RenovationService:
             "payment_method": payment_method,
             "is_tax_deductible": is_tax_deductible,
             "payment_status": data.get("payment_status", "pendente"),
+            "paid_amount": 0,
             "expense_date": expense_date,
             "notes": data.get("notes"),
         }
