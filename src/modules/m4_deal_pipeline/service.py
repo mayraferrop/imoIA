@@ -493,6 +493,7 @@ class DealPipelineService:
         db.insert("deal_state_history", {
             "id": db.new_id(),
             "tenant_id": deal["tenant_id"],
+            "organization_id": deal["organization_id"],
             "deal_id": deal_id,
             "from_status": current_status,
             "to_status": target_status,
