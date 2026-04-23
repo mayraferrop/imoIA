@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatEUR, GRADE_COLORS } from "@/lib/utils";
 import {
   BarChart,
@@ -123,6 +124,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 
 export default function PropertiesPage() {
+  const router = useRouter();
   const { data: propsResp, isLoading: propsLoading } = useSWR<{ items: Property[]; total: number } | null>(PROPERTIES_KEY);
   const { data: stats } = useSWR<IngestStats | null>(STATS_KEY);
   const { data: groupRows, mutate: mutateGroups } = useSWR<GroupRow[] | null>(GROUPS_KEY);
@@ -475,23 +477,42 @@ export default function PropertiesPage() {
     if (fd.get("contact_email")) body.contact_email = fd.get("contact_email");
     if (fd.get("notes")) body.notes = fd.get("notes");
 
+    // Server free-tier pode estar em cold start — avisar user e usar timeout generoso
+    setCreateMsg("A criar propriedade... (servidor pode estar a acordar, até 60s)");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 75000);
+
     try {
       const headers = await getAuthHeaders();
       const res = await fetch(`${API_BASE}/api/v1/properties/`, {
         method: "POST",
         headers,
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       if (res.ok) {
-        setCreateMsg("Propriedade criada com sucesso!");
+        const created = await res.json();
+        setCreateMsg("Propriedade criada. A abrir para adicionar fotos...");
         setShowCreateForm(false);
         (e.target as HTMLFormElement).reset();
         fetchData();
+        if (created?.id) {
+          router.push(`/properties/${created.id}`);
+          return;
+        }
       } else {
-        setCreateMsg("Erro ao criar propriedade.");
+        const detail = await res.text().catch(() => "");
+        setCreateMsg(`Erro ao criar propriedade (HTTP ${res.status}). ${detail.slice(0, 200)}`);
       }
-    } catch {
-      setCreateMsg("Erro de comunicação.");
+    } catch (err) {
+      clearTimeout(timeoutId);
+      const isAbort = (err as Error).name === "AbortError";
+      setCreateMsg(
+        isAbort
+          ? "Servidor demorou demasiado (cold start). Tente novamente daqui a 30s."
+          : `Erro de comunicação: ${(err as Error).message}`
+      );
     } finally {
       setCreateLoading(false);
     }
