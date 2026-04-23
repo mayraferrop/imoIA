@@ -44,6 +44,23 @@ _admin_mode: contextvars.ContextVar[bool] = contextvars.ContextVar("admin_mode",
 _TABLES_WITHOUT_ORG = {"tenants", "organizations", "organization_members"}
 
 
+def _sanitise(value: Any) -> Any:
+    """Converte objectos nao-JSON (datetime/date/UUID) em representacoes serializaveis.
+
+    httpx `json=` usa json.dumps que nao sabe serializar datetime/date/UUID directamente.
+    Sanitisamos recursivamente antes de enviar para o PostgREST.
+    """
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {k: _sanitise(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_sanitise(v) for v in value]
+    if hasattr(value, "hex") and hasattr(value, "int") and value.__class__.__name__ == "UUID":
+        return str(value)
+    return value
+
+
 @contextmanager
 def admin_client():
     """Context manager para operacoes admin (bypass do filtro de org).
@@ -210,6 +227,7 @@ def _post(table: str, data: Dict | List[Dict], timeout: int = 15) -> List[Dict]:
     """INSERT — retorna lista de registos criados. Lanca ValueError em caso de erro."""
     _ensure_config()
     data = _inject_org_id(table, data)
+    data = _sanitise(data)
     url = f"{_SUPA_URL}/rest/v1/{table}"
     try:
         resp = _get_client().post(url, headers=_headers(), json=data, timeout=timeout)
@@ -231,6 +249,7 @@ def _upsert(table: str, data: Dict | List[Dict], timeout: int = 15) -> List[Dict
     """INSERT ON CONFLICT UPDATE (upsert)."""
     _ensure_config()
     data = _inject_org_id(table, data)
+    data = _sanitise(data)
     url = f"{_SUPA_URL}/rest/v1/{table}"
     headers = _headers("return=representation,resolution=merge-duplicates")
     try:
@@ -252,6 +271,7 @@ def _patch(table: str, filter_str: str, data: Dict, timeout: int = 10) -> List[D
     org = _org_filter(table)
     if org:
         filter_str = f"{filter_str}&{org}" if filter_str else org
+    data = _sanitise(data)
     url = f"{_SUPA_URL}/rest/v1/{table}?{filter_str}"
     try:
         resp = _get_client().patch(url, headers=_headers(), json=data, timeout=timeout)
