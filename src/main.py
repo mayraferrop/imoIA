@@ -25,7 +25,7 @@ from src.modules.m6_renovation.router import router as renovation_router
 from src.modules.m7_marketing.router import router as marketing_router
 from src.modules.m8_leads.router import router as leads_router
 from src.modules.m9_closing.router import router as closing_router
-from src.shared.document_router import router as document_router
+from src.shared.document_router import router as document_router, public_router as public_document_router
 from src.modules.m1_ingestor.strategy_router import router as strategy_router
 from src.modules.m1_scraper.router import router as scraper_router
 from src.database.db import init_db
@@ -415,6 +415,12 @@ def create_app() -> FastAPI:
     app.include_router(
         closing_router, prefix="/api/v1",
         tags=["M9 - Fecho + P&L"], dependencies=auth_deps,
+    )
+    # Router publico (sem auth) DEVE vir antes do router autenticado
+    # para que o /download funcione em <img> tags que nao enviam Authorization.
+    app.include_router(
+        public_document_router, prefix="/api/v1/documents",
+        tags=["Documentos (publico)"],
     )
     app.include_router(
         document_router, prefix="/api/v1/documents",

@@ -23,6 +23,9 @@ from src.shared.document_storage import DocumentStorageService
 from src.shared.storage_provider import get_signed_url
 
 router = APIRouter()
+# Router público (sem auth) para download via <img> tag — signed URL serve de autorização.
+# Registado em main.py como "/api/v1/documents" sem auth_deps, ANTES do router principal.
+public_router = APIRouter()
 
 
 @router.post("/upload", summary="Upload de documento")
@@ -55,9 +58,12 @@ async def upload_document(
         )
 
 
-@router.get("/{document_id}/download", summary="Download de documento")
+@public_router.get("/{document_id}/download", summary="Download de documento")
 async def download_document(document_id: str):
     """Retorna o ficheiro para download.
+
+    Endpoint PÚBLICO (sem auth) porque `<img>` não envia Authorization header.
+    Segurança: UUID v4 inadivinhavel + signed URL com TTL de 1h.
 
     - Documentos em bucket (file_path = `bucket:path`) → redirect (302) para
       signed URL com TTL 1h. Permite `<img src>` sem header Authorization.
