@@ -4,7 +4,7 @@ import { useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { apiPost, apiPatch, API_BASE, getAuthHeaders } from "@/lib/api";
 
-const DEALS_KEY = "/api/v1/deals?limit=50";
+const DEALS_KEY = "/api/v1/deals/?limit=50";
 
 /* ------------------------------------------------------------------ */
 /*  Tipos locais                                                       */

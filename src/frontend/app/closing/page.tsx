@@ -6,7 +6,7 @@ import { apiPost, apiPatch } from "@/lib/api";
 import { formatEUR, cn } from "@/lib/utils";
 
 const CLOSINGS_KEY = "/api/v1/closing";
-const DEALS_KEY = "/api/v1/deals?limit=100";
+const DEALS_KEY = "/api/v1/deals/?limit=100";
 const PORTFOLIO_KEY = "/api/v1/portfolio/summary";
 
 interface Closing {

@@ -112,7 +112,7 @@ const PAYMENT_METHODS = [
 /*  PAGE                                                               */
 /* ================================================================== */
 
-const DEALS_KEY = "/api/v1/deals?limit=50";
+const DEALS_KEY = "/api/v1/deals/?limit=50";
 
 export default function RenovationPage() {
   const [renovations, setRenovations] = useState<Renovation[]>([]);
