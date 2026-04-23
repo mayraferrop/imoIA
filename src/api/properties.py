@@ -39,11 +39,17 @@ class PropertyCreateSchema(BaseModel):
     net_area_m2: Optional[float] = None
     bedrooms: Optional[int] = None
     bathrooms: Optional[int] = None
+    floor: Optional[int] = None
+    has_elevator: Optional[bool] = None
+    has_parking: Optional[bool] = None
+    construction_year: Optional[int] = None
+    energy_certificate: Optional[str] = None
     asking_price: Optional[float] = None
     condition: Optional[str] = None
     is_off_market: bool = False
     contact_name: Optional[str] = None
     contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
     notes: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
 
@@ -62,12 +68,18 @@ class PropertyUpdateSchema(BaseModel):
     net_area_m2: Optional[float] = None
     bedrooms: Optional[int] = None
     bathrooms: Optional[int] = None
+    floor: Optional[int] = None
+    has_elevator: Optional[bool] = None
+    has_parking: Optional[bool] = None
+    construction_year: Optional[int] = None
+    energy_certificate: Optional[str] = None
     asking_price: Optional[float] = None
     condition: Optional[str] = None
     status: Optional[str] = None
     is_off_market: Optional[bool] = None
     contact_name: Optional[str] = None
     contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
     notes: Optional[str] = None
     tags: Optional[List[str]] = None
 

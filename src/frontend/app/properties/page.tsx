@@ -448,18 +448,31 @@ export default function PropertiesPage() {
     setCreateMsg("");
     const fd = new FormData(e.currentTarget);
     const body: Record<string, any> = {};
+    // Localização
     if (fd.get("municipality")) body.municipality = fd.get("municipality");
     if (fd.get("district")) body.district = fd.get("district");
     if (fd.get("parish")) body.parish = fd.get("parish");
+    if (fd.get("address")) body.address = fd.get("address");
+    if (fd.get("postal_code")) body.postal_code = fd.get("postal_code");
+    // Características
     if (fd.get("property_type")) body.property_type = fd.get("property_type");
     if (fd.get("typology")) body.typology = fd.get("typology");
     if (fd.get("asking_price")) body.asking_price = Number(fd.get("asking_price"));
     if (fd.get("gross_area_m2")) body.gross_area_m2 = Number(fd.get("gross_area_m2"));
     if (fd.get("bedrooms")) body.bedrooms = Number(fd.get("bedrooms"));
+    if (fd.get("bathrooms")) body.bathrooms = Number(fd.get("bathrooms"));
+    if (fd.get("floor")) body.floor = Number(fd.get("floor"));
+    if (fd.get("construction_year")) body.construction_year = Number(fd.get("construction_year"));
     if (fd.get("condition")) body.condition = fd.get("condition");
-    if (fd.get("notes")) body.notes = fd.get("notes");
+    if (fd.get("energy_certificate")) body.energy_certificate = fd.get("energy_certificate");
+    body.has_elevator = fd.get("has_elevator") === "on";
+    body.has_parking = fd.get("has_parking") === "on";
+    body.is_off_market = fd.get("is_off_market") === "on";
+    // Contacto + notas
     if (fd.get("contact_name")) body.contact_name = fd.get("contact_name");
     if (fd.get("contact_phone")) body.contact_phone = fd.get("contact_phone");
+    if (fd.get("contact_email")) body.contact_email = fd.get("contact_email");
+    if (fd.get("notes")) body.notes = fd.get("notes");
 
     try {
       const headers = await getAuthHeaders();
@@ -811,51 +824,109 @@ export default function PropertiesPage() {
       {showCreateForm && (
         <div className="bg-white rounded-xl border border-slate-200 p-6">
           <h2 className="text-lg font-semibold text-slate-900 mb-4">Nova propriedade</h2>
-          <form onSubmit={handleCreateProperty} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField name="municipality" label="Concelho" placeholder="Lisboa" type="text" />
-              <FormField name="district" label="Distrito" placeholder="Lisboa" type="text" />
-              <FormField name="parish" label="Freguesia" placeholder="Arroios" type="text" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Tipo de imóvel</label>
-                <select
-                  name="property_type"
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none bg-white"
-                >
-                  <option value="">Selecionar</option>
-                  <option value="apartamento">Apartamento</option>
-                  <option value="moradia">Moradia</option>
-                  <option value="terreno">Terreno</option>
-                  <option value="predio">Prédio</option>
-                  <option value="armazem">Armazém</option>
-                </select>
+          <form onSubmit={handleCreateProperty} className="space-y-6">
+            {/* Localização */}
+            <div>
+              <h3 className="text-sm font-semibold text-slate-700 mb-3">Localização</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <FormField name="municipality" label="Concelho" placeholder="Lisboa" type="text" />
+                <FormField name="district" label="Distrito" placeholder="Lisboa" type="text" />
+                <FormField name="parish" label="Freguesia" placeholder="Arroios" type="text" />
               </div>
-              <FormField name="typology" label="Tipologia" placeholder="T2" type="text" />
-              <FormField name="asking_price" label="Preço pedido (EUR)" placeholder="150000" type="number" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField name="gross_area_m2" label="Área bruta (m²)" placeholder="80" type="number" />
-              <FormField name="bedrooms" label="Quartos" placeholder="2" type="number" />
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Estado</label>
-                <select
-                  name="condition"
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none bg-white"
-                >
-                  <option value="">Selecionar</option>
-                  <option value="usado">Usado</option>
-                  <option value="renovado">Renovado</option>
-                  <option value="novo">Novo</option>
-                  <option value="para_renovar">Para renovar</option>
-                </select>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <FormField name="address" label="Morada" placeholder="Rua António Maria Cardoso, 15" type="text" />
+                </div>
+                <FormField name="postal_code" label="Código Postal" placeholder="1200-026" type="text" />
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField name="contact_name" label="Contacto" placeholder="Nome" type="text" />
-              <FormField name="contact_phone" label="Telefone" placeholder="+351..." type="text" />
+
+            {/* Características */}
+            <div>
+              <h3 className="text-sm font-semibold text-slate-700 mb-3">Características</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Tipo de imóvel</label>
+                  <select
+                    name="property_type"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none bg-white"
+                  >
+                    <option value="">Selecionar</option>
+                    <option value="apartamento">Apartamento</option>
+                    <option value="moradia">Moradia</option>
+                    <option value="terreno">Terreno</option>
+                    <option value="predio">Prédio</option>
+                    <option value="armazem">Armazém</option>
+                  </select>
+                </div>
+                <FormField name="typology" label="Tipologia" placeholder="T2" type="text" />
+                <FormField name="asking_price" label="Preço pedido (EUR)" placeholder="150000" type="number" />
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <FormField name="gross_area_m2" label="Área bruta (m²)" placeholder="80" type="number" />
+                <FormField name="bedrooms" label="Quartos" placeholder="2" type="number" />
+                <FormField name="bathrooms" label="Casas de banho" placeholder="1" type="number" />
+                <FormField name="floor" label="Andar" placeholder="3" type="number" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <FormField name="construction_year" label="Ano construção" placeholder="1998" type="number" />
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Estado</label>
+                  <select
+                    name="condition"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none bg-white"
+                  >
+                    <option value="">Selecionar</option>
+                    <option value="usado">Usado</option>
+                    <option value="renovado">Renovado</option>
+                    <option value="novo">Novo</option>
+                    <option value="para_renovar">Para renovar</option>
+                    <option value="ruina">Ruína</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Certificado energético
+                  </label>
+                  <select
+                    name="energy_certificate"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none bg-white"
+                  >
+                    <option value="">Selecionar</option>
+                    {["A+", "A", "B", "B-", "C", "D", "E", "F", "G"].map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                    <option value="isento">Isento</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-6">
+                <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                  <input type="checkbox" name="has_elevator" className="w-4 h-4 text-teal-600 rounded" />
+                  Elevador
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                  <input type="checkbox" name="has_parking" className="w-4 h-4 text-teal-600 rounded" />
+                  Estacionamento
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                  <input type="checkbox" name="is_off_market" className="w-4 h-4 text-teal-600 rounded" />
+                  Off-market
+                </label>
+              </div>
             </div>
+
+            {/* Contacto */}
+            <div>
+              <h3 className="text-sm font-semibold text-slate-700 mb-3">Contacto do proprietário</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField name="contact_name" label="Nome" placeholder="Nome" type="text" />
+                <FormField name="contact_phone" label="Telefone" placeholder="+351..." type="text" />
+                <FormField name="contact_email" label="Email" placeholder="nome@exemplo.pt" type="email" />
+              </div>
+            </div>
+
+            {/* Notas */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Notas</label>
               <textarea
@@ -865,6 +936,7 @@ export default function PropertiesPage() {
                 placeholder="Notas sobre a propriedade..."
               />
             </div>
+
             <div className="flex gap-3">
               <button
                 type="submit"
