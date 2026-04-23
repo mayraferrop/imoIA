@@ -82,7 +82,23 @@ interface NextAction {
 }
 
 type PipelineTab = "kanban" | "create" | "mediation";
-type DetailTab = "resumo" | "propostas" | "tasks" | "hist";
+type DetailTab = "resumo" | "propostas" | "visitas" | "tasks" | "hist";
+
+interface Visit {
+  id: string;
+  visitor_name: string;
+  visitor_phone?: string;
+  visitor_email?: string;
+  visit_date?: string;
+  visit_type?: string;
+  duration_minutes?: number;
+  accompanied_by?: string;
+  interest_level?: string;
+  feedback?: string;
+  wants_second_visit?: boolean;
+  made_proposal?: boolean;
+  created_at?: string;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Status config for kanban columns (used when reading from Supabase) */
@@ -127,6 +143,9 @@ export default function PipelinePage() {
   // Proposal creation
   const [proposalMsg, setProposalMsg] = useState("");
 
+  // Visit creation
+  const [visitMsg, setVisitMsg] = useState("");
+
   // SWR keys
   const kanbanKey = `/api/v1/deals/kanban${strategyFilter ? `?strategy=${strategyFilter}` : ""}`;
   const STATS_KEY = "/api/v1/deals/stats";
@@ -161,14 +180,17 @@ export default function PipelinePage() {
 
   const dealDetailKey = selectedDealId ? `/api/v1/deals/${selectedDealId}` : null;
   const proposalsKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/proposals` : null;
+  const visitsKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/visits` : null;
   const historyKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/history` : null;
   const nextActionsKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/next-actions` : null;
 
   const { data: selectedDeal } = useSWR<Deal | null>(dealDetailKey);
   const { data: proposalsData } = useSWR<Proposal[] | null>(proposalsKey);
+  const { data: visitsData } = useSWR<Visit[] | null>(visitsKey);
   const { data: historyData } = useSWR<HistoryEntry[] | null>(historyKey);
   const { data: nextActionsData } = useSWR<{ next_statuses: NextAction[] } | null>(nextActionsKey);
   const proposals = proposalsData ?? [];
+  const visits = visitsData ?? [];
   const history = historyData ?? [];
   const nextActions = nextActionsData?.next_statuses ?? [];
 
@@ -258,6 +280,39 @@ export default function PipelinePage() {
       }
     } catch {
       setProposalMsg("Erro de comunicação.");
+    }
+  }
+
+  async function handleCreateVisit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!selectedDealId) return;
+    setVisitMsg("");
+    const fd = new FormData(e.currentTarget);
+    const dateRaw = (fd.get("v_date") as string) || "";
+    const body: Record<string, unknown> = {
+      visitor_name: (fd.get("v_name") as string) || "",
+      visitor_phone: (fd.get("v_phone") as string) || null,
+      visitor_email: (fd.get("v_email") as string) || null,
+      visit_date: dateRaw ? new Date(dateRaw).toISOString() : new Date().toISOString(),
+      visit_type: (fd.get("v_type") as string) || "presencial",
+      duration_minutes: Number(fd.get("v_duration")) || null,
+      accompanied_by: (fd.get("v_by") as string) || null,
+    };
+    if (!body.visitor_name) {
+      setVisitMsg("Erro: nome do visitante é obrigatório.");
+      return;
+    }
+    try {
+      const result = await apiPost(`/api/v1/deals/${selectedDealId}/visits`, body);
+      if (result) {
+        setVisitMsg("Visita registada!");
+        (e.target as HTMLFormElement).reset();
+        if (visitsKey) globalMutate(visitsKey);
+      } else {
+        setVisitMsg("Erro ao registar visita.");
+      }
+    } catch {
+      setVisitMsg("Erro de comunicação.");
     }
   }
 
@@ -431,6 +486,7 @@ export default function PipelinePage() {
                 {([
                   ["resumo", "Resumo"],
                   ["propostas", "Propostas"],
+                  ["visitas", "Visitas"],
                   ["tasks", "Tasks"],
                   ["hist", "Histórico"],
                 ] as [DetailTab, string][]).map(([key, label]) => (
@@ -608,6 +664,108 @@ export default function PipelinePage() {
                       </div>
                       <button type="submit" className="px-4 py-2 bg-teal-700 text-white rounded-lg text-sm font-medium hover:bg-teal-800 transition-colors">
                         Enviar proposta
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* VISITAS TAB */}
+              {detailTab === "visitas" && (
+                <div className="space-y-4">
+                  {visits.length > 0 ? (
+                    <div className="space-y-3">
+                      {visits.map((v) => (
+                        <div key={v.id} className="border border-slate-200 rounded-lg p-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-slate-900">
+                              {v.visitor_name}
+                              {v.visit_type && (
+                                <span className="ml-2 text-xs px-2 py-0.5 bg-teal-50 text-teal-700 rounded">
+                                  {v.visit_type}
+                                </span>
+                              )}
+                            </span>
+                            {v.interest_level && (
+                              <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded">
+                                {v.interest_level}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {v.visit_date?.slice(0, 16).replace("T", " ") ?? ""}
+                            {v.duration_minutes ? ` · ${v.duration_minutes} min` : ""}
+                            {v.accompanied_by ? ` · com ${v.accompanied_by}` : ""}
+                          </p>
+                          {(v.visitor_phone || v.visitor_email) && (
+                            <p className="text-xs text-slate-400 mt-1">
+                              {[v.visitor_phone, v.visitor_email].filter(Boolean).join(" · ")}
+                            </p>
+                          )}
+                          {v.feedback && (
+                            <p className="text-xs text-slate-500 mt-2 italic">&ldquo;{v.feedback}&rdquo;</p>
+                          )}
+                          {(v.wants_second_visit || v.made_proposal) && (
+                            <div className="flex gap-2 mt-2">
+                              {v.wants_second_visit && (
+                                <span className="text-xs px-2 py-0.5 bg-amber-50 text-amber-700 rounded">2ª visita</span>
+                              )}
+                              {v.made_proposal && (
+                                <span className="text-xs px-2 py-0.5 bg-green-50 text-green-700 rounded">propôs</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-400">Sem visitas registadas.</p>
+                  )}
+
+                  <div className="border-t border-slate-200 pt-4">
+                    <p className="text-sm font-semibold text-slate-700 mb-3">Registar visita</p>
+                    {visitMsg && (
+                      <div className={`mb-3 px-3 py-2 rounded-lg text-sm ${visitMsg.includes("Erro") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+                        {visitMsg}
+                      </div>
+                    )}
+                    <form onSubmit={handleCreateVisit} className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Nome *</label>
+                          <input name="v_name" type="text" required placeholder="Ana Investidora" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Tipo</label>
+                          <select name="v_type" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
+                            <option value="presencial">Presencial</option>
+                            <option value="virtual">Virtual</option>
+                            <option value="open_house">Open House</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Data/hora</label>
+                          <input name="v_date" type="datetime-local" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Duração (min)</label>
+                          <input name="v_duration" type="number" step="1" defaultValue="45" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Telefone</label>
+                          <input name="v_phone" type="tel" placeholder="+351 ..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Email</label>
+                          <input name="v_email" type="email" placeholder="opcional" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Acompanhado por</label>
+                          <input name="v_by" type="text" placeholder="Opcional (ex: agente João)" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                        </div>
+                      </div>
+                      <button type="submit" className="px-4 py-2 bg-teal-700 text-white rounded-lg text-sm font-medium hover:bg-teal-800 transition-colors">
+                        Registar visita
                       </button>
                     </form>
                   </div>
