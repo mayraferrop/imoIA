@@ -54,18 +54,18 @@
 - Scoring via `deal_scorer.py` (regra 70%, yield, MAO)
 - Cron Render 5×/dia (08/11/14/17/20 UTC)
 - Admin UI: `/admin/runs`, `/admin/dlq`
+- **Portais PT (scraper M1)** — Imovirtual ✅ funcional (parser via `__NEXT_DATA__`, 4 buscas default: apartamento+moradia × Lisboa+Porto). Idealista dormant (DataDome bloqueia — reactivar com API paga). Filtro obrigatório por estratégia activa no `OpportunityClassifier`. Cron `imoia-scraper-cron` 1x/dia às 07 UTC. Migration 007 aplicada (Sprint 1 #2, 2026-04-23)
 
 **Gap:**
 1. **Facebook**: prometido mas não existe scraper/integração
-2. **Portais PT (Idealista, Imovirtual)**: há `idealista_client.py` para comparáveis mas não há scraping de listings para captação
-3. **Portais BR (ZAP, OLX, VivaReal)**: zero — bloqueador para Santos
-4. **"Centenas de msgs/minuto"**: hoje batch de 500 msgs/run, 5 runs/dia. Real é ~50-150/dia total. Não é falso mas não é "centenas por minuto" de forma sustentada
+2. **Portais BR (ZAP, OLX, VivaReal)**: zero — bloqueador para Santos
+3. **"Centenas de msgs/minuto"**: hoje batch de 500 msgs/run, 5 runs/dia. Real é ~50-150/dia total. Não é falso mas não é "centenas por minuto" de forma sustentada
 
 **Prioridade:**
 - Facebook captação: **P2** (pós-lançamento)
-- Portais PT captação: **P1** (amplia funil)
 - Portais BR captação: **P0** para piloto Santos
 - WhatsApp PT: ✅ pronto
+- Portais PT captação: ✅ pronto (Imovirtual)
 
 ---
 
