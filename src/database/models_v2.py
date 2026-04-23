@@ -486,6 +486,9 @@ class Deal(Base):
     tenant_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("tenants.id"), nullable=False, index=True
     )
+    organization_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, index=True
+    )
     property_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("properties.id"), nullable=False, index=True
     )
@@ -669,6 +672,9 @@ class DealStateHistory(Base):
     )
     tenant_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("tenants.id"), nullable=False
+    )
+    organization_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, index=True
     )
     deal_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("deals.id"), nullable=False, index=True

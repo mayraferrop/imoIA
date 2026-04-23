@@ -8,9 +8,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
 
+from src.api.dependencies.auth import get_current_organization
 from src.modules.m4_deal_pipeline.schemas import (
     AdvanceDealSchema,
     CMAInputSchema,
@@ -105,10 +106,15 @@ def list_deals(
 
 
 @router.post("/", summary="Criar deal")
-def create_deal(data: DealCreateSchema) -> Dict[str, Any]:
+async def create_deal(
+    data: DealCreateSchema,
+    organization_id: str = Depends(get_current_organization),
+) -> Dict[str, Any]:
     """Cria um novo deal."""
     try:
-        return service.create_deal(data.model_dump())
+        payload = data.model_dump()
+        payload["organization_id"] = organization_id
+        return service.create_deal(payload)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

@@ -250,6 +250,10 @@ class DealPipelineService:
         if strategy not in INVESTMENT_STRATEGIES:
             raise ValueError(f"Estrategia invalida: {strategy}")
 
+        organization_id = data.get("organization_id")
+        if not organization_id:
+            raise ValueError("organization_id obrigatorio")
+
         tenant_id = db.ensure_tenant()
 
         prop = db.get_by_id("properties", data["property_id"])
@@ -262,6 +266,7 @@ class DealPipelineService:
         deal_row = {
             "id": deal_id,
             "tenant_id": tenant_id,
+            "organization_id": organization_id,
             "property_id": data["property_id"],
             "investment_strategy": strategy,
             "status": "lead",
@@ -286,6 +291,7 @@ class DealPipelineService:
         db.insert("deal_state_history", {
             "id": db.new_id(),
             "tenant_id": tenant_id,
+            "organization_id": organization_id,
             "deal_id": deal_id,
             "from_status": "",
             "to_status": "lead",
