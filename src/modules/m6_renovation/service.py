@@ -517,6 +517,8 @@ class RenovationService:
             "description": data.get("description"),
             "sort_order": data.get("sort_order", 999),
             "budget": float(data.get("budget", 0)),
+            "spent": 0.0,
+            "variance_pct": 0.0,
             "planned_start": data.get("planned_start"),
             "planned_end": data.get("planned_end"),
             "duration_days": data.get("duration_days"),
