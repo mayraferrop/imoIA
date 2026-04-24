@@ -671,7 +671,7 @@ export default function LeadsPage() {
                                   {" · "}Status: <span className="font-semibold">{nsStatus}</span>
                                   {ns.current_step != null && <> · Passo {ns.current_step}</>}
                                 </div>
-                                {nsStatus === "running" && (
+                                {(nsStatus === "running" || nsStatus === "active") && (
                                   <button
                                     onClick={() => pauseNurture(lead.id)}
                                     className="w-full px-3 py-2 text-xs font-medium text-amber-700 border border-amber-400 rounded-lg hover:bg-amber-50"
