@@ -7,6 +7,7 @@ import Link from "next/link";
 import {
   fetcher,
   apiPost,
+  apiPostStrict,
   apiPatch,
   apiUpload,
   apiDelete,
@@ -112,7 +113,23 @@ const STATUS_COLORS: Record<string, string> = {
   archived: "#64748B",
 };
 
-type Tab = "conteudo" | "fotos" | "criativos" | "preview";
+type Tab = "conteudo" | "fotos" | "criativos" | "emails" | "preview";
+
+interface EmailCampaign {
+  id: string;
+  campaign_type?: string;
+  subject?: string;
+  status?: string;
+  language?: string;
+  recipient_count?: number;
+  sent_at?: string | null;
+  delivered?: number;
+  opened?: number;
+  clicked?: number;
+  open_rate?: number;
+  click_rate?: number;
+  created_at?: string | null;
+}
 
 export default function ListingDetailPage() {
   const params = useParams<{ listing_id: string }>();
@@ -123,12 +140,17 @@ export default function ListingDetailPage() {
   const creativesKey = listingId
     ? `/api/v1/marketing/listings/${listingId}/creatives`
     : null;
+  const emailsKey = listingId
+    ? `/api/v1/marketing/listings/${listingId}/emails`
+    : null;
   const brandKitKey = "/api/v1/marketing/brand-kit";
 
   const { data: listing } = useSWR<Listing | null>(listingKey);
   const { data: creativesData } = useSWR<Creative[] | null>(creativesKey);
+  const { data: emailsData } = useSWR<EmailCampaign[] | null>(emailsKey);
   const { data: brandKit } = useSWR<BrandKit | null>(brandKitKey);
   const creatives = creativesData ?? [];
+  const emails = emailsData ?? [];
 
   const dealKey = listing?.deal_id ? `/api/v1/deals/${listing.deal_id}` : null;
   const { data: deal } = useSWR<DealInfo | null>(dealKey);
@@ -153,9 +175,59 @@ export default function ListingDetailPage() {
     await Promise.all([
       globalMutate(listingKey),
       globalMutate(creativesKey),
+      globalMutate(emailsKey),
       globalMutate(brandKitKey),
     ]);
-  }, [listingId, listingKey, creativesKey]);
+  }, [listingId, listingKey, creativesKey, emailsKey]);
+
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  async function generateEmail(campaignType: string) {
+    if (!listingId) return;
+    setEmailBusy(true);
+    setEmailError(null);
+    try {
+      const r = await apiPostStrict(
+        `/api/v1/marketing/listings/${listingId}/email?campaign_type=${campaignType}&language=pt-PT`
+      );
+      if (!r.ok) {
+        setEmailError(`HTTP ${r.status}: ${r.error ?? "(sem detalhe)"}`);
+        return;
+      }
+      await globalMutate(emailsKey);
+    } finally {
+      setEmailBusy(false);
+    }
+  }
+
+  async function sendCampaign(campaignId: string) {
+    const raw = prompt(
+      "Emails destinatários (separados por vírgula):",
+      "mayaraferrop@gmail.com"
+    );
+    if (!raw) return;
+    const recipients = raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (recipients.length === 0) return;
+    setEmailBusy(true);
+    setEmailError(null);
+    try {
+      const r = await apiPostStrict(
+        `/api/v1/marketing/email/${campaignId}/send`,
+        recipients
+      );
+      if (!r.ok) {
+        setEmailError(`HTTP ${r.status}: ${r.error ?? "(sem detalhe)"}`);
+        return;
+      }
+      await globalMutate(emailsKey);
+    } finally {
+      setEmailBusy(false);
+    }
+  }
 
   async function uploadPhotos(files: FileList | File[]) {
     if (!listingId) return;
@@ -300,6 +372,7 @@ export default function ListingDetailPage() {
           { key: "fotos" as const, label: `Fotos (${photos.length})` },
           { key: "criativos" as const, label: `Criativos (${creatives.length})` },
           { key: "conteudo" as const, label: "Conteúdo" },
+          { key: "emails" as const, label: `Emails (${emails.length})` },
           { key: "preview" as const, label: "Preview" },
         ].map((t) => (
           <button
@@ -609,6 +682,120 @@ export default function ListingDetailPage() {
               />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB EMAILS */}
+      {tab === "emails" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <p className="text-sm text-slate-500">
+              Campanhas email geradas a partir desta publicação. Envio via Resend.
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              {["new_property", "price_reduction", "open_house", "follow_up"].map((ct) => (
+                <button
+                  key={ct}
+                  disabled={emailBusy}
+                  onClick={() => generateEmail(ct)}
+                  className={cn(
+                    "text-xs font-medium px-3 py-1.5 rounded-lg border",
+                    emailBusy
+                      ? "bg-slate-100 text-slate-400 border-slate-200 cursor-wait"
+                      : "text-indigo-700 border-indigo-300 hover:bg-indigo-50"
+                  )}
+                >
+                  + {ct}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {emailError && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-lg px-4 py-3 whitespace-pre-wrap break-words">
+              {emailError}
+            </div>
+          )}
+
+          {emails.length === 0 ? (
+            <div className="text-sm text-slate-400 italic p-6 border border-dashed border-slate-200 rounded-lg text-center">
+              Ainda não há campanhas. Gera uma acima.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {emails.map((c) => {
+                const st = c.status ?? "draft";
+                const isDraft = st === "draft";
+                return (
+                  <div
+                    key={c.id}
+                    className="border border-slate-200 rounded-lg p-4 flex flex-col gap-2"
+                  >
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                            {c.campaign_type ?? "—"}
+                          </span>
+                          <span
+                            className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                            style={{
+                              backgroundColor:
+                                st === "sent"
+                                  ? "#16A34A15"
+                                  : st === "failed"
+                                  ? "#DC262615"
+                                  : "#94A3B815",
+                              color:
+                                st === "sent"
+                                  ? "#16A34A"
+                                  : st === "failed"
+                                  ? "#DC2626"
+                                  : "#64748B",
+                            }}
+                          >
+                            {st}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {c.language ?? "—"}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-slate-800 mt-1 truncate">
+                          {c.subject ?? "(sem assunto)"}
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          {c.recipient_count ?? 0} destinatários ·{" "}
+                          {c.delivered ?? 0} entregues ·{" "}
+                          {c.opened ?? 0} abertos ·{" "}
+                          {c.clicked ?? 0} cliques
+                          {c.sent_at && (
+                            <>
+                              {" · enviado "}
+                              {new Date(c.sent_at).toLocaleString("pt-PT")}
+                            </>
+                          )}
+                        </p>
+                      </div>
+                      {isDraft && (
+                        <button
+                          disabled={emailBusy}
+                          onClick={() => sendCampaign(c.id)}
+                          className={cn(
+                            "text-xs font-medium px-3 py-1.5 rounded-lg",
+                            emailBusy
+                              ? "bg-slate-100 text-slate-400 cursor-wait"
+                              : "bg-teal-700 text-white hover:bg-teal-800"
+                          )}
+                        >
+                          Enviar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
