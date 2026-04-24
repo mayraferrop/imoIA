@@ -941,12 +941,17 @@ class RenovationService:
         if not renovation:
             raise ValueError(f"Renovacao nao encontrada: {renovation_id}")
 
+        deal = db.get_by_id("deals", renovation["deal_id"])
+        if not deal:
+            raise ValueError(f"Deal nao encontrado: {renovation['deal_id']}")
+
         with get_session() as session:
             storage = DocumentStorageService(session, base_path=storage_base)
             doc = storage.upload_document(
                 file_content=file_content,
                 filename=filename,
                 tenant_id=renovation["tenant_id"],
+                organization_id=deal["organization_id"],
                 deal_id=renovation["deal_id"],
                 document_type="foto_obra",
                 title=data.get("caption") or filename,

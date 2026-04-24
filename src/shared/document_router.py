@@ -39,15 +39,29 @@ async def upload_document(
     tags: Optional[str] = Form(None),
     uploaded_by: str = Form("system"),
 ) -> Dict[str, Any]:
-    """Upload de ficheiro para o storage."""
+    """Upload de ficheiro para o storage. Requer deal_id ou dd_item_id para obter organization_id."""
     content = await file.read()
     tenant_id = db.ensure_tenant()
+
+    effective_deal_id = deal_id
+    if not effective_deal_id and dd_item_id:
+        item = db.get_by_id("due_diligence_items", dd_item_id)
+        if item:
+            effective_deal_id = item["deal_id"]
+    if not effective_deal_id:
+        raise HTTPException(status_code=400, detail="deal_id ou dd_item_id obrigatorio")
+
+    deal = db.get_by_id("deals", effective_deal_id)
+    if not deal:
+        raise HTTPException(status_code=404, detail=f"Deal nao encontrado: {effective_deal_id}")
+
     with get_session() as session:
         storage = DocumentStorageService(session)
         return storage.upload_document(
             file_content=content,
             filename=file.filename or "document",
             tenant_id=tenant_id,
+            organization_id=deal["organization_id"],
             deal_id=deal_id,
             dd_item_id=dd_item_id,
             document_type=document_type,

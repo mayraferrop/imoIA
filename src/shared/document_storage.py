@@ -1,7 +1,7 @@
 """Servico partilhado de armazenamento de documentos.
 
-Versao actual: filesystem local (pasta storage/documents/).
-Futuro: Supabase Storage (S3-compatible).
+Usa Supabase Storage (bucket "documents") — signed URL com TTL 1h para download.
+file_path no Document segue formato "{bucket}:{path}" (ver document_router.download_document).
 """
 
 from __future__ import annotations
@@ -15,23 +15,22 @@ from loguru import logger
 from sqlalchemy.orm import Session
 
 from src.database.models_v2 import Document, DueDiligenceItem
-
-STORAGE_BASE = Path("storage/documents")
+from src.shared.storage_provider import BUCKET_DOCUMENTS, delete_file, upload_file
 
 
 class DocumentStorageService:
-    """Armazenamento de ficheiros no filesystem local."""
+    """Armazenamento de ficheiros em Supabase Storage."""
 
     def __init__(self, session: Session, base_path: Optional[str] = None) -> None:
+        # base_path preservado na assinatura por compatibilidade mas ignorado.
         self.session = session
-        self.base_path = Path(base_path) if base_path else STORAGE_BASE
-        self.base_path.mkdir(parents=True, exist_ok=True)
 
     def upload_document(
         self,
         file_content: bytes,
         filename: str,
         tenant_id: str,
+        organization_id: str,
         deal_id: Optional[str] = None,
         dd_item_id: Optional[str] = None,
         document_type: str = "outro",
@@ -40,28 +39,27 @@ class DocumentStorageService:
         tags: Optional[str] = None,
         uploaded_by: str = "system",
     ) -> Dict[str, Any]:
-        """Upload de ficheiro. Returns dict with document metadata."""
+        """Upload de ficheiro para Supabase Storage + registo Document."""
         ext = Path(filename).suffix.lower()
         mime = self._guess_mime_type(ext)
-        stored_name = f"{uuid4()}{ext}"
+        document_id = str(uuid4())
+        stored_name = f"{document_id}{ext}"
 
         subfolder = deal_id or "general"
-        dest_dir = self.base_path / subfolder
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        dest_path = dest_dir / stored_name
-
-        dest_path.write_bytes(file_content)
+        bucket_path = f"tenants/{tenant_id}/{subfolder}/{stored_name}"
+        upload_file(BUCKET_DOCUMENTS, bucket_path, file_content, mime)
 
         doc = Document(
-            id=str(uuid4()),
+            id=document_id,
             tenant_id=tenant_id,
+            organization_id=organization_id,
             deal_id=deal_id,
             dd_item_id=dd_item_id,
             entity_type="due_diligence" if dd_item_id else ("deal" if deal_id else None),
             entity_id=dd_item_id or deal_id,
             filename=filename,
             stored_filename=stored_name,
-            file_path=str(dest_path),
+            file_path=f"{BUCKET_DOCUMENTS}:{bucket_path}",
             file_size=len(file_content),
             mime_type=mime,
             file_extension=ext.lstrip("."),
@@ -83,7 +81,7 @@ class DocumentStorageService:
                     dd_item.status = "obtido"
 
         self.session.flush()
-        logger.info(f"Documento uploaded: {filename} ({len(file_content)} bytes)")
+        logger.info(f"Documento uploaded: {filename} ({len(file_content)} bytes) -> {bucket_path}")
         return self._doc_to_dict(doc)
 
     def get_document(self, document_id: str) -> Optional[Dict[str, Any]]:
@@ -91,10 +89,17 @@ class DocumentStorageService:
         return self._doc_to_dict(doc) if doc else None
 
     def get_file_content(self, document_id: str) -> tuple:
-        """Returns (bytes, filename, mime_type)."""
+        """Returns (bytes, filename, mime_type). Suporta bucket Supabase e legacy filesystem."""
+        from src.shared.storage_provider import download_file
         doc = self.session.get(Document, document_id)
         if not doc:
             raise ValueError("Documento nao encontrado")
+        # Formato bucket: "{bucket}:{path}"
+        if doc.file_path and ":" in doc.file_path and not doc.file_path.startswith("/"):
+            bucket, bucket_path = doc.file_path.split(":", 1)
+            content = download_file(bucket, bucket_path)
+            return content, doc.filename, doc.mime_type or "application/octet-stream"
+        # Legacy filesystem
         path = Path(doc.file_path)
         if not path.exists():
             raise FileNotFoundError(f"Ficheiro nao encontrado: {path}")
@@ -123,9 +128,13 @@ class DocumentStorageService:
         if not doc:
             return False
         if hard_delete:
-            path = Path(doc.file_path)
-            if path.exists():
-                path.unlink()
+            if doc.file_path and ":" in doc.file_path and not doc.file_path.startswith("/"):
+                bucket, bucket_path = doc.file_path.split(":", 1)
+                delete_file(bucket, bucket_path)
+            else:
+                path = Path(doc.file_path)
+                if path.exists():
+                    path.unlink()
             if doc.dd_item_id:
                 dd_item = self.session.get(DueDiligenceItem, doc.dd_item_id)
                 if dd_item and dd_item.document_url and doc.id in (dd_item.document_url or ""):
@@ -142,15 +151,23 @@ class DocumentStorageService:
         doc = self.session.get(Document, document_id)
         if not doc:
             raise ValueError("Documento nao encontrado")
-        old_path = Path(doc.file_path)
-        if old_path.exists():
-            old_path.unlink()
         ext = Path(new_filename or doc.filename).suffix.lower()
         stored_name = f"{uuid4()}{ext}"
-        dest_path = old_path.parent / stored_name
-        dest_path.write_bytes(new_content)
+        # Se era bucket, re-upload no mesmo bucket
+        if doc.file_path and ":" in doc.file_path and not doc.file_path.startswith("/"):
+            bucket, old_bucket_path = doc.file_path.split(":", 1)
+            new_bucket_path = old_bucket_path.rsplit("/", 1)[0] + "/" + stored_name
+            upload_file(bucket, new_bucket_path, new_content, self._guess_mime_type(ext))
+            delete_file(bucket, old_bucket_path)
+            doc.file_path = f"{bucket}:{new_bucket_path}"
+        else:
+            old_path = Path(doc.file_path)
+            if old_path.exists():
+                old_path.unlink()
+            dest_path = old_path.parent / stored_name
+            dest_path.write_bytes(new_content)
+            doc.file_path = str(dest_path)
         doc.stored_filename = stored_name
-        doc.file_path = str(dest_path)
         doc.file_size = len(new_content)
         doc.mime_type = self._guess_mime_type(ext)
         doc.file_extension = ext.lstrip(".")

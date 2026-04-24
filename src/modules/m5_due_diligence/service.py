@@ -493,11 +493,7 @@ class DueDiligenceService:
         uploaded_by: str = "system",
         storage_base: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Faz upload de um documento e associa-o a um item de due diligence.
-
-        Nota: DocumentStorageService ainda usa sessao SQLAlchemy internamente.
-        Quando for migrado, este metodo sera simplificado.
-        """
+        """Faz upload de um documento e associa-o a um item de due diligence."""
         from src.database.db import get_session
         from src.shared.document_storage import DocumentStorageService
 
@@ -508,12 +504,18 @@ class DueDiligenceService:
         deal_id = item["deal_id"]
         tenant_id = item["tenant_id"]
 
+        deal = db.get_by_id("deals", deal_id)
+        if not deal:
+            raise ValueError(f"Deal nao encontrado: {deal_id}")
+        organization_id = deal["organization_id"]
+
         with get_session() as session:
             storage = DocumentStorageService(session, base_path=storage_base)
             doc = storage.upload_document(
                 file_content=file_content,
                 filename=filename,
                 tenant_id=tenant_id,
+                organization_id=organization_id,
                 deal_id=deal_id,
                 dd_item_id=item_id,
                 uploaded_by=uploaded_by,

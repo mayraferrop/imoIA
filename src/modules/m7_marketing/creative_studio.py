@@ -242,6 +242,7 @@ class CreativeStudio:
                 file_content=file_bytes,
                 filename=filename,
                 tenant_id=listing.tenant_id,
+                organization_id=listing.organization_id,
                 deal_id=deal.id if deal else None,
                 document_type="creative",
                 title=f"{config['description']} — {tdata.get('title', '')}",
