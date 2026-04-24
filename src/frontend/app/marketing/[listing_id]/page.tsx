@@ -182,6 +182,26 @@ export default function ListingDetailPage() {
 
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [approveBusy, setApproveBusy] = useState(false);
+  const [approveError, setApproveError] = useState<string | null>(null);
+
+  async function approveListing() {
+    if (!listingId) return;
+    setApproveBusy(true);
+    setApproveError(null);
+    try {
+      const r = await apiPostStrict(
+        `/api/v1/marketing/listings/${listingId}/approve`
+      );
+      if (!r.ok) {
+        setApproveError(`HTTP ${r.status}: ${r.error ?? "(sem detalhe)"}`);
+        return;
+      }
+      await globalMutate(listingKey);
+    } finally {
+      setApproveBusy(false);
+    }
+  }
 
   async function generateEmail(campaignType: string) {
     if (!listingId) return;
@@ -363,7 +383,21 @@ export default function ListingDetailPage() {
               </>
             )}
           </div>
+          {approveError && (
+            <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm text-red-700">
+              {approveError}
+            </div>
+          )}
         </div>
+        {status === "draft" && (
+          <button
+            onClick={approveListing}
+            disabled={approveBusy}
+            className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+          >
+            {approveBusy ? "Aprovando…" : "Aprovar"}
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
