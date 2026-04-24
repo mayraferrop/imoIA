@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
-import { apiPost, apiPatch, apiPut } from "@/lib/api";
+import { apiPost, apiPatch, apiPut, apiPostStrict } from "@/lib/api";
 import { formatEUR, cn } from "@/lib/utils";
 
 const CLOSINGS_KEY = "/api/v1/closing";
@@ -107,6 +107,7 @@ export default function ClosingPage() {
   const [pnlDealId, setPnlDealId] = useState("");
   const [pnlSalePrice, setPnlSalePrice] = useState(0);
   const [pnlMonths, setPnlMonths] = useState(0);
+  const [pnlError, setPnlError] = useState<string | null>(null);
 
   // Fiscal
   const [fiscalYear, setFiscalYear] = useState(new Date().getFullYear());
@@ -186,7 +187,14 @@ export default function ClosingPage() {
 
   async function calculatePnl() {
     if (!pnlDealId) return;
-    await apiPost(`/api/v1/pnl/${pnlDealId}/calculate?sale_price=${pnlSalePrice}&holding_months=${pnlMonths}`);
+    setPnlError(null);
+    const r = await apiPostStrict(
+      `/api/v1/pnl/${pnlDealId}/calculate?sale_price=${pnlSalePrice}&holding_months=${pnlMonths}`
+    );
+    if (!r.ok) {
+      setPnlError(`HTTP ${r.status}: ${r.error ?? "(sem detalhe)"}`);
+      return;
+    }
     mutatePnl();
   }
 
@@ -481,6 +489,12 @@ export default function ClosingPage() {
                   Calcular P&L
                 </button>
               </div>
+
+              {pnlError && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-lg px-4 py-3 whitespace-pre-wrap break-words">
+                  {pnlError}
+                </div>
+              )}
 
               {!pnlData ? (
                 <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400">

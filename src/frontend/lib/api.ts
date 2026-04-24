@@ -114,6 +114,83 @@ export async function apiUpload<T = unknown>(
   }
 }
 
+// Variante estrita: devolve { ok, status, data?, error? } para a UI poder mostrar
+// o body de erro do backend em vez de falhar silenciosamente.
+export async function apiPostStrict<T = unknown>(
+  path: string,
+  body?: unknown
+): Promise<{ ok: boolean; status: number; data?: T; error?: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      return { ok: false, status: res.status, error: text };
+    }
+    return {
+      ok: true,
+      status: res.status,
+      data: text ? (JSON.parse(text) as T) : undefined,
+    };
+  } catch (e) {
+    return { ok: false, status: 0, error: String(e) };
+  }
+}
+
+export async function apiPatchStrict<T = unknown>(
+  path: string,
+  body?: unknown
+): Promise<{ ok: boolean; status: number; data?: T; error?: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "PATCH",
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      return { ok: false, status: res.status, error: text };
+    }
+    return {
+      ok: true,
+      status: res.status,
+      data: text ? (JSON.parse(text) as T) : undefined,
+    };
+  } catch (e) {
+    return { ok: false, status: 0, error: String(e) };
+  }
+}
+
+export async function apiPutStrict<T = unknown>(
+  path: string,
+  body?: unknown
+): Promise<{ ok: boolean; status: number; data?: T; error?: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "PUT",
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      return { ok: false, status: res.status, error: text };
+    }
+    return {
+      ok: true,
+      status: res.status,
+      data: text ? (JSON.parse(text) as T) : undefined,
+    };
+  } catch (e) {
+    return { ok: false, status: 0, error: String(e) };
+  }
+}
+
 export async function apiDelete<T = unknown>(path: string): Promise<T | null> {
   try {
     const headers = await getAuthHeaders();
