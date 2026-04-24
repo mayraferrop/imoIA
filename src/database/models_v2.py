@@ -1481,10 +1481,7 @@ class EmailCampaign(Base):
         String(36), ForeignKey("tenants.id"), nullable=False
     )
     organization_id: Mapped[str] = mapped_column(
-        String(36),
-        ForeignKey("organizations.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
+        String(36), nullable=False, index=True
     )
     listing_id: Mapped[Optional[str]] = mapped_column(
         String(36), ForeignKey("listings.id"), nullable=True, index=True
