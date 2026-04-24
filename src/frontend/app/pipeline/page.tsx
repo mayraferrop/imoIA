@@ -3,7 +3,7 @@
 import { useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { formatEUR } from "@/lib/utils";
-import { apiPost, apiPatch } from "@/lib/api";
+import { apiPost, apiPatch, apiGet } from "@/lib/api";
 
 interface Deal {
   id: string;
@@ -82,7 +82,57 @@ interface NextAction {
 }
 
 type PipelineTab = "kanban" | "create" | "mediation";
-type DetailTab = "resumo" | "propostas" | "visitas" | "tasks" | "hist";
+type DetailTab = "resumo" | "propostas" | "visitas" | "tasks" | "financas" | "hist";
+
+interface Rental {
+  id: string;
+  rental_type?: string;
+  monthly_rent?: number;
+  deposit_months?: number;
+  tenant_name?: string;
+  tenant_phone?: string;
+  tenant_email?: string;
+  lease_start?: string;
+  lease_end?: string;
+  lease_duration_months?: number;
+  al_license_number?: string;
+  platform?: string;
+  average_daily_rate?: number;
+  occupancy_rate_pct?: number;
+  condominio_monthly?: number;
+  imi_annual?: number;
+  insurance_annual?: number;
+  management_fee_pct?: number;
+  status?: string;
+  created_at?: string;
+}
+
+interface Commission {
+  id: string;
+  sale_price?: number;
+  commission_pct?: number;
+  gross_amount?: number;
+  vat_amount?: number;
+  net_amount?: number;
+  split_agent_amount?: number;
+  split_agency_amount?: number;
+  invoice_number?: string;
+  invoice_date?: string;
+  invoice_amount?: number;
+  invoice_status?: string;
+  paid_at?: string;
+  created_at?: string;
+}
+
+interface CommissionPreview {
+  sale_price?: number;
+  commission_pct?: number;
+  gross_amount?: number;
+  vat_amount?: number;
+  net_amount?: number;
+  split_agent_amount?: number;
+  split_agency_amount?: number;
+}
 
 interface DealTask {
   id: string;
@@ -163,6 +213,12 @@ export default function PipelinePage() {
   // Task creation
   const [taskMsg, setTaskMsg] = useState("");
 
+  // Finances (rental + commission)
+  const [rentalMsg, setRentalMsg] = useState("");
+  const [commissionMsg, setCommissionMsg] = useState("");
+  const [commissionSalePrice, setCommissionSalePrice] = useState("");
+  const [commissionPreview, setCommissionPreview] = useState<CommissionPreview | null>(null);
+
   // SWR keys
   const kanbanKey = `/api/v1/deals/kanban${strategyFilter ? `?strategy=${strategyFilter}` : ""}`;
   const STATS_KEY = "/api/v1/deals/stats";
@@ -199,6 +255,8 @@ export default function PipelinePage() {
   const proposalsKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/proposals` : null;
   const visitsKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/visits` : null;
   const tasksKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/tasks` : null;
+  const rentalKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/rental` : null;
+  const commissionsKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/commissions` : null;
   const historyKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/history` : null;
   const nextActionsKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/next-actions` : null;
 
@@ -206,11 +264,14 @@ export default function PipelinePage() {
   const { data: proposalsData } = useSWR<Proposal[] | null>(proposalsKey);
   const { data: visitsData } = useSWR<Visit[] | null>(visitsKey);
   const { data: tasksData } = useSWR<DealTask[] | null>(tasksKey);
+  const { data: rentalData } = useSWR<Rental | null>(rentalKey);
+  const { data: commissionsData } = useSWR<Commission[] | null>(commissionsKey);
   const { data: historyData } = useSWR<HistoryEntry[] | null>(historyKey);
   const { data: nextActionsData } = useSWR<{ next_statuses: NextAction[] } | null>(nextActionsKey);
   const proposals = proposalsData ?? [];
   const visits = visitsData ?? [];
   const tasks = tasksData ?? [];
+  const commissions = commissionsData ?? [];
   const history = historyData ?? [];
   const nextActions = nextActionsData?.next_statuses ?? [];
 
@@ -347,6 +408,93 @@ export default function PipelinePage() {
       }
     } catch {
       setTaskMsg("Erro de comunicação.");
+    }
+  }
+
+  async function handleAddRental(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!selectedDealId) return;
+    setRentalMsg("");
+    const fd = new FormData(e.currentTarget);
+    const monthlyRent = Number(fd.get("r_monthly") || 0);
+    if (!(monthlyRent > 0)) {
+      setRentalMsg("Erro: renda mensal é obrigatória.");
+      return;
+    }
+    const leaseStart = (fd.get("r_start") as string) || "";
+    const leaseEnd = (fd.get("r_end") as string) || "";
+    const body: Record<string, unknown> = {
+      rental_type: (fd.get("r_type") as string) || "longa_duracao",
+      monthly_rent: monthlyRent,
+      deposit_months: Number(fd.get("r_deposit") || 2),
+      tenant_name: ((fd.get("r_tenant") as string) || "").trim() || null,
+      tenant_phone: ((fd.get("r_phone") as string) || "").trim() || null,
+      tenant_email: ((fd.get("r_email") as string) || "").trim() || null,
+      lease_start: leaseStart ? new Date(leaseStart).toISOString() : null,
+      lease_end: leaseEnd ? new Date(leaseEnd).toISOString() : null,
+      condominio_monthly: Number(fd.get("r_condo") || 0),
+      imi_annual: Number(fd.get("r_imi") || 0),
+      insurance_annual: Number(fd.get("r_ins") || 0),
+      management_fee_pct: Number(fd.get("r_mgmt") || 0),
+    };
+    try {
+      const result = await apiPost(`/api/v1/deals/${selectedDealId}/rental`, body);
+      if (result) {
+        setRentalMsg("Arrendamento registado!");
+        (e.target as HTMLFormElement).reset();
+        if (rentalKey) globalMutate(rentalKey);
+        if (dealDetailKey) globalMutate(dealDetailKey);
+      } else {
+        setRentalMsg("Erro ao registar arrendamento.");
+      }
+    } catch {
+      setRentalMsg("Erro de comunicação.");
+    }
+  }
+
+  async function handleCalcCommission() {
+    if (!selectedDealId) return;
+    setCommissionMsg("");
+    setCommissionPreview(null);
+    const price = Number(commissionSalePrice || 0);
+    const qs = price > 0 ? `?sale_price=${price}` : "";
+    try {
+      const data = await apiGet<CommissionPreview>(
+        `/api/v1/deals/${selectedDealId}/commission${qs}`,
+      );
+      if (data) {
+        setCommissionPreview(data);
+      } else {
+        setCommissionMsg("Erro ao calcular comissão (este deal tem commission_pct?).");
+      }
+    } catch {
+      setCommissionMsg("Erro de comunicação.");
+    }
+  }
+
+  async function handleCreateCommission() {
+    if (!selectedDealId) return;
+    setCommissionMsg("");
+    const price = Number(commissionSalePrice || 0);
+    if (!(price > 0)) {
+      setCommissionMsg("Erro: preço de venda é obrigatório.");
+      return;
+    }
+    try {
+      const result = await apiPost(
+        `/api/v1/deals/${selectedDealId}/commission?sale_price=${price}`,
+        {},
+      );
+      if (result) {
+        setCommissionMsg("Comissão registada!");
+        setCommissionSalePrice("");
+        setCommissionPreview(null);
+        if (commissionsKey) globalMutate(commissionsKey);
+      } else {
+        setCommissionMsg("Erro ao registar comissão.");
+      }
+    } catch {
+      setCommissionMsg("Erro de comunicação.");
     }
   }
 
@@ -555,6 +703,7 @@ export default function PipelinePage() {
                   ["propostas", "Propostas"],
                   ["visitas", "Visitas"],
                   ["tasks", "Tasks"],
+                  ["financas", "Finanças"],
                   ["hist", "Histórico"],
                 ] as [DetailTab, string][]).map(([key, label]) => (
                   <button
@@ -940,6 +1089,215 @@ export default function PipelinePage() {
                         Criar tarefa
                       </button>
                     </form>
+                  </div>
+                </div>
+              )}
+
+              {/* FINANÇAS TAB (rental + commission) */}
+              {detailTab === "financas" && (
+                <div className="space-y-6">
+                  {/* --- Arrendamento --- */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-700 mb-3">Arrendamento</h3>
+                    {rentalData ? (
+                      <div className="border border-slate-200 rounded-lg p-3 space-y-1 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-slate-900">
+                            {rentalData.rental_type} · {formatEUR(rentalData.monthly_rent)}/mês
+                          </span>
+                          {rentalData.status && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                              {rentalData.status}
+                            </span>
+                          )}
+                        </div>
+                        {rentalData.tenant_name && (
+                          <p className="text-xs text-slate-500">
+                            Inquilino: {rentalData.tenant_name}
+                            {rentalData.tenant_phone ? ` · ${rentalData.tenant_phone}` : ""}
+                            {rentalData.tenant_email ? ` · ${rentalData.tenant_email}` : ""}
+                          </p>
+                        )}
+                        {(rentalData.lease_start || rentalData.lease_end) && (
+                          <p className="text-xs text-slate-500">
+                            {rentalData.lease_start ? `Início: ${rentalData.lease_start.slice(0, 10)}` : ""}
+                            {rentalData.lease_end ? ` · Fim: ${rentalData.lease_end.slice(0, 10)}` : ""}
+                          </p>
+                        )}
+                        <p className="text-xs text-slate-500">
+                          Caução: {rentalData.deposit_months} mês(es)
+                          {rentalData.condominio_monthly ? ` · Condomínio: ${formatEUR(rentalData.condominio_monthly)}/mês` : ""}
+                          {rentalData.imi_annual ? ` · IMI: ${formatEUR(rentalData.imi_annual)}/ano` : ""}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-400">Sem arrendamento registado.</p>
+                    )}
+
+                    <div className="border-t border-slate-200 pt-4 mt-4">
+                      <p className="text-sm font-semibold text-slate-700 mb-3">
+                        {rentalData ? "Substituir arrendamento" : "Registar arrendamento"}
+                      </p>
+                      {rentalMsg && (
+                        <div className={`mb-3 px-3 py-2 rounded-lg text-sm ${rentalMsg.includes("Erro") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+                          {rentalMsg}
+                        </div>
+                      )}
+                      <form onSubmit={handleAddRental} className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Tipo</label>
+                            <select name="r_type" defaultValue="longa_duracao" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
+                              <option value="longa_duracao">Longa duração</option>
+                              <option value="al_inteiro">AL (inteiro)</option>
+                              <option value="al_quarto">AL (quarto)</option>
+                              <option value="estudantes">Estudantes</option>
+                              <option value="corporativo">Corporativo</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Renda (€/mês) *</label>
+                            <input name="r_monthly" type="number" step="any" required placeholder="1200" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Caução (meses)</label>
+                            <input name="r_deposit" type="number" step="1" defaultValue="2" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Condomínio (€/mês)</label>
+                            <input name="r_condo" type="number" step="any" defaultValue="0" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Inquilino</label>
+                            <input name="r_tenant" type="text" placeholder="Nome" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Telefone</label>
+                            <input name="r_phone" type="tel" placeholder="Opcional" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Email</label>
+                            <input name="r_email" type="email" placeholder="Opcional" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Início contrato</label>
+                            <input name="r_start" type="date" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Fim contrato</label>
+                            <input name="r_end" type="date" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">IMI (€/ano)</label>
+                            <input name="r_imi" type="number" step="any" defaultValue="0" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Seguro (€/ano)</label>
+                            <input name="r_ins" type="number" step="any" defaultValue="0" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Gestão (%)</label>
+                            <input name="r_mgmt" type="number" step="any" defaultValue="0" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                          </div>
+                        </div>
+                        <button type="submit" className="px-4 py-2 bg-teal-700 text-white rounded-lg text-sm font-medium hover:bg-teal-800 transition-colors">
+                          Registar arrendamento
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+
+                  {/* --- Comissões --- */}
+                  <div className="border-t border-slate-200 pt-6">
+                    <h3 className="text-sm font-semibold text-slate-700 mb-3">Comissões (mediação)</h3>
+                    {commissions.length > 0 ? (
+                      <div className="space-y-2">
+                        {commissions.map((c) => (
+                          <div key={c.id} className="border border-slate-200 rounded-lg p-3 text-sm">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-slate-900">
+                                {formatEUR(c.gross_amount)} bruto · {c.commission_pct}%
+                              </span>
+                              {c.invoice_status && (
+                                <span className={`text-xs px-2 py-0.5 rounded ${c.invoice_status === "paid" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>
+                                  {c.invoice_status}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1">
+                              Venda: {formatEUR(c.sale_price)}
+                              {c.vat_amount ? ` · IVA: ${formatEUR(c.vat_amount)}` : ""}
+                              {c.net_amount ? ` · Líquido: ${formatEUR(c.net_amount)}` : ""}
+                            </p>
+                            {(c.split_agent_amount || c.split_agency_amount) && (
+                              <p className="text-xs text-slate-500">
+                                {c.split_agent_amount ? `Agente: ${formatEUR(c.split_agent_amount)}` : ""}
+                                {c.split_agency_amount ? ` · Agência: ${formatEUR(c.split_agency_amount)}` : ""}
+                              </p>
+                            )}
+                            {c.invoice_number && (
+                              <p className="text-xs text-slate-400 mt-1">
+                                Factura {c.invoice_number}
+                                {c.invoice_date ? ` · ${c.invoice_date.slice(0, 10)}` : ""}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-400">Sem comissões registadas.</p>
+                    )}
+
+                    <div className="border-t border-slate-200 pt-4 mt-4">
+                      <p className="text-sm font-semibold text-slate-700 mb-3">Calcular / registar comissão</p>
+                      {commissionMsg && (
+                        <div className={`mb-3 px-3 py-2 rounded-lg text-sm ${commissionMsg.includes("Erro") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+                          {commissionMsg}
+                        </div>
+                      )}
+                      <div className="flex gap-2 mb-3">
+                        <input
+                          type="number"
+                          step="any"
+                          value={commissionSalePrice}
+                          onChange={(e) => setCommissionSalePrice(e.target.value)}
+                          placeholder="Preço de venda (€)"
+                          className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                        <button
+                          onClick={handleCalcCommission}
+                          className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors"
+                        >
+                          Calcular
+                        </button>
+                        <button
+                          onClick={handleCreateCommission}
+                          className="px-4 py-2 bg-teal-700 text-white rounded-lg text-sm font-medium hover:bg-teal-800 transition-colors"
+                        >
+                          Registar
+                        </button>
+                      </div>
+                      {commissionPreview && (
+                        <div className="border border-teal-200 bg-teal-50 rounded-lg p-3 text-sm space-y-1">
+                          <p className="text-xs text-teal-700 font-semibold">Previsão</p>
+                          <p className="text-xs text-slate-600">
+                            Bruto: {formatEUR(commissionPreview.gross_amount)} ({commissionPreview.commission_pct}%)
+                          </p>
+                          {commissionPreview.vat_amount ? (
+                            <p className="text-xs text-slate-600">IVA: {formatEUR(commissionPreview.vat_amount)}</p>
+                          ) : null}
+                          {commissionPreview.net_amount ? (
+                            <p className="text-xs text-slate-600">Líquido: {formatEUR(commissionPreview.net_amount)}</p>
+                          ) : null}
+                          {(commissionPreview.split_agent_amount || commissionPreview.split_agency_amount) && (
+                            <p className="text-xs text-slate-600">
+                              {commissionPreview.split_agent_amount ? `Agente: ${formatEUR(commissionPreview.split_agent_amount)}` : ""}
+                              {commissionPreview.split_agency_amount ? ` · Agência: ${formatEUR(commissionPreview.split_agency_amount)}` : ""}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

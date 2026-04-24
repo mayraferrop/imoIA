@@ -256,6 +256,12 @@ def complete_task(task_id: str) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+@router.get("/{deal_id}/rental", summary="Obter arrendamento")
+def get_rental(deal_id: str) -> Optional[Dict[str, Any]]:
+    """Retorna o arrendamento activo de um deal (ou null)."""
+    return service.get_rental(deal_id)
+
+
 @router.post("/{deal_id}/rental", summary="Adicionar arrendamento")
 def add_rental(deal_id: str, data: RentalCreateSchema) -> Dict[str, Any]:
     """Adiciona dados de arrendamento a um deal."""
@@ -372,6 +378,12 @@ def calculate_commission(
         return service.calculate_commission(deal_id, sale_price)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{deal_id}/commissions", summary="Listar comissoes do deal")
+def list_commissions(deal_id: str) -> List[Dict[str, Any]]:
+    """Lista comissoes registadas de um deal."""
+    return service.list_commissions(deal_id)
 
 
 @router.post("/{deal_id}/commission", summary="Registar comissao")

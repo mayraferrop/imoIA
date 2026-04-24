@@ -780,6 +780,27 @@ class DealPipelineService:
         )
         return _rental_to_dict(rental)
 
+    def get_rental(self, deal_id: str) -> Optional[Dict[str, Any]]:
+        """Retorna o arrendamento activo de um deal (ou None)."""
+        items = db.list_rows(
+            "deal_rentals",
+            filters=f"deal_id=eq.{deal_id}",
+            order="created_at.desc",
+            limit=1,
+        )
+        if not items:
+            return None
+        return _rental_to_dict(items[0])
+
+    def list_commissions(self, deal_id: str) -> List[Dict[str, Any]]:
+        """Lista comissoes registadas de um deal."""
+        items = db.list_rows(
+            "deal_commissions",
+            filters=f"deal_id=eq.{deal_id}",
+            order="created_at.desc",
+        )
+        return [_commission_to_dict(c) for c in items]
+
     def update_rental(
         self, rental_id: str, data: Dict[str, Any]
     ) -> Dict[str, Any]:
