@@ -112,12 +112,13 @@ class WhatsAppClient:
         endpoint: str,
         params: Optional[Dict[str, Any]] = None,
         json_body: Optional[Dict[str, Any]] = None,
+        timeout_override_s: Optional[float] = None,
     ) -> Dict[str, Any]:
         """Executa o pedido HTTP (sem retry)."""
         url = f"{self.base_url}{endpoint}"
         logger.debug(f"Pedido {method} {url}")
 
-        with httpx.Client(timeout=60.0) as http_client:
+        with httpx.Client(timeout=timeout_override_s or 60.0) as http_client:
             response = http_client.request(
                 method=method,
                 url=url,
@@ -607,6 +608,50 @@ class WhatsAppClient:
             return True
         except (httpx.HTTPStatusError, httpx.ConnectError) as e:
             logger.error(f"Erro ao marcar grupo {group_id} como lido: {e}")
+            return False
+
+    def connect_socket(self, timeout_s: int = 90) -> bool:
+        """Abre socket WhatsApp na bridge Baileys (idempotente).
+
+        Quando a bridge corre com AUTO_CONNECT=false, o socket fica fechado e
+        o telemóvel primário recebe todas as notificações push. O pipeline
+        chama este método antes de começar a processar.
+
+        Returns:
+            True se ligado (ou já estava). False em erro ou timeout.
+        """
+        if self.backend != "baileys":
+            return True
+
+        try:
+            response = self._do_request(
+                "POST",
+                f"/socket/connect?timeout_ms={timeout_s * 1000}",
+                timeout_override_s=timeout_s + 10,
+            )
+            status = response.get("status") if isinstance(response, dict) else None
+            logger.info(f"Socket bridge: connect status={status}")
+            return status in ("connected", "already_connected")
+        except Exception as e:
+            logger.warning(f"Falha ao ligar socket da bridge: {e}")
+            return False
+
+    def disconnect_socket(self) -> bool:
+        """Fecha socket WhatsApp na bridge Baileys (idempotente).
+
+        Marca a desconexão como intencional para impedir o auto-reconnect em 3s.
+        Chamado no fim do pipeline para restaurar notificações no telemóvel.
+        """
+        if self.backend != "baileys":
+            return True
+
+        try:
+            response = self._do_request("POST", "/socket/disconnect")
+            status = response.get("status") if isinstance(response, dict) else None
+            logger.info(f"Socket bridge: disconnect status={status}")
+            return status in ("disconnected", "already_disconnected")
+        except Exception as e:
+            logger.warning(f"Falha ao desligar socket da bridge: {e}")
             return False
 
     def set_presence_offline(self) -> bool:

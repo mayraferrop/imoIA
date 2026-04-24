@@ -51,6 +51,7 @@ const DB_FILE = path.join(DATA_DIR, "bridge.sqlite");
 const BRIDGE_TOKEN = process.env.BRIDGE_TOKEN || "";
 const PORT = Number(process.env.PORT || process.env.BRIDGE_PORT || 3000);
 const MAX_MESSAGES_PER_GROUP = Number(process.env.MAX_MESSAGES_PER_GROUP || 5000);
+const AUTO_CONNECT = (process.env.AUTO_CONNECT ?? "true").toLowerCase() !== "false";
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -81,6 +82,9 @@ for (const sig of ["SIGTERM", "SIGINT"]) {
 let sock = null;
 let qrCode = null;
 let connectionStatus = "disconnected";
+let intentionalDisconnect = false;
+let lastConnectedAt = null;
+let lastDisconnectedAt = null;
 const groupsCache = {};
 
 function extractContent(msg) {
@@ -170,6 +174,7 @@ async function startWhatsApp() {
 
     if (connection === "close") {
       connectionStatus = "disconnected";
+      lastDisconnectedAt = new Date().toISOString();
       qrCode = null;
       const reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
       if (reason === DisconnectReason.loggedOut) {
@@ -177,12 +182,17 @@ async function startWhatsApp() {
         if (fs.existsSync(AUTH_DIR)) fs.rmSync(AUTH_DIR, { recursive: true });
         process.exit(1);
       }
+      if (intentionalDisconnect) {
+        console.log("[conn] Desligado a pedido (intentionalDisconnect). Sem reconexão.");
+        return;
+      }
       console.log("[conn] Perdido. Reconectar em 3s...");
       setTimeout(startWhatsApp, 3000);
     }
 
     if (connection === "open") {
       connectionStatus = "connected";
+      lastConnectedAt = new Date().toISOString();
       qrCode = null;
       console.log("\n[conn] WhatsApp conectado. API pronta.\n");
     }
@@ -233,7 +243,86 @@ app.get("/status", (req, res) => {
     user: sock?.user
       ? { id: sock.user.id, name: sock.user.name || sock.user.verifiedName || "N/A" }
       : null,
+    auto_connect: AUTO_CONNECT,
+    intentional_disconnect: intentionalDisconnect,
+    last_connected_at: lastConnectedAt,
+    last_disconnected_at: lastDisconnectedAt,
   });
+});
+
+app.post("/socket/connect", requireAuth, async (req, res) => {
+  if (connectionStatus === "connected") {
+    return res.json({
+      status: "already_connected",
+      connection: connectionStatus,
+      last_connected_at: lastConnectedAt,
+    });
+  }
+
+  intentionalDisconnect = false;
+
+  const timeoutMs = Math.min(Math.max(Number(req.query.timeout_ms) || 90000, 5000), 180000);
+  const startedAt = Date.now();
+
+  try {
+    if (!sock || connectionStatus === "disconnected") {
+      startWhatsApp().catch((err) => {
+        console.error("[/socket/connect] startWhatsApp falhou:", err.message);
+      });
+    }
+
+    while (connectionStatus !== "connected") {
+      if (Date.now() - startedAt > timeoutMs) {
+        return res.status(504).json({
+          error: "connect_timeout",
+          status: connectionStatus,
+          elapsed_ms: Date.now() - startedAt,
+        });
+      }
+      await sleep(500);
+    }
+
+    return res.json({
+      status: "connected",
+      connection: connectionStatus,
+      elapsed_ms: Date.now() - startedAt,
+      last_connected_at: lastConnectedAt,
+    });
+  } catch (err) {
+    console.error("[/socket/connect]", err.message);
+    return res.status(500).json({ error: err.message, status: connectionStatus });
+  }
+});
+
+app.post("/socket/disconnect", requireAuth, async (req, res) => {
+  if (connectionStatus === "disconnected" && !sock) {
+    return res.json({
+      status: "already_disconnected",
+      connection: connectionStatus,
+      last_disconnected_at: lastDisconnectedAt,
+    });
+  }
+
+  intentionalDisconnect = true;
+
+  try {
+    if (sock?.ws?.close) {
+      sock.ws.close();
+    } else if (sock?.end) {
+      sock.end();
+    }
+    sock = null;
+    connectionStatus = "disconnected";
+    lastDisconnectedAt = new Date().toISOString();
+    return res.json({
+      status: "disconnected",
+      connection: connectionStatus,
+      last_disconnected_at: lastDisconnectedAt,
+    });
+  } catch (err) {
+    console.error("[/socket/disconnect]", err.message);
+    return res.status(500).json({ error: err.message, status: connectionStatus });
+  }
 });
 
 app.get("/qr", async (req, res) => {
@@ -405,6 +494,11 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`\nimoIA WhatsApp Bridge na porta ${PORT}`);
   console.log(`DATA_DIR=${DATA_DIR}`);
   console.log(`AUTH=${BRIDGE_TOKEN ? "exigido (BRIDGE_TOKEN set)" : "aberto"}`);
-  console.log("A iniciar conexão WhatsApp...\n");
-  startWhatsApp();
+  console.log(`AUTO_CONNECT=${AUTO_CONNECT}`);
+  if (AUTO_CONNECT) {
+    console.log("A iniciar conexão WhatsApp...\n");
+    startWhatsApp();
+  } else {
+    console.log("Socket WhatsApp NAO iniciado — aguardando POST /socket/connect.\n");
+  }
 });

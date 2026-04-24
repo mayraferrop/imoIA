@@ -11,6 +11,7 @@ Executa as 5 etapas de processamento:
 from __future__ import annotations
 
 import json
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -800,6 +801,38 @@ def _score_group_opportunities(group_info: Dict[str, Any]) -> None:
 
 
 def run_pipeline(trigger_source: str = "unknown") -> PipelineResult:
+    """Wrapper público do pipeline. Controla lifecycle do socket Baileys.
+
+    Quando a env var M1_BRIDGE_LIFECYCLE=true, abre o socket WhatsApp na
+    bridge antes de processar e fecha-o no fim — mesmo em erro. Isto permite
+    que o telemóvel primário receba notificações push fora das janelas do
+    cron (dispositivo companion offline a maior parte do tempo).
+
+    Default (flag desactivada): comportamento clássico — assume socket
+    sempre ligado.
+    """
+    lifecycle_enabled = os.getenv("M1_BRIDGE_LIFECYCLE", "false").lower() == "true"
+
+    if not lifecycle_enabled:
+        return _run_pipeline_impl(trigger_source)
+
+    wa_client = _get_whatsapp_client()
+    logger.info("Lifecycle bridge activo — a ligar socket WhatsApp antes do pipeline")
+    connected = wa_client.connect_socket()
+    if not connected:
+        logger.warning("connect_socket devolveu false; pipeline continua mesmo assim")
+
+    try:
+        return _run_pipeline_impl(trigger_source)
+    finally:
+        try:
+            logger.info("Lifecycle bridge activo — a desligar socket WhatsApp")
+            wa_client.disconnect_socket()
+        except Exception as e:
+            logger.warning(f"Falha ao desligar socket no fim do pipeline: {e}")
+
+
+def _run_pipeline_impl(trigger_source: str = "unknown") -> PipelineResult:
     """Executa o pipeline completo de processamento.
 
     Etapas:
