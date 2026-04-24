@@ -327,6 +327,7 @@ class EmailService:
             campaign = EmailCampaign(
                 id=str(uuid4()),
                 tenant_id=listing.tenant_id,
+                organization_id=listing.organization_id,
                 listing_id=listing_id,
                 campaign_type=campaign_type,
                 subject=subject,
