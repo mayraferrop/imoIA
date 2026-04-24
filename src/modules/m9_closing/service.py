@@ -492,12 +492,51 @@ class PnLService:
         if pnl_rows:
             pnl = pnl_rows[0]
         else:
+            # Defaults Mapped[float|int] do SQLAlchemy não aplicam em INSERT
+            # via PostgREST direto — explicitar todos os zeros para evitar
+            # violação NOT NULL (23502). Ver memória project_not_null_bool_inserts.
             pnl = db.insert("deal_pnl", {
                 "id": db.new_id(),
                 "tenant_id": tenant_id,
                 "deal_id": deal_id,
                 "property_id": deal.get("property_id"),
                 "status": "in_progress",
+                "purchase_price": 0,
+                "imt_cost": 0,
+                "is_cost": 0,
+                "notary_cost": 0,
+                "lawyer_cost": 0,
+                "purchase_commission": 0,
+                "total_acquisition": 0,
+                "loan_amount": 0,
+                "interest_rate_pct": 0,
+                "loan_setup_costs": 0,
+                "total_interest_paid": 0,
+                "financing_months": 0,
+                "renovation_budget": 0,
+                "renovation_actual": 0,
+                "renovation_variance": 0,
+                "renovation_variance_pct": 0,
+                "renovation_deductible": 0,
+                "holding_months": 0,
+                "holding_costs": 0,
+                "sale_price": 0,
+                "sale_commission": 0,
+                "sale_costs": 0,
+                "net_proceeds": 0,
+                "total_invested": 0,
+                "gross_profit": 0,
+                "capital_gain_taxable": 0,
+                "capital_gain_tax": 0,
+                "net_profit": 0,
+                "roi_simple_pct": 0,
+                "roi_annualized_pct": 0,
+                "moic": 0,
+                "profit_margin_pct": 0,
+                "estimated_roi_pct": 0,
+                "estimated_profit": 0,
+                "roi_variance_pct": 0,
+                "profit_variance": 0,
             })
 
         # Valores fornecidos manualmente
