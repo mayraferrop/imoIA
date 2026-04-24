@@ -119,6 +119,7 @@ export default function RenovationPage() {
   const [selectedRenoId, setSelectedRenoId] = useState<string | null>(null);
   const [renovLoading, setRenovLoading] = useState(false);
   const [expenseFormOpen, setExpenseFormOpen] = useState(false);
+  const [milestoneFormOpen, setMilestoneFormOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createMsg, setCreateMsg] = useState("");
 
@@ -223,6 +224,22 @@ export default function RenovationPage() {
 
   async function handleCompleteMilestone(milestoneId: string) {
     await apiPost(`/api/v1/renovations/milestones/${milestoneId}/complete`);
+    refreshDetail();
+  }
+
+  async function handleAddMilestone(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!selectedRenoId) return;
+    const fd = new FormData(e.currentTarget);
+    await apiPost(`/api/v1/renovations/${selectedRenoId}/milestones`, {
+      name: fd.get("m_name"),
+      category: fd.get("m_category"),
+      description: fd.get("m_description") || null,
+      budget: Number(fd.get("m_budget") || 0),
+      sort_order: Number(fd.get("m_order") || 99),
+    });
+    e.currentTarget.reset();
+    setMilestoneFormOpen(false);
     refreshDetail();
   }
 
@@ -510,7 +527,74 @@ export default function RenovationPage() {
 
           {/* ====== Milestones ====== */}
           <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h2 className="text-lg font-semibold mb-4">Milestones</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Milestones</h2>
+              <button
+                onClick={() => setMilestoneFormOpen(!milestoneFormOpen)}
+                className="text-xs bg-teal-700 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-teal-800 transition-colors"
+              >
+                {milestoneFormOpen ? "Fechar" : "Adicionar milestone"}
+              </button>
+            </div>
+            {milestoneFormOpen && (
+              <form
+                onSubmit={handleAddMilestone}
+                className="mb-4 p-4 bg-slate-50 rounded-lg grid grid-cols-2 gap-3"
+              >
+                <input
+                  name="m_name"
+                  placeholder="Nome (ex.: Demolições)"
+                  required
+                  className="col-span-2 px-3 py-2 border border-slate-300 rounded text-sm"
+                />
+                <select
+                  name="m_category"
+                  required
+                  className="px-3 py-2 border border-slate-300 rounded text-sm bg-white"
+                >
+                  <option value="demolicao">Demolição</option>
+                  <option value="estrutura">Estrutura</option>
+                  <option value="canalizacao">Canalização</option>
+                  <option value="electricidade">Electricidade</option>
+                  <option value="acabamentos">Acabamentos</option>
+                  <option value="cozinha">Cozinha</option>
+                  <option value="casa_banho">Casa de banho</option>
+                  <option value="pintura">Pintura</option>
+                  <option value="licencas">Licenças</option>
+                  <option value="limpeza">Limpeza</option>
+                  <option value="outro">Outro</option>
+                </select>
+                <input
+                  name="m_budget"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Orçamento (€)"
+                  className="px-3 py-2 border border-slate-300 rounded text-sm"
+                />
+                <input
+                  name="m_description"
+                  placeholder="Descrição (opcional)"
+                  className="col-span-2 px-3 py-2 border border-slate-300 rounded text-sm"
+                />
+                <input
+                  name="m_order"
+                  type="number"
+                  min="0"
+                  defaultValue="99"
+                  placeholder="Ordem"
+                  className="px-3 py-2 border border-slate-300 rounded text-sm"
+                />
+                <div className="col-span-2 flex justify-end">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-teal-700 text-white rounded text-sm font-medium hover:bg-teal-800 transition-colors"
+                  >
+                    Criar milestone
+                  </button>
+                </div>
+              </form>
+            )}
             {milestones.length === 0 ? (
               <p className="text-sm text-slate-500">Sem milestones.</p>
             ) : (
