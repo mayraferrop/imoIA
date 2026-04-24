@@ -770,6 +770,7 @@ class DealPipelineService:
             "imi_annual": data.get("imi_annual", 0),
             "insurance_annual": data.get("insurance_annual", 0),
             "management_fee_pct": data.get("management_fee_pct", 0),
+            "status": "activo",
         })
 
         # Actualizar renda mensal no deal
@@ -1173,6 +1174,8 @@ class DealPipelineService:
             "other_agent_name": deal.get("commission_split_agent"),
             "other_agent_agency": deal.get("commission_split_agency"),
             "other_agent_commission": round(other_part, 2),
+            "payment_status": "pendente",
+            "paid_amount": 0,
         })
 
         # Actualizar commission_amount no deal
