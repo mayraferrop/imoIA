@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
-import { apiGet, apiPost, apiPatch } from "@/lib/api";
+import { apiGet, apiPost, apiPatch, apiPostStrict } from "@/lib/api";
 import { formatEUR, cn, GRADE_COLORS } from "@/lib/utils";
 
 const STATS_KEY = "/api/v1/leads/stats";
@@ -226,6 +226,57 @@ export default function LeadsPage() {
   async function loadTimeline(leadId: string) {
     const data = await apiGet<Interaction[]>(`/api/v1/leads/${leadId}/timeline`);
     setLeadTimelines((prev) => ({ ...prev, [leadId]: data ?? [] }));
+  }
+
+  const [nurtureStatuses, setNurtureStatuses] = useState<Record<string, any>>({});
+  const [nurtureErrors, setNurtureErrors] = useState<Record<string, string>>({});
+
+  async function loadNurtureStatus(leadId: string) {
+    const data = await apiGet<any>(`/api/v1/leads/${leadId}/nurture/status`);
+    setNurtureStatuses((prev) => ({ ...prev, [leadId]: data }));
+  }
+
+  async function startNurture(leadId: string) {
+    setNurtureErrors((prev) => {
+      const n = { ...prev };
+      delete n[leadId];
+      return n;
+    });
+    const r = await apiPostStrict<any>(
+      `/api/v1/leads/${leadId}/nurture/start?sequence_type=standard`
+    );
+    if (!r.ok) {
+      setNurtureErrors((prev) => ({
+        ...prev,
+        [leadId]: `HTTP ${r.status}: ${r.error ?? "(sem detalhe)"}`,
+      }));
+      return;
+    }
+    setNurtureStatuses((prev) => ({ ...prev, [leadId]: r.data }));
+  }
+
+  async function pauseNurture(leadId: string) {
+    const r = await apiPostStrict<any>(`/api/v1/leads/${leadId}/nurture/pause`);
+    if (!r.ok) {
+      setNurtureErrors((prev) => ({
+        ...prev,
+        [leadId]: `HTTP ${r.status}: ${r.error ?? "(sem detalhe)"}`,
+      }));
+      return;
+    }
+    setNurtureStatuses((prev) => ({ ...prev, [leadId]: r.data }));
+  }
+
+  async function resumeNurture(leadId: string) {
+    const r = await apiPostStrict<any>(`/api/v1/leads/${leadId}/nurture/resume`);
+    if (!r.ok) {
+      setNurtureErrors((prev) => ({
+        ...prev,
+        [leadId]: `HTTP ${r.status}: ${r.error ?? "(sem detalhe)"}`,
+      }));
+      return;
+    }
+    setNurtureStatuses((prev) => ({ ...prev, [leadId]: r.data }));
   }
 
   async function syncHabta() {
@@ -496,6 +547,7 @@ export default function LeadsPage() {
                   onClick={() => {
                     setExpandedLead(isExpanded ? null : lead.id);
                     if (!isExpanded && !leadTimelines[lead.id]) loadTimeline(lead.id);
+                    if (!isExpanded && nurtureStatuses[lead.id] === undefined) loadNurtureStatus(lead.id);
                   }}
                   className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
                 >
@@ -595,6 +647,63 @@ export default function LeadsPage() {
                         >
                           {aiScoringId === lead.id ? "Analisando..." : "Scoring com IA"}
                         </button>
+
+                        {/* Nurture */}
+                        <div className="pt-2 border-t border-slate-100">
+                          <div className="text-xs text-slate-500 mb-1">Nurture automático</div>
+                          {(() => {
+                            const ns = nurtureStatuses[lead.id];
+                            const nsStatus = ns?.status;
+                            if (!ns) {
+                              return (
+                                <button
+                                  onClick={() => startNurture(lead.id)}
+                                  className="w-full px-3 py-2 text-xs font-medium text-indigo-700 border border-indigo-400 rounded-lg hover:bg-indigo-50"
+                                >
+                                  Iniciar Nurture
+                                </button>
+                              );
+                            }
+                            return (
+                              <div className="space-y-2">
+                                <div className="text-[10px] text-slate-600">
+                                  Tipo: <span className="font-semibold">{ns.sequence_type ?? "—"}</span>
+                                  {" · "}Status: <span className="font-semibold">{nsStatus}</span>
+                                  {ns.current_step != null && <> · Passo {ns.current_step}</>}
+                                </div>
+                                {nsStatus === "running" && (
+                                  <button
+                                    onClick={() => pauseNurture(lead.id)}
+                                    className="w-full px-3 py-2 text-xs font-medium text-amber-700 border border-amber-400 rounded-lg hover:bg-amber-50"
+                                  >
+                                    Pausar
+                                  </button>
+                                )}
+                                {nsStatus === "paused" && (
+                                  <button
+                                    onClick={() => resumeNurture(lead.id)}
+                                    className="w-full px-3 py-2 text-xs font-medium text-teal-700 border border-teal-400 rounded-lg hover:bg-teal-50"
+                                  >
+                                    Retomar
+                                  </button>
+                                )}
+                                {nsStatus === "completed" && (
+                                  <button
+                                    onClick={() => startNurture(lead.id)}
+                                    className="w-full px-3 py-2 text-xs font-medium text-indigo-700 border border-indigo-400 rounded-lg hover:bg-indigo-50"
+                                  >
+                                    Iniciar nova sequência
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
+                          {nurtureErrors[lead.id] && (
+                            <div className="mt-2 text-[10px] text-rose-700 bg-rose-50 border border-rose-200 rounded px-2 py-1 whitespace-pre-wrap break-words">
+                              {nurtureErrors[lead.id]}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
