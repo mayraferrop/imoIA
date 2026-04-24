@@ -709,6 +709,20 @@ class DealPipelineService:
         )
         return [_task_to_dict(t) for t in items]
 
+    def list_tasks(
+        self, deal_id: str, include_completed: bool = True
+    ) -> List[Dict[str, Any]]:
+        """Lista tarefas de um deal."""
+        filters = f"deal_id=eq.{deal_id}"
+        if not include_completed:
+            filters += "&is_completed=eq.false"
+        items = db.list_rows(
+            "deal_tasks",
+            filters=filters,
+            order="is_completed.asc,due_date.asc.nullslast,priority.desc,created_at.desc",
+        )
+        return [_task_to_dict(t) for t in items]
+
     def _create_auto_tasks(
         self, deal: Dict[str, Any], new_status: str
     ) -> None:

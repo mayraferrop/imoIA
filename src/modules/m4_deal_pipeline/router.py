@@ -227,6 +227,12 @@ def respond_to_proposal(
 # ---------------------------------------------------------------------------
 
 
+@router.get("/{deal_id}/tasks", summary="Listar tarefas de um deal")
+def list_tasks(deal_id: str) -> List[Dict[str, Any]]:
+    """Lista todas as tarefas (pendentes e concluidas) de um deal."""
+    return service.list_tasks(deal_id)
+
+
 @router.post("/{deal_id}/tasks", summary="Criar tarefa")
 def create_task(deal_id: str, data: TaskCreateSchema) -> Dict[str, Any]:
     """Cria uma tarefa para um deal."""

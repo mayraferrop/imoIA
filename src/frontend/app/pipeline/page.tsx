@@ -3,7 +3,7 @@
 import { useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { formatEUR } from "@/lib/utils";
-import { apiPost } from "@/lib/api";
+import { apiPost, apiPatch } from "@/lib/api";
 
 interface Deal {
   id: string;
@@ -84,6 +84,20 @@ interface NextAction {
 type PipelineTab = "kanban" | "create" | "mediation";
 type DetailTab = "resumo" | "propostas" | "visitas" | "tasks" | "hist";
 
+interface DealTask {
+  id: string;
+  deal_id?: string;
+  title: string;
+  description?: string;
+  task_type?: string;
+  priority?: string;
+  due_date?: string;
+  assigned_to?: string;
+  is_completed?: boolean;
+  completed_at?: string;
+  created_at?: string;
+}
+
 interface Visit {
   id: string;
   visitor_name: string;
@@ -146,6 +160,9 @@ export default function PipelinePage() {
   // Visit creation
   const [visitMsg, setVisitMsg] = useState("");
 
+  // Task creation
+  const [taskMsg, setTaskMsg] = useState("");
+
   // SWR keys
   const kanbanKey = `/api/v1/deals/kanban${strategyFilter ? `?strategy=${strategyFilter}` : ""}`;
   const STATS_KEY = "/api/v1/deals/stats";
@@ -181,16 +198,19 @@ export default function PipelinePage() {
   const dealDetailKey = selectedDealId ? `/api/v1/deals/${selectedDealId}` : null;
   const proposalsKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/proposals` : null;
   const visitsKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/visits` : null;
+  const tasksKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/tasks` : null;
   const historyKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/history` : null;
   const nextActionsKey = selectedDealId ? `/api/v1/deals/${selectedDealId}/next-actions` : null;
 
   const { data: selectedDeal } = useSWR<Deal | null>(dealDetailKey);
   const { data: proposalsData } = useSWR<Proposal[] | null>(proposalsKey);
   const { data: visitsData } = useSWR<Visit[] | null>(visitsKey);
+  const { data: tasksData } = useSWR<DealTask[] | null>(tasksKey);
   const { data: historyData } = useSWR<HistoryEntry[] | null>(historyKey);
   const { data: nextActionsData } = useSWR<{ next_statuses: NextAction[] } | null>(nextActionsKey);
   const proposals = proposalsData ?? [];
   const visits = visitsData ?? [];
+  const tasks = tasksData ?? [];
   const history = historyData ?? [];
   const nextActions = nextActionsData?.next_statuses ?? [];
 
@@ -280,6 +300,53 @@ export default function PipelinePage() {
       }
     } catch {
       setProposalMsg("Erro de comunicação.");
+    }
+  }
+
+  async function handleCreateTask(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!selectedDealId) return;
+    setTaskMsg("");
+    const fd = new FormData(e.currentTarget);
+    const title = ((fd.get("t_title") as string) || "").trim();
+    if (!title) {
+      setTaskMsg("Erro: título é obrigatório.");
+      return;
+    }
+    const dueRaw = (fd.get("t_due") as string) || "";
+    const body: Record<string, unknown> = {
+      title,
+      description: ((fd.get("t_desc") as string) || "").trim() || null,
+      priority: (fd.get("t_priority") as string) || "medium",
+      due_date: dueRaw ? new Date(dueRaw).toISOString() : null,
+      assigned_to: ((fd.get("t_assignee") as string) || "").trim() || null,
+    };
+    try {
+      const result = await apiPost(`/api/v1/deals/${selectedDealId}/tasks`, body);
+      if (result) {
+        setTaskMsg("Tarefa criada!");
+        (e.target as HTMLFormElement).reset();
+        if (tasksKey) globalMutate(tasksKey);
+      } else {
+        setTaskMsg("Erro ao criar tarefa.");
+      }
+    } catch {
+      setTaskMsg("Erro de comunicação.");
+    }
+  }
+
+  async function handleCompleteTask(taskId: string) {
+    setTaskMsg("");
+    try {
+      const result = await apiPatch(`/api/v1/deals/tasks/${taskId}/complete`, {});
+      if (result) {
+        setTaskMsg("Tarefa concluída.");
+        if (tasksKey) globalMutate(tasksKey);
+      } else {
+        setTaskMsg("Erro ao concluir tarefa.");
+      }
+    } catch {
+      setTaskMsg("Erro de comunicação.");
     }
   }
 
@@ -774,8 +841,106 @@ export default function PipelinePage() {
 
               {/* TASKS TAB */}
               {detailTab === "tasks" && (
-                <div>
-                  <p className="text-sm text-slate-400">Tarefas serão carregadas via API /api/v1/deals/tasks/upcoming quando disponível.</p>
+                <div className="space-y-4">
+                  {tasks.length > 0 ? (
+                    <div className="space-y-2">
+                      {tasks.map((t) => {
+                        const priorityColor =
+                          t.priority === "urgent" ? "bg-red-100 text-red-700"
+                          : t.priority === "high" ? "bg-amber-100 text-amber-700"
+                          : t.priority === "low" ? "bg-slate-100 text-slate-500"
+                          : "bg-blue-50 text-blue-700";
+                        const overdue =
+                          !t.is_completed && t.due_date && new Date(t.due_date) < new Date();
+                        return (
+                          <div
+                            key={t.id}
+                            className={`border rounded-lg p-3 ${t.is_completed ? "bg-slate-50 border-slate-200" : "border-slate-200"}`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={`text-sm font-semibold ${t.is_completed ? "text-slate-400 line-through" : "text-slate-900"}`}>
+                                    {t.title}
+                                  </span>
+                                  {t.priority && (
+                                    <span className={`text-xs px-2 py-0.5 rounded ${priorityColor}`}>
+                                      {t.priority}
+                                    </span>
+                                  )}
+                                  {t.task_type === "auto" && (
+                                    <span className="text-xs px-2 py-0.5 rounded bg-purple-50 text-purple-700">auto</span>
+                                  )}
+                                  {overdue && (
+                                    <span className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700">atrasada</span>
+                                  )}
+                                </div>
+                                {t.description && (
+                                  <p className="text-xs text-slate-500 mt-1">{t.description}</p>
+                                )}
+                                <p className="text-xs text-slate-400 mt-1">
+                                  {t.due_date ? `Prazo: ${t.due_date.slice(0, 16).replace("T", " ")}` : "Sem prazo"}
+                                  {t.assigned_to ? ` · ${t.assigned_to}` : ""}
+                                  {t.is_completed && t.completed_at ? ` · concluída ${t.completed_at.slice(0, 10)}` : ""}
+                                </p>
+                              </div>
+                              {!t.is_completed && (
+                                <button
+                                  onClick={() => handleCompleteTask(t.id)}
+                                  className="flex-shrink-0 px-3 py-1.5 bg-teal-700 text-white rounded-md text-xs font-medium hover:bg-teal-800 transition-colors"
+                                >
+                                  Concluir
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-400">Sem tarefas.</p>
+                  )}
+
+                  <div className="border-t border-slate-200 pt-4">
+                    <p className="text-sm font-semibold text-slate-700 mb-3">Nova tarefa</p>
+                    {taskMsg && (
+                      <div className={`mb-3 px-3 py-2 rounded-lg text-sm ${taskMsg.includes("Erro") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+                        {taskMsg}
+                      </div>
+                    )}
+                    <form onSubmit={handleCreateTask} className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Título *</label>
+                          <input name="t_title" type="text" required placeholder="Ex: Confirmar escritura com notário" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Descrição</label>
+                          <input name="t_desc" type="text" placeholder="Opcional" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Prioridade</label>
+                          <select name="t_priority" defaultValue="medium" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500">
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Prazo</label>
+                          <input name="t_due" type="datetime-local" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Atribuída a</label>
+                          <input name="t_assignee" type="text" placeholder="Opcional (ex: joão@exemplo.com)" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                        </div>
+                      </div>
+                      <button type="submit" className="px-4 py-2 bg-teal-700 text-white rounded-lg text-sm font-medium hover:bg-teal-800 transition-colors">
+                        Criar tarefa
+                      </button>
+                    </form>
+                  </div>
                 </div>
               )}
 
