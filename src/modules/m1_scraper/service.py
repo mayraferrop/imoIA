@@ -227,7 +227,7 @@ def _upsert_property(
         "parish": listing.parish or cls.parish,
         "address": listing.address,
         "notes": listing.description,
-        "status": "lead",
+        "status": "oportunidade",
         "is_off_market": False,
     }
     payload = {k: v for k, v in payload.items() if v is not None}
